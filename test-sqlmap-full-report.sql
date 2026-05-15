@@ -1,7 +1,7 @@
 -- test-sqlmap.xml statement SQL 脚本
 -- 资源路径: /sqlmaps/test-sqlmap.xml
--- 用例数: 35
--- 通过: 35
+-- 用例数: 37
+-- 通过: 37
 -- 失败: 0
 
 -- statementId: findUsers
@@ -267,6 +267,20 @@ SELECT * FROM users WHERE priority_flag = 1;
 -- assertion: 移除可选动态属性，观察条件收缩后的 SQL
 -- params: {}
 SELECT * FROM users;
+
+-- statementId: selectUserByResultMap
+-- case: 无参基础场景
+-- type: select
+-- assertion: 不传参数，验证固定 SQL 可直接生成
+-- params: {}
+SELECT user_id, user_name FROM users;
+
+-- statementId: selectUserByNamespacedResultMap
+-- case: 无参基础场景
+-- type: select
+-- assertion: 不传参数，验证固定 SQL 可直接生成
+-- params: {}
+SELECT user_id, user_name FROM users;
 
 -- statementId: updateUser
 -- case: 动态条件命中

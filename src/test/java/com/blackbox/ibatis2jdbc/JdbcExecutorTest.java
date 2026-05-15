@@ -23,14 +23,14 @@ class JdbcExecutorTest {
         "findUsers",
         mapOf("name", "Alice", "status", "ACTIVE", "ids", listOf()));
 
-    String namedSql = executionSql.sql().replaceFirst("\\?", ":name").replaceFirst("\\?", ":status");
+    String namedSql = executionSql.getSql().replaceFirst("\\?", ":name").replaceFirst("\\?", ":status");
     ConvertedSql convertedSql = new ConvertedSql(namedSql, mapOf("name", "Alice", "status", "ACTIVE"), "select",
         "user");
 
     JdbcExecutor.PreparedSql preparedSql = executor.toPreparedSql(convertedSql);
 
-    assertEquals(executionSql.sql(), preparedSql.sql());
-    assertEquals(listOf("Alice", "ACTIVE"), preparedSql.params());
+    assertEquals(executionSql.getSql(), preparedSql.getSql());
+    assertEquals(listOf("Alice", "ACTIVE"), preparedSql.getParams());
   }
 
   @Test
@@ -40,8 +40,8 @@ class JdbcExecutorTest {
 
     JdbcExecutor.PreparedSql preparedSql = executor.toPreparedSql(convertedSql);
 
-    assertEquals(convertedSql.sql(), preparedSql.sql());
-    assertEquals(listOf(1, 2, 3), preparedSql.params());
+    assertEquals(convertedSql.getSql(), preparedSql.getSql());
+    assertEquals(listOf(1, 2, 3), preparedSql.getParams());
   }
 
   @Test
@@ -49,15 +49,15 @@ class JdbcExecutorTest {
     String xml = readResource(SQLMAP_RESOURCE);
     ConvertedSql executionSql = converter.convertForExecution(xml, "findUsersByIdNumber", 1001);
     ConvertedSql convertedSql = new ConvertedSql(
-        executionSql.sql(),
+        executionSql.getSql(),
         1001,
-        executionSql.statementType(),
-        executionSql.resultClass());
+        executionSql.getStatementType(),
+        executionSql.getResultClass());
 
     JdbcExecutor.PreparedSql preparedSql = executor.toPreparedSql(convertedSql);
 
-    assertEquals(executionSql.sql(), preparedSql.sql());
-    assertEquals(listOf(1001), preparedSql.params());
+    assertEquals(executionSql.getSql(), preparedSql.getSql());
+    assertEquals(listOf(1001), preparedSql.getParams());
   }
 
   @Test
@@ -68,7 +68,7 @@ class JdbcExecutorTest {
         "findUsers",
         mapOf("name", "Alice", "status", "ACTIVE", "ids", listOf()));
 
-    String namedSql = executionSql.sql().replaceFirst("\\?", ":name").replaceFirst("\\?", ":status");
+    String namedSql = executionSql.getSql().replaceFirst("\\?", ":name").replaceFirst("\\?", ":status");
     ConvertedSql convertedSql = new ConvertedSql(
         namedSql,
         mapOf("name", "Alice"),
@@ -86,10 +86,10 @@ class JdbcExecutorTest {
     String xml = readResource(SQLMAP_RESOURCE);
     ConvertedSql executionSql = converter.convertForExecution(xml, "findUsersByIdsList", listOf(1, 2));
     ConvertedSql convertedSql = new ConvertedSql(
-        executionSql.sql(),
+        executionSql.getSql(),
         listOf(1),
-        executionSql.statementType(),
-        executionSql.resultClass());
+        executionSql.getStatementType(),
+        executionSql.getResultClass());
 
     IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
         () -> executor.toPreparedSql(convertedSql));
@@ -107,8 +107,8 @@ class JdbcExecutorTest {
 
     JdbcExecutor.PreparedSql preparedSql = executor.toPreparedSql(convertedSql);
 
-    assertEquals("SELECT id FROM users WHERE name = ? OR nickname = ?", preparedSql.sql());
-    assertEquals(listOf("Alice", "Alice"), preparedSql.params());
+    assertEquals("SELECT id FROM users WHERE name = ? OR nickname = ?", preparedSql.getSql());
+    assertEquals(listOf("Alice", "Alice"), preparedSql.getParams());
   }
 
   @Test
@@ -121,8 +121,8 @@ class JdbcExecutorTest {
 
     JdbcExecutor.PreparedSql preparedSql = executor.toPreparedSql(convertedSql);
 
-    assertEquals("SELECT '?' AS marker, id FROM users WHERE id = ?", preparedSql.sql());
-    assertEquals(listOf(1001), preparedSql.params());
+    assertEquals("SELECT '?' AS marker, id FROM users WHERE id = ?", preparedSql.getSql());
+    assertEquals(listOf(1001), preparedSql.getParams());
   }
 
   private String readResource(String resourcePath) throws IOException, URISyntaxException {

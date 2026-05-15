@@ -54,8 +54,10 @@ public class IbatisToJdbcConverter {
         throw new IllegalArgumentException("Cannot find statement: " + statementId);
       }
       Map<String, Element> sqlFragments = collectSqlFragments(document);
+      Map<String, Map<String, String>> resultMaps = collectResultMaps(document);
       String statementType = statement.getTagName();
       String resultClass = statement.getAttribute("resultClass");
+      String resultMapId = normalizeResultMapId(statement.getAttribute("resultMap"), resultMaps);
 
       List<Object> executionParams = inlineMode ? null : new ArrayList<>();
       RenderContext renderContext;
@@ -67,27 +69,32 @@ public class IbatisToJdbcConverter {
       if (parameters instanceof Map) {
         @SuppressWarnings("unchecked")
         Map<String, Object> paramMap = (Map<String, Object>) parameters;
-        renderContext = inlineMode ? RenderContext.inline(paramMap, sqlFragments)
-            : RenderContext.execution(paramMap, executionParams, sqlFragments);
+        renderContext = inlineMode
+            ? RenderContext.inline(paramMap, sqlFragments, resultMaps)
+            : RenderContext.execution(paramMap, executionParams, sqlFragments, resultMaps);
         convertedParameters = inlineMode ? parameters : executionParams;
       } else if (parameters instanceof Collection<?> || (parameters != null && parameters.getClass().isArray())) {
         Map<String, Object> collectionContext = buildCollectionContext(parameters);
-        renderContext = inlineMode ? RenderContext.inline(collectionContext, sqlFragments)
-            : RenderContext.execution(collectionContext, executionParams, sqlFragments);
+        renderContext = inlineMode
+            ? RenderContext.inline(collectionContext, sqlFragments, resultMaps)
+            : RenderContext.execution(collectionContext, executionParams, sqlFragments, resultMaps);
         convertedParameters = inlineMode ? parameters : executionParams;
       } else if (isSimpleParameterValue(parameters)) {
-        renderContext = inlineMode ? RenderContext.inlineScalar(parameters, sqlFragments)
-            : RenderContext.executionScalar(parameters, executionParams, sqlFragments);
+        renderContext = inlineMode
+            ? RenderContext.inlineScalar(parameters, sqlFragments, resultMaps)
+            : RenderContext.executionScalar(parameters, executionParams, sqlFragments, resultMaps);
         convertedParameters = inlineMode ? parameters : executionParams;
       } else {
-        renderContext = inlineMode ? RenderContext.inlineBean(parameters, sqlFragments)
-            : RenderContext.executionBean(parameters, executionParams, sqlFragments);
+        renderContext = inlineMode
+            ? RenderContext.inlineBean(parameters, sqlFragments, resultMaps)
+            : RenderContext.executionBean(parameters, executionParams, sqlFragments, resultMaps);
         convertedParameters = inlineMode ? parameters : executionParams;
       }
 
       // renderNode 会递归展开动态标签和占位符，最后得到一条纯 SQL 字符串。
       String sql = renderNode(statement, renderContext);
-      return new ConvertedSql(normalizeSql(postprocessSql(sql)), convertedParameters, statementType, resultClass);
+        return new ConvertedSql(normalizeSql(postprocessSql(sql)), convertedParameters, statementType, resultClass,
+          resultMapId);
     } catch (Exception exception) {
       throw new IllegalStateException("Failed to convert iBatis XML", exception);
     }
@@ -343,12 +350,31 @@ public class IbatisToJdbcConverter {
         element.getAttribute("compareValue"));
   }
 
-  private <T extends Enum<T>> T safeEnumValueOf(Class<?> enumType, String name) {
-    if (enumType.isEnum()) {
-      try {
-        return (T) Enum.valueOf((Class<T>) enumType, name.trim());
-      } catch (Exception exception) {
-        return null;
+  private String normalizeResultMapId(String declaredResultMapId, Map<String, Map<String, String>> resultMaps) {
+    if (isBlank(declaredResultMapId)) {
+      return null;
+    }
+    if (resultMaps.containsKey(declaredResultMapId)) {
+      return declaredResultMapId;
+    }
+
+    if (declaredResultMapId.contains(".")) {
+      String localId = declaredResultMapId.substring(declaredResultMapId.lastIndexOf('.') + 1);
+      if (resultMaps.containsKey(localId)) {
+        return localId;
+      }
+    }
+
+    throw new IllegalArgumentException("Cannot find resultMap: " + declaredResultMapId);
+  }
+
+  private Enum<?> parseEnumValue(Class<? extends Enum<?>> enumType, String name) {
+    if (enumType == null || isBlank(name)) {
+      return null;
+    }
+    for (Enum<?> enumConstant : enumType.getEnumConstants()) {
+      if (enumConstant.name().equals(name.trim())) {
+        return enumConstant;
       }
     }
     return null;
@@ -395,8 +421,9 @@ public class IbatisToJdbcConverter {
       return compareValue;
     }
 
-    if (leftValue.getClass().isEnum()) {
-      return safeEnumValueOf((Class<? extends Enum>) leftValue.getClass(), compareValue);
+    if (leftValue instanceof Enum<?>) {
+      Enum<?> parsed = parseEnumValue(((Enum<?>) leftValue).getDeclaringClass(), compareValue);
+      return parsed != null ? parsed : compareValue;
     }
 
     if (leftValue instanceof Character && compareValue.length() == 1) {
@@ -806,44 +833,48 @@ public class IbatisToJdbcConverter {
     private final boolean inlineMode;
     private final List<Object> executionParams;
     private final Map<String, Element> sqlFragments;
+    private final Map<String, Map<String, String>> resultMaps;
     private final String iterationProperty;
     private final Object iterationValue;
     private final boolean parameterPresent;
 
-    private static RenderContext inline(Map<String, Object> parameters, Map<String, Element> sqlFragments) {
-      return new RenderContext(parameters, null, true, null, sqlFragments, null, null, true);
+    private static RenderContext inline(Map<String, Object> parameters, Map<String, Element> sqlFragments,
+        Map<String, Map<String, String>> resultMaps) {
+      return new RenderContext(parameters, null, true, null, sqlFragments, null, null, true, resultMaps);
     }
 
-    private static RenderContext inlineScalar(Object scalarValue, Map<String, Element> sqlFragments) {
+    private static RenderContext inlineScalar(Object scalarValue, Map<String, Element> sqlFragments,
+        Map<String, Map<String, String>> resultMaps) {
       return new RenderContext(Collections.emptyMap(), scalarValue, true, null, sqlFragments, null, null,
-          scalarValue != null);
+          scalarValue != null, resultMaps);
     }
 
-    private static RenderContext inlineBean(Object beanValue, Map<String, Element> sqlFragments) {
+    private static RenderContext inlineBean(Object beanValue, Map<String, Element> sqlFragments,
+        Map<String, Map<String, String>> resultMaps) {
       return new RenderContext(Collections.emptyMap(), beanValue, true, null, sqlFragments, null, null,
-          beanValue != null);
+          beanValue != null, resultMaps);
     }
 
     private static RenderContext execution(Map<String, Object> parameters, List<Object> executionParams,
-        Map<String, Element> sqlFragments) {
-      return new RenderContext(parameters, null, false, executionParams, sqlFragments, null, null, true);
+        Map<String, Element> sqlFragments, Map<String, Map<String, String>> resultMaps) {
+      return new RenderContext(parameters, null, false, executionParams, sqlFragments, null, null, true, resultMaps);
     }
 
     private static RenderContext executionScalar(Object scalarValue, List<Object> executionParams,
-        Map<String, Element> sqlFragments) {
+        Map<String, Element> sqlFragments, Map<String, Map<String, String>> resultMaps) {
       return new RenderContext(Collections.emptyMap(), scalarValue, false, executionParams, sqlFragments, null, null,
-          scalarValue != null);
+          scalarValue != null, resultMaps);
     }
 
     private static RenderContext executionBean(Object beanValue, List<Object> executionParams,
-        Map<String, Element> sqlFragments) {
+        Map<String, Element> sqlFragments, Map<String, Map<String, String>> resultMaps) {
       return new RenderContext(Collections.emptyMap(), beanValue, false, executionParams, sqlFragments, null, null,
-          beanValue != null);
+          beanValue != null, resultMaps);
     }
 
     private RenderContext(Map<String, Object> parameters, Object defaultValue, boolean inlineMode,
         List<Object> executionParams, Map<String, Element> sqlFragments, String iterationProperty,
-        Object iterationValue, boolean parameterPresent) {
+        Object iterationValue, boolean parameterPresent, Map<String, Map<String, String>> resultMaps) {
       this.parameters = parameters;
       this.defaultValue = defaultValue;
       this.inlineMode = inlineMode;
@@ -852,12 +883,14 @@ public class IbatisToJdbcConverter {
       this.iterationProperty = iterationProperty;
       this.iterationValue = iterationValue;
       this.parameterPresent = parameterPresent;
+      this.resultMaps = resultMaps;
     }
 
     private RenderContext forIteration(String property, Object value, int iterationIndex) {
       // 迭代时复用原上下文，只替换“当前项相关”的两个槽位。
       return new RenderContext(parameters, defaultValue, inlineMode, executionParams, sqlFragments, property, value,
-          parameterPresent);
+          parameterPresent, resultMaps);
     }
+
   }
 }

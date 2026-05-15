@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static com.blackbox.ibatis2jdbc.TestSupport.listOf;
 import static com.blackbox.ibatis2jdbc.TestSupport.mapOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class IbatisToJdbcConverterTest {
 	private static final String SQLMAP_RESOURCE = "/sqlmaps/test-sqlmap.xml";
@@ -24,51 +25,51 @@ class IbatisToJdbcConverterTest {
 
 		// Map 参数：内联为字面量
 		ConvertedSql mapResult = converter.convert(xml, "findUsersByIdMap", mapOf("id", 1001));
-		assertEquals("SELECT id, name, status, created_at FROM users where id = 1001", mapResult.sql());
-		assertEquals(mapOf("id", 1001), mapResult.parameters());
-		assertEquals("select", mapResult.statementType());
-		assertEquals("user", mapResult.resultClass());
+		assertEquals("SELECT id, name, status, created_at FROM users where id = 1001", mapResult.getSql());
+		assertEquals(mapOf("id", 1001), mapResult.getParameters());
+		assertEquals("select", mapResult.getStatementType());
+		assertEquals("user", mapResult.getResultClass());
 
 		// String 参数：内联为字符串字面量
 		ConvertedSql strResult = converter.convert(xml, "findUsersById", "U1001");
-		assertEquals("SELECT id, name, status, created_at FROM users where id = 'U1001'", strResult.sql());
-		assertEquals("U1001", strResult.parameters());
+		assertEquals("SELECT id, name, status, created_at FROM users where id = 'U1001'", strResult.getSql());
+		assertEquals("U1001", strResult.getParameters());
 
 		// Number 参数：内联为数字字面量
 		ConvertedSql numResult = converter.convert(xml, "findUsersByIdNumber", 123);
-		assertEquals("SELECT id, name, status, created_at FROM users where id = 123", numResult.sql());
-		assertEquals(123, numResult.parameters());
-		assertEquals("select", numResult.statementType());
+		assertEquals("SELECT id, name, status, created_at FROM users where id = 123", numResult.getSql());
+		assertEquals(123, numResult.getParameters());
+		assertEquals("select", numResult.getStatementType());
 
 		ConvertedSql beanResult = converter.convert(xml, "findUsersByIdMap", new UserFilter(1001, "ACTIVE"));
-		assertEquals("SELECT id, name, status, created_at FROM users where id = 1001", beanResult.sql());
+		assertEquals("SELECT id, name, status, created_at FROM users where id = 1001", beanResult.getSql());
 
 		ConvertedSql nestedBeanResult = converter.convert(
 				xml,
 				"findUsersByNestedBean",
 				new SearchCriteria(new UserFilter(1001, "ACTIVE")));
 		assertEquals("SELECT id, name, status FROM users where id = 1001 AND status = 'ACTIVE'",
-				nestedBeanResult.sql());
+				nestedBeanResult.getSql());
 
 		// List 参数：iterate 内联每个元素
 		List<Object> listParams = listOf("A001", "B002");
 		ConvertedSql listResult = converter.convert(xml, "findUsersByIdsList", listParams);
-		assertEquals("SELECT id, name, status, created_at FROM users where id IN ('A001','B002')", listResult.sql());
-		assertEquals(listParams, listResult.parameters());
+		assertEquals("SELECT id, name, status, created_at FROM users where id IN ('A001','B002')", listResult.getSql());
+		assertEquals(listParams, listResult.getParameters());
 
 		ConvertedSql collectionAliasResult = converter.convert(xml, "findUsersByCollectionAlias", listParams);
 		assertEquals("SELECT id, name, status, created_at FROM users where id IN ('A001','B002')",
-				collectionAliasResult.sql());
+				collectionAliasResult.getSql());
 
 		ConvertedSql arrayAliasResult = converter.convert(xml, "findUsersByArrayAlias", new Long[] { 1001L, 1002L });
-		assertEquals("SELECT id, name, status, created_at FROM users where id IN (1001,1002)", arrayAliasResult.sql());
+		assertEquals("SELECT id, name, status, created_at FROM users where id IN (1001,1002)", arrayAliasResult.getSql());
 
 		ConvertedSql parameterAliasResult = converter.convert(
 				xml,
 				"findUsersByParameterAlias",
 				new SearchCriteria(new UserFilter(1001, "ACTIVE")));
 		assertEquals("SELECT id, name, status FROM users where id = 1001 AND status = 'ACTIVE'",
-				parameterAliasResult.sql());
+				parameterAliasResult.getSql());
 	}
 
 	@Test
@@ -77,19 +78,19 @@ class IbatisToJdbcConverterTest {
 
 		// null 参数：内联为 null
 		ConvertedSql nullResult = converter.convert(xml, "findUsersById", null);
-		assertEquals("SELECT id, name, status, created_at FROM users where id = null", nullResult.sql());
-		assertEquals(null, nullResult.parameters());
+		assertEquals("SELECT id, name, status, created_at FROM users where id = null", nullResult.getSql());
+		assertEquals(null, nullResult.getParameters());
 
 		// 空字符串：内联为 ''
 		ConvertedSql emptyStrResult = converter.convert(xml, "findUsersById", "");
-		assertEquals("SELECT id, name, status, created_at FROM users where id = ''", emptyStrResult.sql());
-		assertEquals("", emptyStrResult.parameters());
+		assertEquals("SELECT id, name, status, created_at FROM users where id = ''", emptyStrResult.getSql());
+		assertEquals("", emptyStrResult.getParameters());
 
 		// 空 List：iterate 输出空括号
 		List<Object> emptyList = listOf();
 		ConvertedSql emptyListResult = converter.convert(xml, "findUsersByIdsList", emptyList);
-		assertEquals("SELECT id, name, status, created_at FROM users where id IN (null)", emptyListResult.sql());
-		assertEquals(emptyList, emptyListResult.parameters());
+		assertEquals("SELECT id, name, status, created_at FROM users where id IN (null)", emptyListResult.getSql());
+		assertEquals(emptyList, emptyListResult.getParameters());
 	}
 
 	@Test
@@ -102,10 +103,10 @@ class IbatisToJdbcConverterTest {
 
 		assertEquals(
 				"SELECT id, name FROM users WHERE name = 'Alice' AND status = 'ACTIVE' AND id IN (10,11,12)",
-				result.sql());
+				result.getSql());
 		assertEquals(
 				mapOf("name", "Alice", "status", "ACTIVE", "ids", listOf(10, 11, 12)),
-				result.parameters());
+				result.getParameters());
 	}
 
 	@Test
@@ -117,8 +118,8 @@ class IbatisToJdbcConverterTest {
 		parameters.put("ids", listOf());
 
 		ConvertedSql result = converter.convert(xml, "findUsers", parameters);
-		assertEquals("SELECT id, name FROM users", result.sql());
-		assertEquals(parameters, result.parameters());
+		assertEquals("SELECT id, name FROM users", result.getSql());
+		assertEquals(parameters, result.getParameters());
 	}
 
 	@Test
@@ -126,7 +127,7 @@ class IbatisToJdbcConverterTest {
 		String xml = readResource(SQLMAP_RESOURCE);
 
 		ConvertedSql includeUsers = converter.convert(xml, "findUsersByInclude", mapOf("status", "ACTIVE"));
-		assertEquals("SELECT id, name, status FROM users WHERE status = 'ACTIVE'", includeUsers.sql());
+		assertEquals("SELECT id, name, status FROM users WHERE status = 'ACTIVE'", includeUsers.getSql());
 
 		Map<String, Object> keywordParameters = new HashMap<>();
 		keywordParameters.put("keyword", "tom");
@@ -134,7 +135,7 @@ class IbatisToJdbcConverterTest {
 		ConvertedSql keywordUsers = converter.convert(xml, "findUsersByKeyword", keywordParameters);
 		assertEquals(
 				"SELECT id, name, status FROM users WHERE (name LIKE '%' || 'tom' || '%' OR email LIKE '%' || 'tom' || '%') AND deleted = 0",
-				keywordUsers.sql());
+				keywordUsers.getSql());
 
 		ConvertedSql updateUser = converter.convert(
 				xml,
@@ -142,20 +143,20 @@ class IbatisToJdbcConverterTest {
 				mapOf("id", 1001, "name", "Bob", "status", "DISABLED", "email", "bob@example.com"));
 		assertEquals(
 				"UPDATE users SET name = 'Bob', status = 'DISABLED', email = 'bob@example.com' WHERE id = 1001",
-				updateUser.sql());
-		assertEquals("update", updateUser.statementType());
+				updateUser.getSql());
+		assertEquals("update", updateUser.getStatementType());
 
 		ConvertedSql deleteUsers = converter.convert(
 				xml,
 				"deleteUsersByIds",
 				mapOf("ids", listOf(21, 22, 23)));
-		assertEquals("DELETE FROM users WHERE id IN (21,22,23)", deleteUsers.sql());
+		assertEquals("DELETE FROM users WHERE id IN (21,22,23)", deleteUsers.getSql());
 
 		ConvertedSql deleteUsersByCodes = converter.convert(
 				xml,
 				"deleteUsersByCodes",
 				mapOf("codes", listOf("A001", "B002", "C003")));
-		assertEquals("DELETE FROM users WHERE code IN ('A001','B002','C003')", deleteUsersByCodes.sql());
+		assertEquals("DELETE FROM users WHERE code IN ('A001','B002','C003')", deleteUsersByCodes.getSql());
 	}
 
 	@Test
@@ -167,9 +168,9 @@ class IbatisToJdbcConverterTest {
 		parameters.put("ids", listOf());
 
 		ConvertedSql result = converter.convertForExecution(xml, "findUsers", parameters);
-		assertEquals("SELECT id, name FROM users", result.sql());
-		assertTrue(result.parameters() instanceof List);
-		assertEquals(listOf(), result.parameters());
+		assertEquals("SELECT id, name FROM users", result.getSql());
+		assertTrue(result.getParameters() instanceof List);
+		assertEquals(listOf(), result.getParameters());
 	}
 
 	@Test
@@ -177,8 +178,8 @@ class IbatisToJdbcConverterTest {
 		String xml = readResource(SQLMAP_RESOURCE);
 
 		ConvertedSql result = converter.convertForExecution(xml, "findUsersByInclude", mapOf("status", "ACTIVE"));
-		assertEquals("SELECT id, name, status FROM users WHERE status = ?", result.sql());
-		assertEquals(listOf("ACTIVE"), result.parameters());
+		assertEquals("SELECT id, name, status FROM users WHERE status = ?", result.getSql());
+		assertEquals(listOf("ACTIVE"), result.getParameters());
 	}
 
 	@Test
@@ -186,23 +187,24 @@ class IbatisToJdbcConverterTest {
 		String xml = readResource(SQLMAP_RESOURCE);
 
 		ConvertedSql beanResult = converter.convertForExecution(xml, "findUsersByIdMap", new UserFilter(1001, "ACTIVE"));
-		assertEquals("SELECT id, name, status, created_at FROM users where id = ?", beanResult.sql());
-		assertEquals(listOf(1001L), beanResult.parameters());
+		assertEquals("SELECT id, name, status, created_at FROM users where id = ?", beanResult.getSql());
+		assertEquals(listOf(1001L), beanResult.getParameters());
 
 		ConvertedSql nestedBeanResult = converter.convertForExecution(
 				xml,
 				"findUsersByNestedBean",
 				new SearchCriteria(new UserFilter(1001, "ACTIVE")));
-		assertEquals("SELECT id, name, status FROM users where id = ? AND status = ?", nestedBeanResult.sql());
-		assertEquals(listOf(1001L, "ACTIVE"), nestedBeanResult.parameters());
+		assertEquals("SELECT id, name, status FROM users where id = ? AND status = ?", nestedBeanResult.getSql());
+		assertEquals(listOf(1001L, "ACTIVE"), nestedBeanResult.getParameters());
 
 		ConvertedSql collectionAliasResult = converter.convertForExecution(xml, "findUsersByCollectionAlias", listOf(1, 2));
-		assertEquals("SELECT id, name, status, created_at FROM users where id IN (?,?)", collectionAliasResult.sql());
-		assertEquals(listOf(1, 2), collectionAliasResult.parameters());
+		assertEquals("SELECT id, name, status, created_at FROM users where id IN (?,?)", collectionAliasResult.getSql());
+		assertEquals(listOf(1, 2), collectionAliasResult.getParameters());
 
-		ConvertedSql arrayAliasResult = converter.convertForExecution(xml, "findUsersByArrayAlias", new Long[] { 1001L, 1002L });
-		assertEquals("SELECT id, name, status, created_at FROM users where id IN (?,?)", arrayAliasResult.sql());
-		assertEquals(listOf(1001L, 1002L), arrayAliasResult.parameters());
+		ConvertedSql arrayAliasResult = converter.convertForExecution(xml, "findUsersByArrayAlias",
+				new Long[] { 1001L, 1002L });
+		assertEquals("SELECT id, name, status, created_at FROM users where id IN (?,?)", arrayAliasResult.getSql());
+		assertEquals(listOf(1001L, 1002L), arrayAliasResult.getParameters());
 	}
 
 	@Test
@@ -213,10 +215,10 @@ class IbatisToJdbcConverterTest {
 				xml,
 				"findUsersByParameterAlias",
 				new SearchCriteria(new UserFilter(1001, "ACTIVE")));
-		assertEquals("SELECT id, name, status FROM users where id = 1001 AND status = 'ACTIVE'", aliasResult.sql());
+		assertEquals("SELECT id, name, status FROM users where id = 1001 AND status = 'ACTIVE'", aliasResult.getSql());
 
 		ConvertedSql enumCompareResult = converter.convert(xml, "findByEnumCompare", new PriorityHolder(Priority.HIGH));
-		assertEquals("SELECT * FROM users WHERE priority_flag = 1", enumCompareResult.sql());
+		assertEquals("SELECT * FROM users WHERE priority_flag = 1", enumCompareResult.getSql());
 	}
 
 	@Test
@@ -226,7 +228,7 @@ class IbatisToJdbcConverterTest {
 		ConvertedSql result = converter.convert(xml, "findByUnaryTags", mapOf("status", "ACTIVE", "name", "Alice"));
 		assertEquals(
 				"SELECT * FROM users WHERE deleted IS NULL AND status = 'ACTIVE' AND name = 'Alice' AND missing_flag = 1",
-				result.sql());
+				result.getSql());
 	}
 
 	@Test
@@ -239,7 +241,7 @@ class IbatisToJdbcConverterTest {
 				mapOf("type", 1, "status", "ACTIVE", "age", 20, "score", 90, "rank", 2, "maxRank", 5, "level", 3));
 		assertEquals(
 				"SELECT * FROM users WHERE type = 1 AND status <> 'DISABLED' AND age > 18 AND score >= 90 AND rank < maxRank AND level <= 3",
-				result.sql());
+				result.getSql());
 	}
 
 	@Test
@@ -247,10 +249,29 @@ class IbatisToJdbcConverterTest {
 		String xml = readResource(SQLMAP_RESOURCE);
 
 		ConvertedSql presentResult = converter.convert(xml, "findByParameterPresence", mapOf("id", 1));
-		assertEquals("SELECT * FROM users WHERE present_flag = 1", presentResult.sql());
+		assertEquals("SELECT * FROM users WHERE present_flag = 1", presentResult.getSql());
 
 		ConvertedSql absentResult = converter.convert(xml, "findByParameterPresence", null);
-		assertEquals("SELECT * FROM users WHERE present_flag = 0", absentResult.sql());
+		assertEquals("SELECT * FROM users WHERE present_flag = 0", absentResult.getSql());
+	}
+
+	@Test
+	public void testResultMapIntegration() throws Exception {
+		String xml = readResource(SQLMAP_RESOURCE);
+		ConvertedSql convertedSql = converter.convert(xml, "selectUserByResultMap", null);
+
+		assertNotNull(convertedSql);
+		assertEquals("SELECT user_id, user_name FROM users", convertedSql.getSql());
+		assertEquals("userResultMap", convertedSql.getResultMapId());
+	}
+
+	@Test
+	void supportsNamespacedResultMapReference() throws Exception {
+		String xml = readResource(SQLMAP_RESOURCE);
+		ConvertedSql convertedSql = converter.convert(xml, "selectUserByNamespacedResultMap", null);
+
+		assertEquals("SELECT user_id, user_name FROM users", convertedSql.getSql());
+		assertEquals("userResultMap", convertedSql.getResultMapId());
 	}
 
 	private String readResource(String resourcePath) {

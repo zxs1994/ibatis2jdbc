@@ -51,7 +51,7 @@ class SqlMapXmlReportTest {
     // sqlMapResource = normalizeResourcePath(System.getProperty(RESOURCE_PROPERTY,
     // "/online_sqlmaps/hr_sqlmap.xml"));
     sqlMapResource = normalizeResourcePath(System.getProperty(RESOURCE_PROPERTY,
-      "/sqlmaps/test-sqlmap.xml"));
+        "/sqlmaps/test-sqlmap.xml"));
     sqlMapFileName = extractFileName(sqlMapResource);
     reportPath = resolveReportPath(sqlMapFileName, System.getProperty(REPORT_PROPERTY));
     sqlScriptPath = resolveSqlScriptPath(reportPath);
@@ -69,8 +69,8 @@ class SqlMapXmlReportTest {
       String resolvedStatementType = statementCase.statementType;
       try {
         ConvertedSql convertedSql = converter.convert(xml, statementCase.statementId, statementCase.parameters);
-        finalSql = convertedSql.sql();
-        resolvedStatementType = convertedSql.statementType();
+        finalSql = convertedSql.getSql();
+        resolvedStatementType = convertedSql.getStatementType();
         assertTrue(finalSql != null && !finalSql.trim().isEmpty(), statementCase.statementId + " generated blank SQL");
         assertTrue(!IbatisXmlSupport.containsDynamicTagMarkup(finalSql) && !finalSql.contains("<![CDATA["),
             statementCase.statementId + " still contains XML/dynamic tags");

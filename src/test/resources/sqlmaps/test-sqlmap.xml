@@ -172,6 +172,16 @@
 			</isGreaterThan>
 		</dynamic>
 	</select>
+	<resultMap id="userResultMap">
+		<result property="id" column="user_id"/>
+		<result property="name" column="user_name"/>
+	</resultMap>
+	<select id="selectUserByResultMap" resultMap="userResultMap">
+		SELECT user_id, user_name FROM users
+	</select>
+	<select id="selectUserByNamespacedResultMap" resultMap="ns.userResultMap">
+		SELECT user_id, user_name FROM users
+	</select>
 	<update id="updateUser" parameterClass="map">
 		UPDATE users
 		<dynamic prepend="SET">

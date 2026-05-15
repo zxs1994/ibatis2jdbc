@@ -19,7 +19,7 @@ public class JdbcExecutor {
   private static final Pattern NAMED_PARAM_PATTERN = Pattern.compile(":([A-Za-z_][A-Za-z0-9_]*)");
 
   public Object execute(Connection connection, ConvertedSql convertedSql) throws SQLException {
-    String statementType = convertedSql.statementType();
+    String statementType = convertedSql.getStatementType();
     if (isBlank(statementType)) {
       return executeBySqlPrefix(connection, convertedSql);
     }
@@ -39,16 +39,16 @@ public class JdbcExecutor {
 
   public int executeUpdate(Connection connection, ConvertedSql convertedSql) throws SQLException {
     PreparedSql preparedSql = toPreparedSql(convertedSql);
-    try (PreparedStatement statement = connection.prepareStatement(preparedSql.sql())) {
-      bind(statement, preparedSql.params());
+    try (PreparedStatement statement = connection.prepareStatement(preparedSql.getSql())) {
+      bind(statement, preparedSql.getParams());
       return statement.executeUpdate();
     }
   }
 
   public List<Map<String, Object>> queryForList(Connection connection, ConvertedSql convertedSql) throws SQLException {
     PreparedSql preparedSql = toPreparedSql(convertedSql);
-    try (PreparedStatement statement = connection.prepareStatement(preparedSql.sql())) {
-      bind(statement, preparedSql.params());
+    try (PreparedStatement statement = connection.prepareStatement(preparedSql.getSql())) {
+      bind(statement, preparedSql.getParams());
       try (ResultSet resultSet = statement.executeQuery()) {
         return readRows(resultSet);
       }
@@ -68,8 +68,8 @@ public class JdbcExecutor {
   }
 
   public PreparedSql toPreparedSql(ConvertedSql convertedSql) {
-    String sql = convertedSql.sql();
-    Object params = convertedSql.parameters();
+    String sql = convertedSql.getSql();
+    Object params = convertedSql.getParameters();
 
     if (sql.contains(":")) {
       if (!(params instanceof Map<?, ?>)) {
@@ -101,7 +101,7 @@ public class JdbcExecutor {
   }
 
   private Object executeBySqlPrefix(Connection connection, ConvertedSql convertedSql) throws SQLException {
-    String trimmedSql = convertedSql.sql() == null ? "" : convertedSql.sql().trim().toLowerCase(Locale.ROOT);
+    String trimmedSql = convertedSql.getSql() == null ? "" : convertedSql.getSql().trim().toLowerCase(Locale.ROOT);
     if (trimmedSql.startsWith("select")) {
       return queryForList(connection, convertedSql);
     }
@@ -265,11 +265,11 @@ public class JdbcExecutor {
       this.params = params;
     }
 
-    public String sql() {
+    public String getSql() {
       return sql;
     }
 
-    public List<Object> params() {
+    public List<Object> getParams() {
       return params;
     }
   }
