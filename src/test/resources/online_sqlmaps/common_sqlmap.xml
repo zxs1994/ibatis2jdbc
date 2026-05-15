@@ -1,0 +1,3503 @@
+<sqlMap>
+    <!-- 流程任务主表（ctp_affair），更新流程任务跟踪状态 -->
+    <update id="setAffairTrack.update"  parameterClass="map">
+        update ctp_affair set track = #isTrack# where id = #id#
+    </update>
+    <!-- 流程任务主表（ctp_affair），更新节点状态 -->
+    <update id="ctpAffairStatus.update" parameterClass="map">
+        update ctp_affair
+		set state=#status#, sub_state=#subStatus#
+ 		where object_id = (select distinct object_id from ctp_affair where ID=#affairId#) 
+ 		and activity_Id=#activityId#
+    </update>
+    <!-- 流程任务主表（col_summary），更新流程任务跟踪状态 -->
+    <select id="colInfo.select" resultClass="mapBean" parameterClass="map">
+        select a.sub_object_id as workitemId,s.process_id as processId,s.case_Id as caseId,
+        a.activity_Id as activityId,s.id as summaryId
+        from ctp_affair a,col_summary s
+        where a.object_id=s.id and a.id=#affairId#
+    </select>
+    <!-- 流程模板主表（wf_process_templete）和表单定义表（form_definition）,根据流程模板编号查询流程表中文名 -->
+    <!-- 20221212 OA00008891员工车船费探亲费 增加了非空判断 -->
+    <select id="getFormNameByTempleteNo.select" resultClass="string" parameterClass="map">
+        SELECT T2.NAME AS FORMNAME
+        FROM WF_PROCESS_TEMPLETE T1,
+        FORM_DEFINITION T2,
+        (SELECT S1.WORKFLOW_ID
+        FROM CTP_TEMPLATE S1
+        WHERE S1.TEMPLETE_NUMBER = #templeteNumber#) T3
+        WHERE T3.WORKFLOW_ID = T1.ID
+        AND T1.APPID = T2.ID
+        and  t2.id is not null
+    </select>
+
+    <!-- 20221212 OA00008891员工车船费探亲费 增加了CAP4表单处理逻辑 -->
+    <select id="getCap4FormNameByTempleteNo.select" resultClass="string" parameterClass="map">
+        SELECT T2.NAME AS FORMNAME
+        FROM WF_PROCESS_TEMPLETE T1,
+        CAP_FORM_DEFINITION T2,
+        (SELECT S1.WORKFLOW_ID
+        FROM CTP_TEMPLATE S1
+        WHERE S1.TEMPLETE_NUMBER = #templeteNumber#) T3
+        WHERE T3.WORKFLOW_ID = T1.ID
+        AND T1.APPID = T2.ID
+        and  t2.id is not null
+    </select>
+    
+    <!-- 新增:shixin 表单字段视图（vm_formfield），根据主表表名，子表表名，子表列名获得子表列类型 -->
+    <select id="getSonTableColType.select" resultClass="mapBean" parameterClass="map">
+    	select VC_FIELDINPUTTYPE as fieldInputType,VC_FIELDREFID as fieldrefid
+    	from vm_formfield  
+    	where VC_TABLENAME = #sonTableName# 
+    	and VC_OWNERTABLEID = #tableName#
+    	and VC_FIELDNAME = #field#
+    </select>
+    
+    <!-- 表单字段视图（vm_formfield），根据主表和子表的中文名获取其在数据中的表名 -->
+    <select id="getTableNameByFormName.select" resultClass="mapBean" parameterClass="map">
+        SELECT VC_TABLENAME AS tableName, VC_OWNERTABLEID AS ownerTableID
+        FROM VM_FORMFIELD
+        WHERE VC_FORMNAME = #mainTableName#
+        <isNotEmpty prepend="AND" property="sonTableName">
+            VC_TABLEDISPLAY = #sonTableName#
+        </isNotEmpty>
+        <isEmpty prepend="AND" property="sonTableName">
+            VC_OWNERTABLEID is null
+        </isEmpty>
+        AND ROWNUM = 1
+    </select>
+
+    <!-- 表单字段视图（vm_formfield），根据主表和子表的中文名获取其在数据中的表名   OA00008433 weishangyu-->
+    <select id="getCap4TableNameByFormName.select" resultClass="java.util.HashMap" parameterClass="java.util.HashMap">
+        SELECT id,field_info
+        FROM cap_form_definition
+        WHERE name = #mainTableName#
+    </select>
+
+
+    <!-- 表单字段视图（vm_formfield）,根据中文表名与字段中文名获取字段所属的数据库表名  -->
+    <select id="getTableNameByFieldName.select" resultClass="java.lang.String" parameterClass="map">
+        SELECT DISTINCT vc_tablename AS tableName FROM vm_formfield t where vc_formName = #tableName# and vc_fielddisplay = #fieldName#
+    </select>
+    <!-- 表单字段视图（vm_formfield），查询表单字段中文名对应数据库列名 -->
+    <select id="getFieldDefByModuleId.select" resultClass="mapBean" parameterClass="map">
+        SELECT DISTINCT VMF.VC_FIELDNAME as fieldid, VMF.VC_FIELDDISPLAY as fieldshowname
+        FROM VM_FORMFIELD VMF
+        WHERE N_FORMID = (SELECT CCA.CONTENT_TEMPLATE_ID
+        FROM CTP_CONTENT_ALL CCA
+        WHERE MODULE_ID = #moduleId#
+        AND ROWNUM = 1)
+        AND VMF.VC_FIELDNAME LIKE 'field%' order by nvl(length(trim(vmf.VC_FIELDDISPLAY)),0) desc
+    </select>
+
+    <!-- 20230131 weishangyu 根据模板id 查询中文新老字段转义 -->
+    <select id="getChnVariableDeclareByModuleId.select" resultClass="java.util.HashMap" parameterClass="java.util.HashMap">
+        SELECT
+        businessName as "businessName",
+        tableName as "tableName",
+        viewName as "viewName",
+        varName as "varName",
+        varNewName as "varNewName",
+        moduleId as "moduleId"
+        FROM vm_chnVariableDeclare
+        WHERE moduleId = #moduleId# and varNewName is not null
+    </select>
+
+    <!-- 表单字段视图（vm_formfield），查询表单字段定义 -->
+    <select id="getFieldDefByTempNo.select" resultClass="formFieldDefinition" parameterClass="map">
+        SELECT t.VC_FORMNAME AS formName,
+        t.VC_TEMPLATENUMBER AS templeteNumber,
+        t.VC_TABLENAME AS tableName,
+        t.VC_TABLETYPE AS tableType,
+        t.VC_OWNERTABLEID AS ownerTableID,
+        t.VC_FIELDNAME AS fieldName,
+        t.VC_FIELDDISPLAY AS fieldDisplay,
+        t.VC_FIELDINPUTTYPE AS fieldType,
+        t.VC_FIELDREFID AS refEnumID
+        FROM vm_formfield t WHERE 1=1
+        <isNotEmpty prepend="AND" property="templeteNumber">
+            t.VC_TEMPLATENUMBER = #templeteNumber#
+        </isNotEmpty>
+    </select>
+
+    <!-- 根据表单流程编号查询表单字段定义 cap4-->
+    <!-- 20221212 OA00008891员工车船费探亲费-->
+    <select id="getCap4FieldDefByTempNo.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT T2.field_info as "fieldInfo",
+        t2.name as "tableChName"
+        FROM WF_PROCESS_TEMPLETE T1,
+        cap_FORM_DEFINITION T2,
+        (SELECT S1.WORKFLOW_ID
+        FROM CTP_TEMPLATE S1
+        WHERE S1.TEMPLETE_NUMBER = #templeteNumber#) T3
+        WHERE T3.WORKFLOW_ID = T1.ID
+        AND T1.APPID = T2.ID
+        and t2.id is not null
+    </select>
+
+    <!-- 表单字段视图（vm_formfield）,根据流程模板编号以及中文字段名查询该字段名 -->
+    <select id="selectField.select" resultClass="java.lang.String" parameterClass="map">
+    	SELECT vc_fieldname AS fieldName  FROM vm_formfield t  where vc_templateNumber = #templateNumber# and vc_fielddisplay = #filedName#
+    </select>
+    <!-- 表单字段视图（vm_formfield）,根据中文表名以及中文字段名查询该字段名 -->
+    <select id="selectFieldByTableName.select" resultClass="java.lang.String" parameterClass="map">
+    	SELECT DISTINCT vc_fieldname AS fieldName  FROM vm_formfield t  where vc_formName = #tableName# and vc_fielddisplay = #filedName# and vc_fieldname like '%field%'
+    </select>
+    <!-- 新增:shixin 表单字段视图（vm_formfield）,根据中文表名以及中文字段名查询该字段名_子表 -->
+    <select id="selectFieldByTableNameSub.select" resultClass="java.lang.String" parameterClass="map">
+    	SELECT DISTINCT vc_fieldname AS fieldName  FROM vm_formfield t  where VC_TABLEDISPLAY = #tableName# and vc_fielddisplay = #filedName# and VC_OWNERTABLEID = #ownerTableName# and vc_fieldname like '%field%'
+    </select>
+    <!-- 讨论版块（bbs_board），根据版块名称获取版块ID  -->
+    <select id="getBbsBoardId.select" resultClass="mapBean" parameterClass="map">
+        select id from bbs_board where name=#name# and account_id = -1730833917365171641
+    </select>
+    <!-- 调查版块（inquiry_surveytype），根据版块名称获取版块ID  -->
+    <select id="getInquiryBoardId.select" resultClass="mapBean" parameterClass="map">
+        select id from inquiry_surveytype where type_name=#name# and account_id = -1730833917365171641
+    </select>
+    <!-- 流程拓展定义（动态表名），查询接口开关及默认配置属性 -->
+    <select id="getInterfaceConfigByTemplateId.select" resultClass="mapBean" parameterClass="map">
+        SELECT T2.SHOWVALUE AS INTERSWITCH, T1.FIELD0012 AS INTERDEFAULT
+        FROM $mainTable$ T1
+        LEFT JOIN CTP_ENUM_ITEM T2
+        ON T2.ID = T1.FIELD0013
+        WHERE T1.FIELD0001 = #formTemplateID#
+    </select>
+    <!-- 流程拓展定义-节点说明子表（formson_2230），通过节点模板编号获取任务说明 -->
+    <select id="affairInstruct.select" parameterClass="string" resultClass="java.lang.String">
+        select field0006 from  formson_2230 where field0004 = #nodeId#
+    </select>
+    <!-- 流程拓展定义（动态表名），查询流程接口配置 -->
+    <select id="getFlowConfig.select" resultClass="flowConfig" parameterClass="map">
+        SELECT A1.FIELDNAME,
+        A1.FIELDID,
+        A2.SHOWVALUE AS SWITCHWAY,
+        A1.SWITCHRULE,
+        A3.SHOWVALUE AS ISMUST
+        FROM (SELECT S1.FIELD0014 AS FIELDNAME,
+        S1.FIELD0015 AS FIELDID,
+        S1.FIELD0016 AS SWITCHWAY,
+        S1.FIELD0017 AS SWITCHRULE,
+        S1.FIELD0018 AS ISMUST
+        FROM $sonTable$ S1,
+        (SELECT T1.ID
+        FROM $mainTable$ T1
+        WHERE T1.FIELD0001 = #formTemplateID#) S2
+        WHERE S1.FORMMAIN_ID = S2.ID) A1
+        LEFT JOIN CTP_ENUM_ITEM A2
+        ON A1.SWITCHWAY = A2.ID
+        LEFT JOIN CTP_ENUM_ITEM A3
+        ON A1.ISMUST = A3.ID
+    </select>
+    <!-- 短信记录表（fg_message_record），插入新的短信记录 -->
+    <insert id="messageRecord.insert" parameterClass="map">
+        insert into fg_message_record (N_RECID, VC_SENDER, VC_RECEIVER, C_CONTENT, VC_RECEIVE, D_SENDDATE,C_REPLY)
+        values (#id#, #sender#, #receiver#, #content#, #receive#, to_date(#date#,'YYYY-MM-DD hh24:mi:ss'),#reply#)
+    </insert>
+    <!-- 接口日志记录表（formmain_1541），根据ID查询日志数据 -->
+    <select id="logInfo.select" resultClass="java.util.HashMap" parameterClass="map">
+        select id as ID, dbms_lob.substr(FIELD0007) as DATA, FIELD0003 as FUNCTION,
+               FIELD0001 as SYSTEM, FIELD0002 as RECORDMOUDLE
+        from formmain_1541 where id = #id#
+    </select>
+    <!-- 接口日志记录表（formmain_1541），新增接口日志记录 -->
+    <insert id="logInfo.insert" parameterClass="map">
+        INSERT INTO formmain_1541 ( ID ,STATE ,START_MEMBER_ID ,START_DATE , APPROVE_MEMBER_ID ,
+        APPROVE_DATE,FINISHEDFLAG ,RATIFYFLAG ,RATIFY_MEMBER_ID ,
+        RATIFY_DATE , SORT ,MODIFY_MEMBER_ID ,MODIFY_DATE , FIELD0001 ,
+        FIELD0002 ,FIELD0003,FIELD0004,FIELD0005,FIELD0006,FIELD0007,FIELD0008 )
+        VALUES(#id#,1,-6760911671874597139,SYSDATE,0,SYSDATE,
+        0,0,0,null,0,-6760911671874597139,SYSDATE,
+        #system#,#model#,#function#,#type#,#state#,#count#,#data#,#remark#)
+    </insert>
+    <!-- 接口日志记录表（formmain_1541），更新接口日志记录 -->
+    <update id="logInfo.update" parameterClass="map">
+        update formmain_1541 set FIELD0005=#state#, FIELD0006=FIELD0006+1, FIELD0008=#remark# where　id=#logId#
+    </update>
+    <!-- 接口日志记录表-cap4（vm_log_record），查询范围时间的错误且未处理的日志数据数量 -->
+    <select id="loggerInfoFailNew.select" resultClass="java.lang.Integer" parameterClass="map">
+        select count(1) from vm_log_record
+        where  operateState=#state# and ifHandle=#ifHandle# and   to_char(START_DATE, 'yyyy-mm-dd')
+        between #startDay# and  to_char(sysDate, 'yyyy-mm-dd')
+    </select>
+
+    <!-- 接口日志记录表_cap4表（vm_log_record），新增接口日志记录 -->
+    <insert id="logInfoNew.insert" parameterClass="map">
+        INSERT INTO vm_log_record ( ID ,STATE ,START_MEMBER_ID ,START_DATE , APPROVE_MEMBER_ID ,
+        APPROVE_DATE,FINISHEDFLAG ,RATIFYFLAG ,RATIFY_MEMBER_ID ,
+        RATIFY_DATE , SORT ,MODIFY_MEMBER_ID ,MODIFY_DATE , systemName ,
+        modelName ,functionName,functionDesc,operateType,operateState,operateTimes,dataRecord,returnDate,logCreateTime,logUpdateTime,ifHandle,serviceRespond )
+        VALUES(#id#,1,-6760911671874597139,SYSDATE,0,SYSDATE,
+        0,0,0,null,0,-6760911671874597139,SYSDATE,
+        #system#,#model#,#functionName#,#functionDesc#,#type#,#state#,#count#,#data#,#remark#,SYSDATE,SYSDATE,#ifHandle#,#serviceRespond#)
+    </insert>
+    <!-- 正文表（ctp_content_all），根据模板的类型ID查询表单ID和模板正文类型 -->
+    <select id="refreshParam.select" parameterClass="map" resultClass="mapBean">
+        SELECT content_template_id as formid,module_type as moduletype FROM ctp_content_all WHERE module_id = #moduleId#
+    </select>
+    <!-- 正文表（ctp_content_all），查询数据的总条数 -->
+    <select id="refreshData.select.count"  parameterClass="map" resultClass="long">
+        SELECT count(*) FROM ctp_content_all WHERE content_template_id = #formId# AND module_template_id!=-1
+    </select>
+    <!-- 正文表（ctp_content_all），查询数据ID -->
+    <select id="refreshData.select"  parameterClass="map" resultClass="mapBean">
+        SELECT content_data_id as dataid FROM ctp_content_all WHERE content_template_id = #formId# AND module_template_id!=-1
+    </select>
+    <!-- 正文表（ctp_content_all），新增信息管理正文 -->
+    <insert id="logContent.insert" parameterClass="map">
+        INSERT INTO  CTP_CONTENT_ALL( ID ,  CREATE_ID ,  CREATE_DATE ,  MODIFY_ID ,
+        MODIFY_DATE ,  MODULE_TYPE ,
+        MODULE_ID ,  MODULE_TEMPLATE_ID ,  CONTENT_TYPE ,  CONTENT ,  CONTENT_DATA_ID ,
+        CONTENT_TEMPLATE_ID ,  TITLE ,  SORT )
+        VALUES(#id#,-6760911671874597139,SYSDATE,
+        -6760911671874597139,SYSDATE,37,#formId#,-2502453340916791461,
+        20,null,#formId#,-1012645829320425254,'日志信息',0)
+    </insert>
+    <!-- 系统节点配置表（fg_node_config），查询系统节点配置信息   -->
+    <select id="nodeConfigInfo.select" parameterClass="map" resultClass="java.util.HashMap">
+        select n_recid as id, vc_activityid as activityid, vc_dataname as dataname ,vc_datavalue as datavalue from
+        fg_node_config where vc_status = 1
+        <isNotEmpty prepend="AND" property="id">
+            n_recid = #id#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="activityId">
+            vc_activityid = #activityId#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="templeteId">
+            vc_templeteid = #templeteId#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="dataName">
+            vc_dataname = #dataName#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="dataNamePrefix">
+            vc_dataname like #dataNamePrefix# || '%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="dataNameSuffix">
+            vc_dataname like '%' || #dataNameSuffix#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="dataNameAll">
+            vc_dataname like '%' || #dataNameAll# || '%'
+        </isNotEmpty>
+    </select>
+    <!-- 系统节点配置表（fg_node_config），插入系统节点配置信息  -->
+    <insert id="nodeConfigInfo.insert" parameterClass="map">
+    	insert into fg_node_config(n_recid,vc_status,vc_activityid,vc_dataname,vc_datavalue,vc_templeteid) 
+    	values(#id#,1,#activityId#,#dataname#,#datavalue#,#templeteId#)
+    </insert>
+    <!-- 系统节点配置表（fg_node_config），更新系统节点配置信息 -->
+    <update id="nodeConfigInfo.update" parameterClass="map">
+    	update fg_node_config 
+    	set vc_dataname = #dataname#,vc_datavalue=#datavalue# 
+    	where n_recid = #id# 
+    	  and vc_activityid = #activityId# 
+    	  and vc_status = #status#
+    	  and vc_templeteid = #templeteId#
+    </update>
+    <!-- 系统节点配置表（fg_node_config），更新系统节点配置信息 -->
+    <update id="nodeConfigStatus.update" parameterClass="map">
+        update fg_node_config 
+        set vc_status = #status# 
+        where vc_activityid = #activityId#
+        and vc_templeteid = #templeteId#
+    </update>
+    <!-- 系统节点动态参数表（fg_node_param），存储键值对 -->
+    <insert id="nodeParam.insert"  parameterClass="map">
+        INSERT INTO fg_node_param ( ID ,vc_token,vc_activityId,vc_key,vc_value )
+        VALUES(#id#,#token#,#activityId#,#key#,#value#)
+    </insert>
+    <!-- 系统节点动态参数表（fg_node_param），查询键值对 -->
+    <select id="nodeParam.select"  parameterClass="map" resultClass="java.lang.String">
+        select vc_value 
+        from fg_node_param
+        where vc_token = #token# 
+          and vc_activityId = #activityId#
+          and vc_key = #key#
+    </select>
+    <!-- 系统自定义函数表（form_custom_function），查询表单自定义函数 -->
+    <select id="groovyFunction.select"  parameterClass="map" resultClass="mapBean">
+        SELECT t1.function_name AS functionname,t1.function_param AS param,t1.code_text as code
+        FROM form_custom_function t1,form_definition t2
+        WHERE t2.name=#formName#
+        and t2.id=t1.form_id
+    </select>
+    <!-- 动态表名，清空指定重复表 -->
+    <delete id="sonTable.delete"  parameterClass="map" >
+        delete $tableName$ where formmain_id = #formId#
+    </delete>
+    <!-- 查询出问题的超级节点 -->
+    <select id ="checkSuperNodeInfo.select" parameterClass="map" resultClass="java.util.HashMap">
+    	SELECT id as taskid, subject as taskname,ca.sub_object_id as workitemid
+ 	    FROM ctp_affair ca
+        WHERE ca.sub_object_id in
+        (SELECT wsc.workitem_id
+          FROM wf_supernode_control wsc
+          WHERE wsc.invoke_time IS NOT NULL
+           AND wsc.return_time IS NOT NULL
+           AND wsc.member_id <![CDATA[<>]]>util_user.getMemIdByLoginName('flowbot')
+           AND  ca.member_id in (SELECT ID FROM org_member)  
+           <isNotEmpty prepend="AND" property="timeLimit">
+				wsc.invoke_time <![CDATA[>]]> SYSDATE - $timeLimit$
+		   </isNotEmpty>
+           )
+           and state = 3
+    </select>
+    <!-- 超级节点视图（vm_checkSuperNode），查找是否存在此出错任务 -->
+    <select id="checkTaskCoun.select" parameterClass="string" resultClass="java.lang.Integer">
+        select count(taskid) from  vm_checkSuperNode where taskid = #taskid#
+    </select>
+    <!-- 超级节点视图（vm_checkSuperNode），插入出错任务 -->
+    <insert id= "errorSuperNode.insert" parameterClass="map">
+    	insert into vm_checkSuperNode (id, taskid, firsterrordate, taskname, dealstatus) 
+    	values(util_common.getID, #taskId#, #firstErrorDate#, #taskName#, util_common.getEnumIdByShow('-675442050070198336','未处理'))
+    </insert>  
+    <!-- 根据表单数据ID获取流程主表id（col_summary） -->
+    <select id="checkColIds.select" parameterClass="string" resultClass="java.lang.String">
+    	select id from col_summary  where form_recordid = #dataId# order by create_date desc
+    </select>
+    <!-- col_summay 根据主表ID查询colSumamaryid -->
+    <select id = "colSumasyID.select" parameterClass="string" resultClass="java.lang.String">
+    	select * from col_summary where form_recordid = #mainId# and case_id is not null
+    </select>   
+    <!-- DC_InternalRep_T001 内部签报-》一般签报-》请示报告-->
+    <select id = "DC_InternalRep_T001.select" parameterClass="map" resultClass="mapBean">
+        select
+        templateId,
+        id,
+        reportcode, reportsubject,
+        launchdate, reportdate, propose,proposecode,
+        agentmember, agentmembercode, department,
+        departmentcode,finish_date
+        from
+        (
+        select 'DC_InternalRep_T001' as templateId,v1.id as id,
+        reportcode, reportsubject,
+        launchdate, reportdate, propose,proposecode,
+        agentmember, agentmembercode, department,
+        departmentcode,v2.finish_date
+        from vm_generalreport v1
+        left join col_summary v2 on v1.id = v2.form_recordid and v2.finish_date is not null
+        union all
+        select 'DC_InternalRep_4_001' as templateId,v1.id as id,
+        reportcode, reportsubject,
+        launchdate, reportdate, propose,proposecode,
+        agentmember, agentmembercode, department,
+        departmentcode,v2.finish_date
+        from vm_generalreport_cap4 v1
+        left join col_summary v2 on v1.id = v2.form_recordid and v2.finish_date is not null
+        ) v where 1=1
+	    <isNotEmpty prepend="AND"   property="startDate">
+           v.finish_date <![CDATA[>]]>=to_date(#startDate#,'YYYY-MM-DD')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="endDate">
+           	v.finish_date <![CDATA[<]]>=to_date(#endDate#,'YYYY-MM-DD')
+        </isNotEmpty>
+		order by v.finish_date desc
+    </select>
+   
+    <select id = "DC_InternalRep_T001.select.count" parameterClass="map" resultClass="long">
+   		select count('x') from(
+        select
+        templateId,
+        id,
+        reportcode, reportsubject,
+        launchdate, reportdate, propose,proposecode,
+        agentmember, agentmembercode, department,
+        departmentcode,finish_date
+        from
+        (
+        select 'DC_InternalRep_T001' as templateId,v1.id as id,
+        reportcode, reportsubject,
+        launchdate, reportdate, propose,proposecode,
+        agentmember, agentmembercode, department,
+        departmentcode,v2.finish_date
+        from vm_generalreport v1
+        left join col_summary v2 on v1.id = v2.form_recordid
+        union all
+        select 'DC_InternalRep_4_001' as templateId,v1.id as id,
+        reportcode, reportsubject,
+        launchdate, reportdate, propose,proposecode,
+        agentmember, agentmembercode, department,
+        departmentcode,v2.finish_date
+        from vm_generalreport_cap4 v1
+        left join col_summary v2 on v1.id = v2.form_recordid
+        ) v where 1=1
+	    <isNotEmpty prepend="AND"   property="startDate">
+           v.finish_date <![CDATA[>]]>=to_date(#startDate#,'YYYY-MM-DD')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="endDate">
+           	v.finish_date <![CDATA[<]]>=to_date(#endDate#,'YYYY-MM-DD')
+        </isNotEmpty>
+		order by v.finish_date desc
+   		)
+    </select>
+
+    <!-- kk.do 2023-09-21 fuzhiyuan -->
+    <!-- CG_ProductChange_T001  公募立项变更  根据流程扩展定义配置查询公募立项变更流程数据-->
+    <select id = "CG_ProductChange_T001.select" parameterClass="map" resultClass="mapBean">
+        select * from (
+        select 'CT_PFProChange_T001' as templateId,
+        vp.id ,
+        vpc.productCode_detail as productcode,
+        vpc.fundCode_detail as fundCode,
+        vpc.productName_detail as productname,
+        vp.changeTitle as subjectmatter,
+        util_user.getMemberNameByMemId(vp.applyUser) as sendusername,
+        util_org.getDeptNameByDeptId(vp.applyDepartMent) as senddepart,
+        vp.applyDepartMent as departId,
+        to_char(vp.applyDate, 'YYYY-MM-DD') senddate,
+        vp.state as flowStatus,
+        vp.applyUser as senduser
+        from  vm_product_changeson vpc left join vm_product_change vp on vpc.formmain_id = vp.id
+        ) where 1 =1
+        <isNotEmpty prepend="AND"   property="productCode">
+            productCode like '%'||#productCode#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="productName">
+            productName like '%'||#productName#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="subjectMatter">
+            subjectMatter like '%'||#subjectMatter#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="startDate">
+            to_date(senddate,'YYYY-MM-DD') <![CDATA[>]]>=to_date(#startDate#,'YYYY-MM-DD')
+
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="endDate">
+            to_date(senddate,'YYYY-MM-DD') <![CDATA[<]]>=to_date(#endDate#,'YYYY-MM-DD')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="sendUser">
+            sendUser = #sendUser#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="flowStatus">
+            flowStatus = #flowStatus#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="departCode">
+            util_org.getDeptCodeByDeptId(departId) in ($departCode$)
+        </isNotEmpty>
+        <isNotEmpty prepend=" " property="order">
+            $order$
+        </isNotEmpty>
+    </select>
+
+ 	 <!-- Shkk.do 2019-11-29 wendong -->
+    <!-- PDM_ProdReview_T001A  产品审核，一对一专户立项，一对多专户立项  根据流程扩展定义配置查询产品审核流程数据-->
+    <select id = "PDM_ProdReview_T001V1.select" parameterClass="map" resultClass="mapBean">
+   	      select * from (select distinct 'PDM_ProdReview_T001' as templateId,formmain_id as id,
+                 productcode,
+                 prdcode as fundcode,
+                 productname,
+                 subjectmatter,  
+                  util_user.getMemberNameByMemId(senduser) as sendusername, 
+                  util_org.getDeptNameByDeptId(senddepart) as senddepart,
+                  senddepart as departId,
+                  to_char(senddate,'YYYY-MM-DD')senddate,flowstatus,senduser
+                  from vm_fundproductinfo t
+                  left join   vm_prodreviewson t1
+                  on  pirid = productcode
+                  left join vm_prodreview t2
+                  on t1.formmain_id = t2.id
+                  where pirid = productcode and t1.formmain_id = t2.id
+                union all
+          select distinct 'CT_Project_T001' as templateId,s.id id,
+                 s.productcode productcode,
+                 s.fundcode fundcode,
+                 s.productname productname,
+                 c.subject || s.productname subjectmatter,
+                 util_user.getMemberNameByMemId(s.senduser) as sendusername,
+                 util_org.getDeptNameByDeptId(s.senddepart) as senddepart,
+                 senddepart as departId,
+                 to_char(s.senddate,'YYYY-MM-DD') senddate,
+                 s.flowstatus,s.senduser
+          from vm_singleproject s ,col_summary c
+          where s.id = c.form_recordid and c.case_id is not null          
+          union all
+          select distinct 'CT_MProject_T001' as templateId, s.id id,
+                 s.productcode productcode,
+                 s.fundcode fundcode,
+                 s.productname productname,
+                 c.subject || s.productname subjectmatter,
+                 util_user.getMemberNameByMemId(s.senduser) as sendusername,
+                 util_org.getDeptNameByDeptId(s.senddepart) as senddepart,
+                 senddepart as departId,
+                 to_char(s.senddate,'YYYY-MM-DD') senddate,
+                 s.flowstatus,s.senduser
+          from vm_doubleproject s ,col_summary c
+          where s.id = c.form_recordid and c.case_id is not null
+          union all select
+        case
+        when oldproadditional = 1 or oldprofeereduce = 1 then
+        'CT_PFProject_T006'
+        else
+        'CT_PFProject_T001'
+        end templateId,
+        id,
+        productcode productcode,
+        fundcode fundcode,
+        productname productname,
+        subjectmatter,
+        sendusername,
+        senddepart,
+        departId,
+        to_char(senddate, 'YYYY-MM-DD') senddate,
+        flowstatus,
+        senduser
+        from vm_establishmentofpublicfunds
+        union all
+        select 'CT_MProjectNew_T001' as templateId,
+        id,
+        productcode,
+        fundcode,
+        productname,
+        subjectmatter,
+        util_user.getMemberNameByMemId(senduser) as sendusername,
+        util_org.getDeptNameByDeptId(senddepart) as senddepart,
+        senddepart as departId,
+        to_char(senddate, 'YYYY-MM-DD') senddate,
+        flowstatus,senduser
+        from vm_MProjectNew
+        union all
+        select 'CT_ProjectNew_T001' as templateId,
+        id,
+        productcode,
+        fundcode,
+        productname,
+        subjectmatter,
+        util_user.getMemberNameByMemId(senduser) as sendusername,
+        util_org.getDeptNameByDeptId(senddepart) as senddepart,
+        senddepart as departId,
+        to_char(senddate, 'YYYY-MM-DD') senddate,
+        flowstatus,senduser
+        from vm_sProjectNew
+        union all
+        select distinct 'PD_publicCheck_T001' as templateId,
+        t.id,
+        productcode,
+        fundcode,
+        productname,
+        subjectmatter,
+        util_user.getMemberNameByMemId(senduser) as sendusername,
+        util_org.getDeptNameByDeptId(senddepart) as senddepart,
+        senddepart as departId,
+        to_char(senddate,'YYYY-MM-DD')senddate,flowstatus,senduser
+        from vm_productcheckcap4  t
+        left join  vm_productcheckCap4_son   t1
+        on t1.formmain_id = t.id
+        union all
+        select
+        distinct
+        'PDM_ProdReview_cap4' as  templateId,
+        formmain_id as id,
+        wcp.productcode,
+        wcp.fundcode,
+        wcp.productname,
+        wc.subjectMatter,
+        util_user.getMemberNameByMemId(senduser) as sendusername,
+        util_org.getDeptNameByDeptId(senddepart) as senddepart,
+        senddepart as departId,
+        to_char(senddate,'YYYY-MM-DD')senddate,
+        FINISHEDFLAG flowstatus,
+        senduser
+        from VM_CAP_WF_PRODREVIEW wc
+        left join
+        VM_CAP_PRODUCTAPPROVESON wcp
+        on wc.id = wcp.formmain_id
+        where state = 1
+        union all
+        select
+        distinct
+        'PD_Anual_NJ_cap4' as  templateId,
+        formmain_id as id,
+        pas.productcode,
+        pas.fundcode,
+        pas.productname,
+        pa.subjectMatter,
+        util_user.getMemberNameByMemId(senduser) as sendusername,
+        util_org.getDeptNameByDeptId(senddepart) as senddepart,
+        senddepart as departId,
+        to_char(senddate,'YYYY-MM-DD')senddate,
+        FINISHEDFLAG flowstatus,
+        senduser
+        from vm_cap_pension_approve pa
+        left join
+        vm_cap_pension_approveson pas
+        on pa.id = pas.formmain_id
+        where state = 1
+        ) where 1 =1
+				    <isNotEmpty prepend="AND"   property="productCode">
+           				productCode like '%'||#productCode#||'%'
+        			</isNotEmpty>
+				    <isNotEmpty prepend="AND"   property="productName">
+           				productName like '%'||#productName#||'%'
+        			</isNotEmpty>        			
+				    <isNotEmpty prepend="AND"   property="subjectMatter">
+           				subjectMatter like '%'||#subjectMatter#||'%'
+        			</isNotEmpty>
+ 				    <isNotEmpty prepend="AND"   property="startDate">
+           				to_date(senddate,'YYYY-MM-DD') <![CDATA[>]]>=to_date(#startDate#,'YYYY-MM-DD')
+           						 
+        			</isNotEmpty>
+  				    <isNotEmpty prepend="AND"   property="endDate">
+           				to_date(senddate,'YYYY-MM-DD') <![CDATA[<]]>=to_date(#endDate#,'YYYY-MM-DD')
+        			</isNotEmpty>   
+  				    <isNotEmpty prepend="AND"   property="sendUser">
+           				sendUser = #sendUser#
+        			</isNotEmpty>     
+     			    <isNotEmpty prepend="AND"   property="flowStatus">
+           				flowStatus = #flowStatus#
+        			</isNotEmpty>
+                    <isNotEmpty prepend="AND"   property="departCode">
+                        util_org.getDeptCodeByDeptId(departId) in ($departCode$)
+                    </isNotEmpty>
+					<isNotEmpty prepend=" " property="order">
+						$order$
+					</isNotEmpty>
+    </select>
+
+    <!-- CT_Approve_0001  根据流程扩展定义配置查询合同数据-->
+    <select id = "CT_Approve_0001V1.select.count" parameterClass="map" resultClass="long">
+        select count('x') from (
+        select
+        va.id,
+        vt.sn snCode,
+        va.contractNo contractNo,
+        util_common.getEnumShowById(va.contractType) contractType,
+        util_user.getMemberNameByMemId(va.approveUserName) approveUserName,
+        util_user.getMemCodeByMemId(va.approveUserName) as approveUserCode,
+        util_org.getDeptNameByDeptId(va.approveUserDept) approveUserDept,
+        util_org.getDeptCodeByDeptId(va.approveUserDept) as approveUserDeptCode,
+        va.counterpartyName counterpartyName,
+        va.title title,
+        to_char(va.contractBeginDate, 'yyyy-mm-dd') contractBeginDate,
+        to_char(va.contractEndDate, 'yyyy-mm-dd') contractEndDate,
+        va.amount amount
+        from VM_APPROVE_OLD va
+        left join vm_assetdocument vt on vt.contractCode = va.contractNo
+        union all
+        select
+        va.id,
+        vt.sn snCode,
+        va.contractNo contractNo,
+        util_common.getEnumShowById(va.contractType) contractType,
+        util_user.getMemberNameByMemId(va.approveUserName) approveUserName,
+        util_user.getMemCodeByMemId(va.approveUserName) as approveUserCode,
+        util_org.getDeptNameByDeptId(va.approveUserDept) approveUserDept,
+        util_org.getDeptCodeByDeptId(va.approveUserDept) as approveUserDeptCode,
+        va.counterpartyName counterpartyName,
+        va.title title,
+        to_char(va.contractBeginDate, 'yyyy-mm-dd') contractBeginDate,
+        to_char(va.contractEndDate, 'yyyy-mm-dd') contractEndDate,
+        va.amount amount
+        from VM_APPROVE_NEW va
+        left join vm_assetdocument vt on vt.contractCode = va.contractNo
+        ) where 1 =1
+        <isNotEmpty prepend="AND"   property="contractNo">
+            contractNo = #contractNo#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="snCode">
+            snCode = #snCode#
+        </isNotEmpty>
+        <isNotEmpty prepend=" " property="order">
+            $order$
+        </isNotEmpty>
+    </select>
+
+    <!-- CT_Approve_0001  根据流程扩展定义配置查询合同数据-->
+    <select id = "CT_Approve_0001V1.select" parameterClass="map" resultClass="mapBean">
+        select
+        id,
+        snCode,
+        contractNo,
+        contractType,
+        approveUserName,
+        approveUserCode,
+        approveUserDept,
+        approveUserDeptCode,
+        counterpartyName,
+        title,
+        contractBeginDate,
+        contractEndDate,
+        amount
+        from (
+        select
+        va.id,
+        vt.sn snCode,
+        va.contractNo contractNo,
+        util_common.getEnumShowById(va.contractType) contractType,
+        util_user.getMemberNameByMemId(va.approveUserName) approveUserName,
+        util_user.getMemCodeByMemId(va.approveUserName) as approveUserCode,
+        util_org.getDeptNameByDeptId(va.approveUserDept) approveUserDept,
+        util_org.getDeptCodeByDeptId(va.approveUserDept) as approveUserDeptCode,
+        va.counterpartyName counterpartyName,
+        va.title title,
+        to_char(va.contractBeginDate, 'yyyy-mm-dd') contractBeginDate,
+        to_char(va.contractEndDate, 'yyyy-mm-dd') contractEndDate,
+        va.amount amount
+        from VM_APPROVE_OLD va
+        left join vm_assetdocument vt on vt.contractCode = va.contractNo
+        union all
+        select
+        va.id,
+        vt.sn snCode,
+        va.contractNo contractNo,
+        util_common.getEnumShowById(va.contractType) contractType,
+        util_user.getMemberNameByMemId(va.approveUserName) approveUserName,
+        util_user.getMemCodeByMemId(va.approveUserName) as approveUserCode,
+        util_org.getDeptNameByDeptId(va.approveUserDept) approveUserDept,
+        util_org.getDeptCodeByDeptId(va.approveUserDept) as approveUserDeptCode,
+        va.counterpartyName counterpartyName,
+        va.title title,
+        to_char(va.contractBeginDate, 'yyyy-mm-dd') contractBeginDate,
+        to_char(va.contractEndDate, 'yyyy-mm-dd') contractEndDate,
+        va.amount amount
+        from VM_APPROVE_NEW va
+        left join vm_assetdocument vt on vt.contractCode = va.contractNo
+        ) where 1 =1
+        <isNotEmpty prepend="AND"   property="contractNo">
+            contractNo = #contractNo#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="snCode">
+            snCode = #snCode#
+        </isNotEmpty>
+        <isNotEmpty prepend=" " property="order">
+            $order$
+        </isNotEmpty>
+    </select>
+
+    <!-- CT_Asset_0001  固定资产档案  根据流程扩展定义配置查询固定资产档案数据-->
+    <select id = "AS_Asset_0001V1.select.count" parameterClass="map" resultClass="long">
+        select count('x') from (
+        select
+        id,to_char(MODIFY_DATE, 'yyyy-mm-dd') as modifyDate,
+        sn as snCode,
+        assetsCode as assetsCode,
+        util_common.getEnumShowById(assetCategory) as assetCategory,
+        util_common.getEnumShowById(assetsName) as assetsName,
+        to_char(buyTime, 'yyyy-mm-dd') as buyTime,
+        util_org.getDeptNameByDeptId(useDepart) as useDepart,
+        util_org.getDeptCodeByDeptId(useDepart) as useDepartCode,
+        util_user.getMemCodeByMemId(useMember) as useMemberCode,
+        util_user.getMemberNameByMemId(useMember) as useMember
+        from vm_assetdocument
+        ) where 1 =1
+        <isNotEmpty prepend="AND"   property="snCode">
+            snCode = #snCode#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="startDate">
+            to_date(modifyDate,'YYYY-MM-DD') <![CDATA[>]]>=to_date(#startDate#,'YYYY-MM-DD')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="endDate">
+            to_date(modifyDate,'YYYY-MM-DD') <![CDATA[<]]>=to_date(#endDate#,'YYYY-MM-DD')
+        </isNotEmpty>
+        <isNotEmpty prepend=" " property="order">
+            $order$
+        </isNotEmpty>
+    </select>
+
+    <!-- CT_Asset_0001  固定资产档案  根据流程扩展定义配置查询固定资产档案数据-->
+    <select id = "AS_Asset_0001V1.select" parameterClass="map" resultClass="mapBean">
+        select id,
+        modifyDate,
+        snCode,
+        assetsCode,
+        assetCategory,
+        assetsName,
+        buyTime,
+        useDepart,
+        useDepartCode,
+        useMemberCode,
+        useMember
+        from (
+        select id,to_char(MODIFY_DATE, 'yyyy-mm-dd') as modifyDate,
+        sn as snCode,
+        assetsCode as assetsCode,
+        util_common.getEnumShowById(assetCategory) as assetCategory,
+        util_common.getEnumShowById(assetsName) as assetsName,
+        to_char(buyTime, 'yyyy-mm-dd') as buyTime,
+        util_org.getDeptNameByDeptId(useDepart) as useDepart,
+        util_org.getDeptCodeByDeptId(useDepart) as useDepartCode,
+        util_user.getMemCodeByMemId(useMember) as useMemberCode,
+        util_user.getMemberNameByMemId(useMember) as useMember
+        from vm_assetdocument
+        ) where 1 =1
+        <isNotEmpty prepend="AND"   property="snCode">
+            snCode = #snCode#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="startDate">
+            to_date(modifyDate,'YYYY-MM-DD') <![CDATA[>]]>=to_date(#startDate#,'YYYY-MM-DD')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="endDate">
+            to_date(modifyDate,'YYYY-MM-DD') <![CDATA[<]]>=to_date(#endDate#,'YYYY-MM-DD')
+        </isNotEmpty>
+        <isNotEmpty prepend=" " property="order">
+            $order$
+        </isNotEmpty>
+    </select>
+
+
+    <!-- kk.do 2023-09-21 fuzhiyuan -->
+    <!-- CG_ProductChange_T001  公募立项变更  根据流程扩展定义配置查询公募立项变更流程数据-->
+    <select id = "CG_ProductChange_T001.select.count" parameterClass="map" resultClass="long">
+        select count('x') from (
+            select 'CT_PFProChange_T001' as templateId,
+            vp.id ,
+            vpc.productCode_detail as productcode,
+            vpc.fundCode_detail as fundCode,
+            vpc.productName_detail as productname,
+            vp.changeTitle as subjectmatter,
+            util_user.getMemberNameByMemId(vp.applyUser) as sendusername,
+            util_org.getDeptNameByDeptId(vp.applyDepartMent) as senddepart,
+            vp.applyDepartMent as departId,
+            to_char(vp.applyDate, 'YYYY-MM-DD') senddate,
+            vp.state as flowStatus,
+            vp.applyUser as senduser
+            from  vm_product_changeson vpc left join vm_product_change vp on vpc.formmain_id = vp.id
+        ) where 1 =1
+        <isNotEmpty prepend="AND"   property="productCode">
+            productCode like '%'||#productCode#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="productName">
+            productName like '%'||#productName#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="subjectMatter">
+            subjectMatter like '%'||#subjectMatter#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="startDate">
+            to_date(senddate,'YYYY-MM-DD') <![CDATA[>]]>=to_date(#startDate#,'YYYY-MM-DD')
+
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="endDate">
+            to_date(senddate,'YYYY-MM-DD') <![CDATA[<]]>=to_date(#endDate#,'YYYY-MM-DD')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="sendUser">
+            sendUser = #sendUser#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="flowStatus">
+            flowStatus = #flowStatus#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="departCode">
+            util_org.getDeptCodeByDeptId(departId) in ($departCode$)
+        </isNotEmpty>
+        <isNotEmpty prepend=" " property="order">
+            $order$
+        </isNotEmpty>
+    </select>
+
+     <!-- Shkk.do 2019-11-29 wendong -->
+    <!-- PDM_ProdReview_T001A  产品审核，一对一专户立项，一对多专户立项,公募立项  根据流程扩展定义配置查询产品审核流程数据-->
+    <select id = "PDM_ProdReview_T001V1.select.count" parameterClass="map" resultClass="long">
+    select count('x') from (
+	    				select distinct formmain_id as id,
+						       productcode,
+						       prdcode as fundcode,
+						       productname,
+						       subjectmatter,  
+						        util_user.getMemberNameByMemId(senduser) as sendusername, 
+						        util_org.getDeptNameByDeptId(senddepart) as senddepart,
+                                 senddepart as departId,
+						        to_char(senddate,'YYYY-MM-DD')senddate,flowstatus,senduser
+						        from vm_fundproductinfo t
+						        left join   vm_prodreviewson t1
+						        on  pirid = productcode
+						        left join vm_prodreview t2
+						        on t1.formmain_id = t2.id
+						        where pirid = productcode and t1.formmain_id = t2.id					        
+						        union all						  
+						select distinct s.id id, 
+						       s.productcode productcode,
+						       s.fundcode fundcode,
+						       s.productname productname,
+						       c.subject || s.productname subjectmatter,
+						       util_user.getMemberNameByMemId(s.senduser) as sendusername,
+						       util_org.getDeptNameByDeptId(s.senddepart) as senddepart,
+                               senddepart as departId,
+						       to_char(s.senddate,'YYYY-MM-DD') senddate,
+						       s.flowstatus,s.senduser
+						from vm_singleproject s ,col_summary c
+						where s.id = c.form_recordid and c.case_id is not null						
+						      union all
+						select distinct s.id id ,
+						       s.productcode productcode,
+						       s.fundcode fundcode,
+						       s.productname productname,
+						       c.subject || s.productname subjectmatter,
+						       util_user.getMemberNameByMemId(s.senduser) as sendusername,
+						       util_org.getDeptNameByDeptId(s.senddepart) as senddepart,
+                               senddepart as departId,
+						       to_char(s.senddate,'YYYY-MM-DD') senddate,
+						       s.flowstatus,s.senduser
+						from vm_doubleproject s ,col_summary c
+						where s.id = c.form_recordid and c.case_id is not null
+						union all select
+          id,
+				  productcode productcode,
+          fundcode fundcode,
+          productname productname,
+          subjectmatter,
+          sendusername,
+          senddepart,
+          departId,
+          to_char(senddate,'YYYY-MM-DD') senddate,
+          flowstatus,senduser
+          from vm_establishmentofpublicfunds
+        union all
+        select
+        id,
+        productcode,
+        fundcode,
+        productname,
+        subjectmatter,
+        util_user.getMemberNameByMemId(senduser) as sendusername,
+        util_org.getDeptNameByDeptId(senddepart) as senddepart,
+        senddepart as departId,
+        to_char(senddate, 'YYYY-MM-DD') senddate,
+        flowstatus,senduser
+        from vm_MProjectNew
+        union all
+        select
+        id,
+        productcode,
+        fundcode,
+        productname,
+        subjectmatter,
+        util_user.getMemberNameByMemId(senduser) as sendusername,
+        util_org.getDeptNameByDeptId(senddepart) as senddepart,
+        senddepart as departId,
+        to_char(senddate, 'YYYY-MM-DD') senddate,
+        flowstatus,senduser
+        from vm_sProjectNew
+        union all
+        select distinct
+        t.id,
+        productcode,
+        fundcode,
+        productname,
+        subjectmatter,
+        util_user.getMemberNameByMemId(senduser) as sendusername,
+        util_org.getDeptNameByDeptId(senddepart) as senddepart,
+        senddepart as departId,
+        to_char(senddate,'YYYY-MM-DD')senddate,flowstatus,senduser
+        from vm_productcheckcap4  t
+        left join  vm_productcheckCap4_son   t1
+        on t1.formmain_id = t.id
+        union all
+        select
+        distinct
+        formmain_id as id,
+        wcp.productcode,
+        wcp.fundcode,
+        wcp.productname,
+        wc.subjectMatter,
+        util_user.getMemberNameByMemId(senduser) as sendusername,
+        util_org.getDeptNameByDeptId(senddepart) as senddepart,
+        senddepart as departId,
+        to_char(senddate,'YYYY-MM-DD')senddate,
+        FINISHEDFLAG flowstatus,
+        senduser
+        from VM_CAP_WF_PRODREVIEW wc
+        left join
+        VM_CAP_PRODUCTAPPROVESON wcp
+        on wc.id = wcp.formmain_id
+        where state = 1
+        union all
+        select
+        distinct
+        formmain_id as id,
+        pas.productcode,
+        pas.fundcode,
+        pas.productname,
+        pa.subjectMatter,
+        util_user.getMemberNameByMemId(senduser) as sendusername,
+        util_org.getDeptNameByDeptId(senddepart) as senddepart,
+        senddepart as departId,
+        to_char(senddate,'YYYY-MM-DD')senddate,
+        FINISHEDFLAG flowstatus,
+        senduser
+        from vm_cap_pension_approve pa
+        left join
+        vm_cap_pension_approveson pas
+        on pa.id = pas.formmain_id
+        where state = 1
+        ) where 1 =1
+				    <isNotEmpty prepend="AND"   property="productCode">
+           				productCode like '%'||#productCode#||'%'
+        			</isNotEmpty>
+				    <isNotEmpty prepend="AND"   property="productName">
+           				productName like '%'||#productName#||'%'
+        			</isNotEmpty>        			
+				    <isNotEmpty prepend="AND"   property="subjectMatter">
+           				subjectMatter like '%'||#subjectMatter#||'%'
+        			</isNotEmpty>
+ 				    <isNotEmpty prepend="AND"   property="startDate">
+           				to_date(senddate,'YYYY-MM-DD') <![CDATA[>]]>=to_date(#startDate#,'YYYY-MM-DD')
+           						 
+        			</isNotEmpty>
+  				    <isNotEmpty prepend="AND"   property="endDate">
+           				to_date(senddate,'YYYY-MM-DD') <![CDATA[<]]>=to_date(#endDate#,'YYYY-MM-DD')
+        			</isNotEmpty>   
+  				    <isNotEmpty prepend="AND"   property="sendUser">
+           				sendUser = #sendUser#
+        			</isNotEmpty>     
+     			    <isNotEmpty prepend="AND"   property="flowStatus">
+           				flowStatus = #flowStatus#
+        			</isNotEmpty>
+                    <isNotEmpty prepend="AND"   property="departCode">
+                    util_org.getDeptCodeByDeptId(departId) in ($departCode$)
+                    </isNotEmpty>
+					<isNotEmpty prepend=" " property="order">
+						$order$
+					</isNotEmpty>
+    </select>
+    
+    
+    <!-- PDM_ProdReview_T001  产品审核  根据流程扩展定义配置查询产品审核流程数据-->
+    <select id = "PDM_ProdReview_T001.select" parameterClass="map" resultClass="mapBean">
+   	  select distinct 'PDM_ProdReview_T001' as templateId, formmain_id as id,productcode,prdcode as fundcode,productname,subjectmatter,	
+				util_user.getMemberNameByMemId(senduser) as sendusername, 
+				util_org.getDeptNameByDeptId(senddepart) as senddepart,
+				to_char(senddate,'YYYY-MM-DD')senddate,flowstatus,
+                senddepart ad departId
+				from vm_fundproductinfo t
+				left join   vm_prodreviewson t1
+				on  pirid = productcode
+				left join vm_prodreview t2
+				on t1.formmain_id = t2.id
+				where pirid = productcode and t1.formmain_id = t2.id
+				    <isNotEmpty prepend="AND"   property="productCode">
+           				productCode like '%'||#productCode#||'%'
+        			</isNotEmpty>
+				    <isNotEmpty prepend="AND"   property="productName">
+           				productName like '%'||#productName#||'%'
+        			</isNotEmpty>        			
+				    <isNotEmpty prepend="AND"   property="subjectMatter">
+           				subjectMatter like '%'||#subjectMatter#||'%'
+        			</isNotEmpty>
+ 				    <isNotEmpty prepend="AND"   property="startDate">
+           				senddate <![CDATA[>]]>=to_date(#startDate#,'YYYY-MM-DD')
+           						 
+        			</isNotEmpty>
+  				    <isNotEmpty prepend="AND"   property="endDate">
+           				senddate <![CDATA[<]]>=to_date(#endDate#,'YYYY-MM-DD')
+        			</isNotEmpty>   
+  				    <isNotEmpty prepend="AND"   property="sendUser">
+           				sendUser = #sendUser#
+        			</isNotEmpty>     
+     			    <isNotEmpty prepend="AND"   property="flowStatus">
+           				flowStatus = #flowStatus#
+        			</isNotEmpty>
+                    <isNotEmpty prepend="AND"   property="departCode">
+                      util_org.getDeptCodeByDeptId(departId) in ($departCode$)
+                    </isNotEmpty>
+					<isNotEmpty prepend=" " property="order">
+						$order$
+					</isNotEmpty>
+    </select>   
+    <!-- PDM_ProdReview_T001  产品审核  根据流程扩展定义配置查询产品审核流程数据-->
+    <select id = "PDM_ProdReview_T001.select.count" parameterClass="map" resultClass="long">
+    select count('x') from (select distinct formmain_id as id,productcode,prdcode as fundcode,productname,subjectmatter,
+				util_user.getMemberNameByMemId(senduser) as sendusername, 
+				util_org.getDeptNameByDeptId(senddepart) as senddepart,
+				to_char(senddate,'YYYY-MM-DD')senddate,flowstatus
+                senddepart ad departId
+				from vm_fundproductinfo t
+				left join   vm_prodreviewson t1
+				on  pirid = productcode
+				left join vm_prodreview t2
+				on t1.formmain_id = t2.id
+				where pirid = productcode and t1.formmain_id = t2.id
+				    <isNotEmpty prepend="AND"   property="productCode">
+           				productCode like '%'||#productCode#||'%'
+        			</isNotEmpty>
+				    <isNotEmpty prepend="AND"   property="productName">
+           				productName like '%'||#productName#||'%'
+        			</isNotEmpty>        			
+				    <isNotEmpty prepend="AND"   property="subjectMatter">
+           				subjectMatter like '%'||#subjectMatter#||'%'
+        			</isNotEmpty>
+ 				    <isNotEmpty prepend="AND"   property="startDate">
+           				senddate <![CDATA[>]]>=to_date(#startDate#,'YYYY-MM-DD')
+           						 
+        			</isNotEmpty>
+  				    <isNotEmpty prepend="AND"   property="endDate">
+           				senddate <![CDATA[<]]>=to_date(#endDate#,'YYYY-MM-DD')
+        			</isNotEmpty>   
+  				    <isNotEmpty prepend="AND"   property="sendUser">
+           				sendUser = #sendUser#
+        			</isNotEmpty>     
+     			    <isNotEmpty prepend="AND"   property="flowStatus">
+           				flowStatus = #flowStatus#
+        			</isNotEmpty>)
+                    <isNotEmpty prepend="AND"   property="departCode">
+                        util_org.getDeptCodeByDeptId(departId) in ($departCode$)
+                    </isNotEmpty>
+					<isNotEmpty prepend=" " property="order">
+						$order$
+					</isNotEmpty>
+    </select> 
+    
+    <!-- CT_Approve_T006 产品合同 根据流程扩展定义配置查询产品合同流程数据-->
+    <select id = "CT_Approve_T006.select" parameterClass="map" resultClass="mapBean">
+   		select
+        id,
+        templateId,
+        productcode,
+        fundcode,
+        productname,
+        contracttitle,
+        sendusername,
+        contractcode,
+        anagoguename,
+        contracttype,
+        senddate,
+        flowstatus,
+        senddepart,
+        senddepart as departId
+        from (select distinct formmain_id as id,'CT_Approve_T006' as templateId,
+				productcode,prdcode as fundcode,
+				productname,
+                subjectMatter,
+		    	subjectMatter as contracttitle,
+				util_user.getMemberNameByMemId(senduser) as sendusername,
+                sendUser,
+				contractcode,
+				anagoguename,
+				util_common.getEnumShowById(contracttype) as contracttype,
+				to_char(senddate,'YYYY-MM-DD')senddate,
+				flowstatus,
+                util_org.getDeptNameByDeptId(departId) as senddepart,
+                departId
+				from vm_fundproductinfo t
+				left join   vm_ApproveSon t1
+				on  pirid = productcode
+				left join vm_Approve t2
+				on t1.formmain_id = t2.id
+				where pirid = productcode  and t1.formmain_id = t2.id and 1=1
+        union all
+        select
+        distinct
+        t.id,
+        'PD_publicContract_01' as templateId,
+        productcode,
+        fundcode,
+        productname,
+        contracttitle subjectMatter,
+        contracttitle,
+        util_user.getMemberNameByMemId(senduser) as sendusername,
+        sendUser,
+        contractcode,
+        anagoguename,
+        util_common.getEnumShowById(contracttype) as contracttype,
+        to_char(senddate,'YYYY-MM-DD') senddate,
+        flowstatus,
+        util_org.getDeptNameByDeptId(senddepart) as senddepart,
+        senddepart as departId
+        from vm_productcontractcap4  t
+        left join   vm_productContractCap4_son
+        t1 on t.id = formmain_id
+        union all
+        select distinct formmain_id as id,
+        'CT_Approve_cap4' as templateId,
+        productcode,
+        fundcode,
+        productname,
+        contracttitle subjectMatter,
+        contracttitle,
+        util_user.getMemberNameByMemId(senduser) as sendusername,
+        sendUser,
+        contractcode,
+        anagoguename,
+        util_common.getEnumShowById(contracttype) as contracttype,
+        to_char(senddate, 'YYYY-MM-DD') senddate,
+        FINISHEDFLAG flowstatus,
+        util_org.getDeptNameByDeptId(senddepart) as senddepart,
+        senddepart departId
+        from VM_CAP_WF_PRODCONTRACT wc
+        left join VM_CAP_APPROVESON wcp
+        on wc.id = wcp.formmain_id
+        where state = 1
+        union all
+        select distinct formmain_id as id,
+        'CT_Anual_NJ_cap4' as templateId,
+        productcode,
+        fundcode,
+        productname,
+        contracttitle subjectMatter,
+        contracttitle,
+        util_user.getMemberNameByMemId(senduser) as sendusername,
+        sendUser,
+        contractcode,
+        anagoguename,
+        util_common.getEnumShowById(contracttype) as contracttype,
+        to_char(senddate, 'YYYY-MM-DD') senddate,
+        FINISHEDFLAG flowstatus,
+        util_org.getDeptNameByDeptId(senddepart) as senddepart,
+        senddepart departId
+        from vm_cap_pension_contract pc
+        left join vm_cap_pension_contractson pcs
+        on pc.id = pcs.formmain_id
+        where state = 1
+        )
+        where 1 = 1
+				    <isNotEmpty prepend="AND"   property="productCode">
+           				productCode like '%'||#productCode#||'%'
+        			</isNotEmpty>
+				    <isNotEmpty prepend="AND"   property="productName">
+           				productName like '%'||#productName#||'%'
+        			</isNotEmpty>        			
+				    <isNotEmpty prepend="AND"   property="subjectMatter">
+           				subjectMatter like '%'||#subjectMatter#||'%'
+        			</isNotEmpty>
+ 				    <isNotEmpty prepend="AND"   property="startDate">
+                        to_date(senddate,'YYYY-MM-DD') <![CDATA[>]]>=to_date(#startDate#,'YYYY-MM-DD')
+        			</isNotEmpty>
+  				    <isNotEmpty prepend="AND"   property="endDate">
+                        to_date(senddate,'YYYY-MM-DD') <![CDATA[<]]>=to_date(#endDate#,'YYYY-MM-DD')
+        			</isNotEmpty>   
+  				    <isNotEmpty prepend="AND"   property="sendUser">
+           				sendUser = #sendUser#
+        			</isNotEmpty>     
+     			    <isNotEmpty prepend="AND"   property="flowStatus">
+           				flowStatus = #flowStatus#
+        			</isNotEmpty>
+        <isNotEmpty prepend="AND"   property="departCode">
+            util_org.getDeptCodeByDeptId(departId) in ($departCode$)
+        </isNotEmpty>
+					<isNotEmpty prepend=" " property="order">
+						$order$
+					</isNotEmpty>
+    </select> 
+        <!-- CT_Approve_T006 产品合同 根据流程扩展定义配置查询产品合同流程数据-->
+    <select id = "CT_Approve_T006.select.count" parameterClass="map" resultClass="long">
+   		select count('x') from (select distinct formmain_id as id,
+				productcode,prdcode as fundcode,
+				productname,
+                subjectMatter,
+		    	subjectMatter as contracttitle,
+				util_user.getMemberNameByMemId(senduser) as sendusername,
+                sendUser,
+				contractcode,
+				anagoguename,
+				util_common.getEnumShowById(contracttype) as contracttype,
+				to_char(senddate,'YYYY-MM-DD')senddate,
+				flowstatus,
+                util_org.getDeptNameByDeptId(departId) as senddepart,
+                departId
+				from vm_fundproductinfo t
+				left join   vm_ApproveSon t1
+				on  pirid = productcode
+				left join vm_Approve t2
+				on t1.formmain_id = t2.id
+				where pirid = productcode and  t1.formmain_id = t2.id
+        union all
+        select
+        distinct
+        t.id,
+        productcode,
+        fundcode,
+        productname,
+        contracttitle subjectMatter,
+        contracttitle,
+        util_user.getMemberNameByMemId(senduser) as sendusername,
+        sendUser,
+        contractcode,
+        anagoguename,
+        util_common.getEnumShowById(contracttype) as contracttype,
+        to_char(senddate,'YYYY-MM-DD') senddate,
+        flowstatus,
+        util_org.getDeptNameByDeptId(senddepart) as senddepart,
+        senddepart as departId
+        from vm_productcontractcap4  t
+        left join   vm_productContractCap4_son
+        t1 on t.id = formmain_id
+        union all
+        select distinct formmain_id as id,
+        productcode,
+        fundcode,
+        productname,
+        contracttitle subjectMatter,
+        contracttitle,
+        util_user.getMemberNameByMemId(senduser) as sendusername,
+        sendUser,
+        contractcode,
+        anagoguename,
+        util_common.getEnumShowById(contracttype) as contracttype,
+        to_char(senddate, 'YYYY-MM-DD') senddate,
+        FINISHEDFLAG flowstatus,
+        util_org.getDeptNameByDeptId(senddepart) as senddepart,
+        senddepart departId
+        from VM_CAP_WF_PRODCONTRACT wc
+        left join VM_CAP_APPROVESON wcp
+        on wc.id = wcp.formmain_id
+        where state = 1
+        union all
+        select distinct formmain_id as id,
+        productcode,
+        fundcode,
+        productname,
+        contracttitle subjectMatter,
+        contracttitle,
+        util_user.getMemberNameByMemId(senduser) as sendusername,
+        sendUser,
+        contractcode,
+        anagoguename,
+        util_common.getEnumShowById(contracttype) as contracttype,
+        to_char(senddate, 'YYYY-MM-DD') senddate,
+        FINISHEDFLAG flowstatus,
+        util_org.getDeptNameByDeptId(senddepart) as senddepart,
+        senddepart departId
+        from vm_cap_pension_contract pc
+        left join vm_cap_pension_contractson pcs
+        on pc.id = pcs.formmain_id
+        where state = 1
+        ) where 1 = 1
+				    <isNotEmpty prepend="AND"   property="productCode">
+           				productCode like '%'||#productCode#||'%'
+        			</isNotEmpty>
+				    <isNotEmpty prepend="AND"   property="productName">
+           				productName like '%'||#productName#||'%'
+        			</isNotEmpty>        			
+				    <isNotEmpty prepend="AND"   property="subjectMatter">
+           				subjectMatter like '%'||#subjectMatter#||'%'
+        			</isNotEmpty>
+ 				    <isNotEmpty prepend="AND"   property="startDate">
+                        to_date(senddate,'YYYY-MM-DD') <![CDATA[>]]>=to_date(#startDate#,'YYYY-MM-DD')
+        			</isNotEmpty>
+  				    <isNotEmpty prepend="AND"   property="endDate">
+                        to_date(senddate,'YYYY-MM-DD') <![CDATA[<]]>=to_date(#endDate#,'YYYY-MM-DD')
+        			</isNotEmpty>   
+  				    <isNotEmpty prepend="AND"   property="sendUser">
+           				sendUser = #sendUser#
+        			</isNotEmpty>     
+     			    <isNotEmpty prepend="AND"   property="flowStatus">
+           				flowStatus = #flowStatus#
+        			</isNotEmpty>
+                    <isNotEmpty prepend="AND"   property="departCode">
+                         util_org.getDeptCodeByDeptId(departId) in ($departCode$)
+                    </isNotEmpty>
+				  	<isNotEmpty prepend=" " property="order">
+					$order$
+					</isNotEmpty>
+    </select>
+    <!-- DC_External_T002 对外发文 根据流程扩展定义配置查询对外发文流程数据-->
+    <select id = "DC_External_T002.select" parameterClass="map" resultClass="mapBean">
+        select
+        id,
+        templateId,
+        productcode,
+        fundcode,
+        productname,
+        doccode,
+        doctitle,
+        sendusername,
+        senddepart,
+        senddate,
+        flowstatus
+        from
+        (
+        select distinct formmain_id as id,'DC_External_T002' as templateId,
+        productcode,
+        prdcode as fundcode,
+        productname,
+        doccode,
+        subjectMatter as doctitle,
+        util_user.getMemberNameByMemId(senduser) as sendusername,
+        sendUser,
+        util_org.getDeptNameByDeptId(senddepart) as senddepart,
+        to_char(senddate,'YYYY-MM-DD')senddate,
+        flowstatus
+        from vm_fundproductinfo t
+        left join   vm_DCExternalSon t1
+        on  pirid = productcode
+        left join vm_DCExternal t2
+        on t1.formmain_id = t2.id
+        where pirid = productcode  and docflowtype = '产品管理' and t1.formmain_id = t2.id
+        UNION ALL
+        select distinct formmain_id as id,'DC_External4_T002' as templateId,
+        productcode,
+        prdcode as fundcode,
+        productname,
+        doccode,
+        subjectMatter as doctitle,
+        util_user.getMemberNameByMemId(senduser) as sendusername,
+        sendUser,
+        util_org.getDeptNameByDeptId(senddepart) as senddepart,
+        to_char(senddate,'YYYY-MM-DD')senddate,
+        flowstatus
+        from vm_fundproductinfoCap4 t
+        left join   vm_DCExternalSon_cap4 t1
+        on  pirid = productcode
+        left join vm_DCExternal_cap4 t2
+        on t1.formmain_id = t2.id
+        where pirid = productcode  and docflowtype = '产品管理' and t1.formmain_id = t2.id
+        )  where 1 =1
+        <isNotEmpty prepend="AND"   property="productCode">
+            productCode like '%'||#productCode#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="productName">
+            productName like '%'||#productName#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="subjectMatter">
+            doctitle like '%'||#subjectMatter#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="startDate">
+            to_date(senddate,'YYYY-MM-DD') <![CDATA[>]]>=to_date(#startDate#,'YYYY-MM-DD')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="endDate">
+            to_date(senddate,'YYYY-MM-DD') <![CDATA[<]]>=to_date(#endDate#,'YYYY-MM-DD')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="sendUser">
+            sendUser = #sendUser#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="flowStatus">
+            flowStatus = #flowStatus#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="departCode">
+            util_org.getDeptCodeByDeptId(senddepart) in ($departCode$)
+        </isNotEmpty>
+        <isNotEmpty prepend=" " property="order">
+            $order$
+        </isNotEmpty>
+    </select>
+    <!-- DC_External_T002 对外发文 根据流程扩展定义配置查询对外发文流程数据-->
+    <select id = "DC_External_T002.select.count" parameterClass="map" resultClass="long">
+        select count('x') from  (
+        select
+        id,
+        templateId,
+        productcode,
+        fundcode,
+        productname,
+        doccode,
+        doctitle,
+        sendusername,
+        senddepart,
+        senddate,
+        flowstatus
+        from
+        (
+        select distinct formmain_id as id,'DC_External_T002' as templateId,
+        productcode,
+        prdcode as fundcode,
+        productname,
+        doccode,
+        subjectMatter as doctitle,
+        util_user.getMemberNameByMemId(senduser) as sendusername,
+        sendUser,
+        util_org.getDeptNameByDeptId(senddepart) as senddepart,
+        to_char(senddate,'YYYY-MM-DD')senddate,
+        flowstatus
+        from vm_fundproductinfo t
+        left join   vm_DCExternalSon t1
+        on  pirid = productcode
+        left join vm_DCExternal t2
+        on t1.formmain_id = t2.id
+        where pirid = productcode  and docflowtype = '产品管理' and t1.formmain_id = t2.id
+        UNION ALL
+        select distinct formmain_id as id,'DC_External4_T002' as templateId,
+        productcode,
+        prdcode as fundcode,
+        productname,
+        doccode,
+        subjectMatter as doctitle,
+        util_user.getMemberNameByMemId(senduser) as sendusername,
+        sendUser,
+        util_org.getDeptNameByDeptId(senddepart) as senddepart,
+        to_char(senddate,'YYYY-MM-DD')senddate,
+        flowstatus
+        from vm_fundproductinfoCap4 t
+        left join   vm_DCExternalSon_cap4 t1
+        on  pirid = productcode
+        left join vm_DCExternal_cap4 t2
+        on t1.formmain_id = t2.id
+        where pirid = productcode  and docflowtype = '产品管理' and t1.formmain_id = t2.id
+        )  where 1 =1
+        <isNotEmpty prepend="AND"   property="productCode">
+            productCode like '%'||#productCode#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="productName">
+            productName like '%'||#productName#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="subjectMatter">
+            doctitle like '%'||#subjectMatter#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="startDate">
+            to_date(senddate,'YYYY-MM-DD') <![CDATA[>]]>=to_date(#startDate#,'YYYY-MM-DD')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="endDate">
+            to_date(senddate,'YYYY-MM-DD') <![CDATA[<]]>=to_date(#endDate#,'YYYY-MM-DD')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="sendUser">
+            sendUser = #sendUser#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="flowStatus">
+            flowStatus = #flowStatus#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="departCode">
+            util_org.getDeptCodeByDeptId(senddepart) in ($departCode$)
+        </isNotEmpty>
+        <isNotEmpty prepend=" " property="order">
+            $order$
+        </isNotEmpty>)
+    </select>
+
+    <!-- SL_Apply_T001 印章使用,合规审查  根据流程扩展定义配置查询印章使用流程数据-->
+    <select id = "SL_Apply_T001V1.select" parameterClass="map" resultClass="mapBean">
+   		select * from (   select distinct formmain_id as id,'SL_Apply_T001' as templateId,
+          productcode,
+          prdcode as fundcode,
+          productname,
+          subjectMatter,
+          util_user.getMemberNameByMemId(senduser) as sendusername,
+          to_char(senddate,'YYYY-MM-DD') senddate,
+          flowstatus,
+          senduser,
+          util_org.getDeptNameByDeptId(senddepart) as senddepart,
+          senddepart as departId
+          from vm_fundproductinfo t
+          left join   vm_PDMProdReviewson t1
+          on  pirid = productcode
+          left join vm_PDMProdReview t2
+          on t1.formmain_id = t2.id
+          where pirid = productcode and sealtype = util_common.getEnumIdByRefName('用章业务','产品管理业务')
+          and subdivision != -9172006034010128312
+          and t1.formmain_id = t2.id
+    UNION ALL
+    select distinct s.id id, decode (s.type,  '-4623859796867068930', 'CT_OProject_T001', 'CT_OProject_T002') as templateId,
+    s.productcode productcode,
+    s.fundcode fundcode,
+    s.productname productname,
+    c.subject || s.productname subjectmatter,
+    util_user.getMemberNameByMemId(s.senduser) as sendusername,
+    to_char(s.senddate,'YYYY-MM-DD') senddate,
+    s.flowstatus,senduser,
+    util_org.getDeptNameByDeptId(senddepart) as senddepart,
+    senddepart as departId
+    from vm_checkproject s ,col_summary c
+    where s.id = c.form_recordid and c.case_id is not null
+    UNION ALL
+    select distinct t1.id,
+    templateId,
+    productcode,
+    prdcode      as fundcode,
+    productname  ,
+    subjectmatter,
+    sendusername,
+    senddate,
+    flowstatus,
+    senduser,
+    senddepart,
+    departId
+    from vm_wfLOFPFPronect t1
+    left join vm_fundproductinfo t2
+        on t1.productcode = t2.pirid
+        union all
+        select distinct id,
+        templateId,
+        productcode,
+        fundcode,
+        productname  ,
+        subjectmatter,
+        sendusername,
+        senddate,
+        flowstatus,
+        senduser,
+        senddepart,
+        departId
+        from vw_PublicOffering_Reported
+        union all
+        select distinct id,
+        templateId,
+        productcode,
+        fundcode,
+        productname  ,
+        subjectmatter,
+        sendusername,
+        senddate,
+        flowstatus,
+        senduser,
+        senddepart,
+        departId
+        from vw_PublicOffering_Supplement
+        ) where 1 =1
+    <isNotEmpty prepend="AND"   property="productCode">
+        productCode like '%'||#productCode#||'%'
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="productName">
+        productName like '%'||#productName#||'%'
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="subjectMatter">
+        subjectMatter like '%'||#subjectMatter#||'%'
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="startDate">
+        to_date(senddate,'yyyy-mm-dd') <![CDATA[>]]>=to_date(#startDate#,'YYYY-MM-DD')
+
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="endDate">
+        to_date(senddate,'yyyy-mm-dd') <![CDATA[<]]>=to_date(#endDate#,'YYYY-MM-DD')
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="sendUser">
+        sendUser = #sendUser#
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="flowStatus">
+        flowStatus = #flowStatus#
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="departCode">
+        util_org.getDeptCodeByDeptId(departId) in ($departCode$)
+    </isNotEmpty>
+    <isNotEmpty prepend=" " property="order">
+        $order$
+    </isNotEmpty>
+</select>
+
+<select id = "SL_Apply_T001V1.select.count" parameterClass="map" resultClass="long">
+    select count('x') from( select distinct
+    formmain_id as id,
+    'SL_Apply_T001' as templateId,
+    productcode,
+    prdcode as fundcode,
+    subjectMatter,
+    productname,
+    util_user.getMemberNameByMemId(senduser) as sendusername,
+    to_char(senddate,'YYYY-MM-DD') senddate,
+    flowstatus,
+    senduser,
+    util_org.getDeptNameByDeptId(senddepart) as senddepart,
+    senddepart as departId
+    from vm_fundproductinfo t
+    left join   vm_PDMProdReviewson t1
+    on  pirid = productcode
+    left join vm_PDMProdReview t2
+    on t1.formmain_id = t2.id
+    where pirid = productcode and sealtype = util_common.getEnumIdByRefName('用章业务','产品管理业务')
+    and subdivision != -9172006034010128312
+    and t1.formmain_id = t2.id
+    UNION ALL
+    select distinct s.id id,'CT_OProject_T001' as templateId,
+    s.productcode productcode,
+    s.fundcode fundcode,
+    s.productname productname,
+    c.subject || s.productname subjectmatter,
+    util_user.getMemberNameByMemId(s.senduser) as sendusername,
+    to_char(s.senddate,'YYYY-MM-DD') senddate,
+    s.flowstatus,senduser,
+    util_org.getDeptNameByDeptId(senddepart) as senddepart,
+    senddepart as departId
+    from vm_checkproject s ,col_summary c
+    where s.id = c.form_recordid and c.case_id is not null
+    UNION ALL
+    select distinct t1.id,
+    templateId,
+    productcode,
+    prdcode      as fundcode,
+    productname  ,
+    subjectmatter, 
+    sendusername,
+    senddate,
+    flowstatus,
+    senduser,
+    senddepart,
+    departId
+    from vm_wfLOFPFPronect t1
+    left join vm_fundproductinfo t2
+    on t1.productcode = t2.pirid union all
+    select distinct id,
+    templateId,
+    productcode,
+    fundcode,
+    productname  ,
+    subjectmatter,
+    sendusername,
+    senddate,
+    flowstatus,
+    senduser,
+    senddepart,
+    departId
+    from vw_PublicOffering_Reported
+    union all
+    select distinct id,
+    templateId,
+    productcode,
+    fundcode,
+    productname  ,
+    subjectmatter,
+    sendusername,
+    senddate,
+    flowstatus,
+    senduser,
+    senddepart,
+    departId
+    from vw_PublicOffering_Supplement) where 1 =1
+    <isNotEmpty prepend="AND"   property="productCode">
+        productCode like '%'||#productCode#||'%'
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="productName">
+        productName like '%'||#productName#||'%'
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="subjectMatter">
+        subjectMatter like '%'||#subjectMatter#||'%'
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="startDate">
+        to_date(senddate,'YYYY-MM-DD') <![CDATA[>]]>=to_date(#startDate#,'YYYY-MM-DD')
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="endDate">
+        to_date(senddate,'YYYY-MM-DD') <![CDATA[<]]>=to_date(#endDate#,'YYYY-MM-DD')
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="sendUser">
+        sendUser = #sendUser#
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="flowStatus">
+        flowStatus = #flowStatus#
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="departCode">
+        util_org.getDeptCodeByDeptId(departId) in ($departCode$)
+    </isNotEmpty>
+    <isNotEmpty prepend=" " property="order">
+        $order$
+    </isNotEmpty>
+</select>
+
+<!-- SL_Apply_T001 印章使用  根据流程扩展定义配置查询印章使用流程数据-->
+<select id = "SL_Apply_T001.select" parameterClass="map" resultClass="mapBean">
+    select distinct formmain_id as id,
+    productcode,
+    prdcode as fundcode,
+    productname,
+    subjectMatter,
+    util_user.getMemberNameByMemId(senduser) as sendusername,
+    to_char(senddate,'YYYY-MM-DD')senddate,
+    flowstatus,
+    util_org.getDeptNameByDeptId(senddepart) as senddepart,
+    senddepart as departId
+    from vm_fundproductinfo t
+    left join   vm_PDMProdReviewson t1
+    on  pirid = productcode
+    left join vm_PDMProdReview t2
+    on t1.formmain_id = t2.id
+    where pirid = productcode and sealtype = util_common.getEnumIdByRefName('用章业务','产品管理业务')
+    and t1.formmain_id = t2.id
+    <isNotEmpty prepend="AND"   property="productCode">
+        productCode like '%'||#productCode#||'%'
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="productName">
+        productName like '%'||#productName#||'%'
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="subjectMatter">
+        subjectMatter like '%'||#subjectMatter#||'%'
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="startDate">
+        senddate <![CDATA[>]]>=to_date(#startDate#,'YYYY-MM-DD')
+
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="endDate">
+        senddate <![CDATA[<]]>=to_date(#endDate#,'YYYY-MM-DD')
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="sendUser">
+        sendUser = #sendUser#
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="flowStatus">
+        flowStatus = #flowStatus#
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="departCode">
+        util_org.getDeptCodeByDeptId(departId) in ($departCode$)
+    </isNotEmpty>
+    <isNotEmpty prepend=" " property="order">
+        $order$
+    </isNotEmpty>
+</select>
+<select id = "SL_Apply_T001.select.count" parameterClass="map" resultClass="long">
+    select count('x') from(select distinct formmain_id as id,
+    productcode,
+    prdcode as fundcode,
+    productname,
+    subjectMatter,
+    util_user.getMemberNameByMemId(senduser) as sendusername,
+    to_char(senddate,'YYYY-MM-DD')senddate,
+    flowstatus,
+    util_org.getDeptNameByDeptId(senddepart) as senddepart,
+    senddepart as departId
+    from vm_fundproductinfo t
+    left join   vm_PDMProdReviewson t1
+    on  pirid = productcode
+    left join vm_PDMProdReview t2
+    on t1.formmain_id = t2.id
+    where pirid = productcode and sealtype = util_common.getEnumIdByRefName('用章业务','产品管理业务')
+    and t1.formmain_id = t2.id
+    <isNotEmpty prepend="AND"   property="productCode">
+        productCode like '%'||#productCode#||'%'
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="productName">
+        productName like '%'||#productName#||'%'
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="subjectMatter">
+        subjectMatter like '%'||#subjectMatter#||'%'
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="startDate">
+        senddate <![CDATA[>]]>=to_date(#startDate#,'YYYY-MM-DD')
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="endDate">
+        senddate <![CDATA[<]]>=to_date(#endDate#,'YYYY-MM-DD')
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="sendUser">
+        sendUser = #sendUser#
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="flowStatus">
+        flowStatus = #flowStatus#
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="departCode">
+        util_org.getDeptCodeByDeptId(departId) in ($departCode$)
+    </isNotEmpty>
+    <isNotEmpty prepend=" " property="order">
+        $order$
+    </isNotEmpty>)
+</select>
+<select id="CT_PFProject_T001.select" parameterClass="map" resultClass="mapBean">
+    select
+    id,
+    'CT_PFProject_T001'  as templateId,
+    sendusername,
+    fundcode,
+    to_char(senddate,'YYYY-MM-DD') senddate,
+    subjectmatter,
+    productcode,
+    productname,
+    flowstatus,
+    senddepart,
+    departId
+    from vm_establishmentofpublicfunds
+    where 1=1
+    <isNotEmpty prepend="AND"   property="productCode">
+        productCode like '%'||#productCode#||'%'
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="productName">
+        productName like '%'||#productName#||'%'
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="subjectMatter">
+        subjectMatter like '%'||#subjectMatter#||'%'
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="startDate">
+        senddate <![CDATA[>]]>=to_date(#startDate#,'YYYY-MM-DD')
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="endDate">
+        senddate <![CDATA[<]]>=to_date(#endDate#,'YYYY-MM-DD')
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="sendUser">
+        sendUser = #sendUser#
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="flowStatus">
+        flowStatus = #flowStatus#
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="departCode">
+        util_org.getDeptCodeByDeptId(departId) in ($departCode$)
+    </isNotEmpty>
+    <isNotEmpty prepend=" " property="order">
+        $order$
+    </isNotEmpty>
+</select>
+<select id="CT_PFProject_T001.select.count" parameterClass="map" resultClass="long">
+    select count('x') from   vm_establishmentofpublicfunds
+        where 1=1
+        <isNotEmpty prepend="AND"   property="productCode">
+            productCode like '%'||#productCode#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="productName">
+            productName like '%'||#productName#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="subjectMatter">
+            subjectMatter like '%'||#subjectMatter#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="startDate">
+            senddate <![CDATA[>]]>=to_date(#startDate#,'YYYY-MM-DD')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="endDate">
+            senddate <![CDATA[<]]>=to_date(#endDate#,'YYYY-MM-DD')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="sendUser">
+            sendUser = #sendUser#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="flowStatus">
+            flowStatus = #flowStatus#
+        </isNotEmpty>
+        <isNotEmpty prepend=" " property="order">
+            $order$
+        </isNotEmpty>
+    </select>
+
+    <select id = "getFlowSearchConfig.select" resultClass="flowConfig" parameterClass="string">
+    	select flowtype,fieldname,fieldid,switchway,switchrule,ismust from vm_flowSearchConfig 
+    	where flowtype = #flowType#
+    </select>
+	<!-- 根据流程类型查询流程扩展子表数据（vm_flowTaskSearchConfig）-->
+	<select id = "getFlowTaskSearchConfig.select" resultClass="flowConfig" parameterClass="string">
+    	select flowtype,fieldname,fieldid,switchway,switchrule,ismust from vm_flowTaskSearchConfig
+    	where flowtype = #flowType#
+    </select>
+	<!-- SL_Apply_T001FlowTask 印章使用 根据流程扩展定义配置查询印章使用流程任务 -->
+	<select id = "SL_Apply_T001FlowTask.select" parameterClass="map" resultClass="affairTask">
+       SELECT ca.id as id,om.name as senderLoginName,
+       ca.SUBJECT as subject,
+       nvl(op.login_name, 'flowbot') sendername,
+       ca.MEMBER_ID as memberId,
+       ca.OBJECT_ID as objectId,
+       ca.ACTIVITY_ID as activityId,
+       to_char(ca.RECEIVE_TIME, 'yyyymmdd') as receiveTime,
+       ca.STATE as state,
+       ca.is_delete as isDelete,
+       ca.TEMPLETE_ID as templeteId,
+       cs.PROCESS_ID as processId
+       from CTP_AFFAIR ca
+       left join org_principal op
+       on ca.sender_id = op.member_id
+       left join org_member om
+       on ca.sender_id = om.id
+       left join col_summary cs
+       on ca.object_id = cs.id
+       left join vm_pdmprodreview t1
+       on t1.id = cs.form_recordid
+       where ca.app in (1)
+       and t1.sealtype = util_common.getEnumIdByRefName('用章业务', '产品管理业务')
+       and ca.state in (3,7,8)
+       and ca.member_id = #userID#
+		<isNotEmpty prepend=" " property="order">
+			$order$
+		</isNotEmpty>
+	</select>
+	<!--PDM_ProdReview_T001 产品审核 根据流程扩展定义配置查询产品审核流程任务-->
+	<select id = "PDM_ProdReview_T001FlowTask.select" parameterClass="map" resultClass="affairTask">
+	   SELECT ca.id as id,om.name as senderLoginName,
+       ca.SUBJECT as subject,
+       nvl(op.login_name, 'flowbot') sendername,
+       ca.MEMBER_ID as memberId,
+       ca.OBJECT_ID as objectId,
+       ca.ACTIVITY_ID as activityId,
+       to_char(ca.RECEIVE_TIME, 'yyyymmdd') as receiveTime,
+       ca.STATE as state,
+       ca.is_delete as isDelete,
+       ca.TEMPLETE_ID as templeteId,
+       cs.PROCESS_ID as processId
+       from CTP_AFFAIR ca
+       left join org_principal op
+       on ca.sender_id = op.member_id
+       left join org_member om
+       on ca.sender_id = om.id
+       left join col_summary cs
+       on ca.object_id = cs.id
+       where ca.app in (1)
+       and ca.state in (3,7,8)
+       and ca.templete_id = #templateId#
+       and ca.member_id = #userID#
+		<isNotEmpty prepend=" " property="order">
+			$order$
+		</isNotEmpty>
+	</select>
+	<!-- CT_Approve_T006 产品合同 根据流程扩展定义配置查询产品合同流程任务-->
+	<select id = "CT_Approve_T006FlowTask.select" parameterClass="map" resultClass="affairTask">
+	       SELECT ca.id as id,om.name as senderLoginName,
+       ca.SUBJECT as subject,
+       nvl(op.login_name, 'flowbot') sendername,
+       ca.MEMBER_ID as memberId,
+       ca.OBJECT_ID as objectId,
+       ca.ACTIVITY_ID as activityId,
+       to_char(ca.RECEIVE_TIME, 'yyyymmdd') as receiveTime,
+       ca.STATE as state,
+       ca.is_delete as isDelete,
+       ca.TEMPLETE_ID as templeteId,
+       cs.PROCESS_ID as processId
+       from CTP_AFFAIR ca
+       left join org_principal op
+       on ca.sender_id = op.member_id
+       left join org_member om
+       on ca.sender_id = om.id
+       left join col_summary cs
+       on ca.object_id = cs.id
+       where ca.app in (1)
+       and ca.state in (3,7,8)
+       and ca.templete_id = #templateId#
+       and ca.member_id = #userID#
+		<isNotEmpty prepend=" " property="order">
+			$order$
+		</isNotEmpty>
+	</select>
+	<!-- DC_External_T002 对外发文 根据流程扩展定义配置查询对外发文流程任务-->
+	<select id = "DC_External_T002FlowTask.select" parameterClass="map" resultClass="affairTask">
+       SELECT ca.id as id,om.name as senderLoginName,
+       ca.SUBJECT as subject,
+       nvl(op.login_name, 'flowbot') sendername,
+       ca.MEMBER_ID as memberId,
+       ca.OBJECT_ID as objectId,
+       ca.ACTIVITY_ID as activityId,
+       to_char(ca.RECEIVE_TIME, 'yyyymmdd') as receiveTime,
+       ca.STATE as state,
+       ca.is_delete as isDelete,
+       ca.TEMPLETE_ID as templeteId,
+       cs.PROCESS_ID as processId
+       from CTP_AFFAIR ca
+       left join org_principal op
+       on ca.sender_id = op.member_id
+       left join org_member om
+       on ca.sender_id = om.id
+       left join col_summary cs
+       on ca.object_id = cs.id
+       where ca.app in (1)
+       and ca.state in (3,7,8)
+       and ca.templete_id = #templateId#
+       and ca.member_id = #userID#
+		<isNotEmpty prepend=" " property="order">
+			$order$
+		</isNotEmpty>
+	</select>
+	<!-- formmain_3537 流程表单绑定key - value查询-->
+	<select id="getFormBindInfo.select" resultClass="java.util.HashMap">	
+		select field0007 as key,field0008 as value from formmain_3537
+	</select>
+	<select id="findFormOperationId.select" resultClass="java.lang.String" parameterClass="map">
+
+SELECT  to_char(replace(wm_concat(t.name || '.' || t.value),',','_'))  as id
+  FROM (select '/QueryList/Query[@name="' || #viewName# ||
+               '"]/ShowsThrough/Colum' XPATH,
+               f.*
+          from form_definition f
+         where f.name = #tableName#) f,
+       xmltable(f.XPATH passing xmltype(nvl(f.query_info, <![CDATA['<root/>']]>))
+                columns "NAME" path '@name',
+                "VALUE" path '@value') t
+            </select>
+	<!-- 通过应用绑定名称，查询应用绑定的模板id -->
+	<select id="findTemplatedByBingName.select" resultClass="java.lang.String" parameterClass="string">
+	 select c.templete_number from ctp_template c where subject = #bindName# and c.templete_number is not null
+	</select>
+
+    <!-- kk.do 2023-09-21 fuzhiyuan -->
+    <!-- findRptDesignIdByRptDesignName    根据业务的查询名 匹配rptDesignId-->
+    <select id="findRptDesignIdByRptDesignName.select" resultClass="java.lang.String" parameterClass="string">
+        select vr.id from VREPORT_RECORD vr where vr.record_subject = #rptDesignName#
+    </select>
+	<!-- =========================SHKK=====hmta========2019-09-09============start=============================================== -->
+	
+	<!-- 通过当前用户ID查询是否是会议室管理员 -->
+	<select id="findMeetingRoomManagerById.select"  parameterClass="map">
+	 select OFF_ADMIN from MEETING_ROOM where OFF_ADMIN=#currentUserId#
+	</select>
+	
+	<!-- 通过meetingId查询会议室的与会人员 -->
+	<select id="findConfereesByMeetingId.select"  parameterClass="map">
+	  select CONFEREES from meeting where id=#meetingId#
+	</select>
+	
+	<!-- 通过部门ID查询出对应的部门人员 -->
+	<select id="findMemeberNameByDepartmentId.select"  parameterClass="map">
+	 	select name from ORG_MEMBER where ORG_DEPARTMENT_ID=#departmentId# and IS_ENABLE='1' and STATE='1' and IS_DELETED='0'
+	</select>
+	
+	<!-- 通过人员ID查询对应人员信息 -->
+	<select id="findMemeberNameByMemberId.select"  parameterClass="map">
+	 	select name from ORG_MEMBER where id=#memberId# and IS_ENABLE='1' and STATE='1' and IS_DELETED='0'
+	</select>
+	
+	<!-- 通过单位ID查询对应单位人员信息 -->
+	<select id="findMemeberNameByAccountId.select"  parameterClass="map">
+	 	select name from ORG_MEMBER where ORG_ACCOUNT_ID=#accountId# and IS_ENABLE='1' and STATE='1' and IS_DELETED='0'
+	</select>
+	<!-- =========================SHKK=====hmta========2019-09-09============end=============================================== -->	
+<!-- 查询表单穿透配置底表rightId -->
+	<select id="getWhiteRightId.select"  resultClass="String">
+	 	select RIGHTID from VM_WHITERIGHTID_FORM
+	</select>
+ <!-- 根据表单名称查询表单字段的映射 -->
+    <select id = "fieldMap.select" resultClass = "java.util.HashMap" parameterClass = "string">
+         SELECT T.*
+         FROM (SELECT T2.Field_Info
+         FROM  FORM_DEFINITION T2
+         WHERE T2.name=#tableName#) S1,
+         XMLTABLE('TableList/Table/FieldList/Field' PASSING
+                XMLTYPE(S1.Field_Info) COLUMNS
+								"name" VARCHAR2(50) PATH '@name',
+                "display" VARCHAR2(50) PATH '@display') T
+    </select>
+    <!-- 获取节点配置信息 -->
+<select id="getNodeConfigurarion.select" resultClass="java.lang.String" parameterClass="map">
+                select extractvalue(xmltype(w.workflow),
+                            '/ps/p/n[@d][@i="' || #activityId# || '"]/@d') as d
+          from wf_process_templete w
+         where id = #workFlowId#
+    </select>
+<!-- form_definition的id，以及wf_process_Template的id -->
+<select id = "templateInfoByTemplateId.select" resultClass="java.util.HashMap" parameterClass="java.lang.Long">
+        select cp.workflow_id, cp.form_appid from ctp_template cp where id = #templateId#
+    </select>
+<!-- 根据form_definition的id查询表单的中文名称 -->
+<select id="formNameByFormAppId.select" resultClass="java.lang.String" parameterClass="java.lang.String">
+            select name from form_definition where id = #id#
+    </select>
+    <!-- 根据form_definition的id查询CAP4表单的中文名称 -->
+    <select id="getCapFormDefNameById.select" resultClass="java.lang.String" parameterClass="java.lang.String">
+        select name from cap_form_definition where id = #id#
+    </select>
+
+    <!-- kk.do chenjie 20200512  通过表单id找到表单的字段名和字段属性   start-->
+    <select id="findFieldMap.select" resultClass="java.util.HashMap" parameterClass="java.lang.String">
+        select distinct vc_fieldname,vc_fielddisplay from vm_formfield where n_formid= #formId#
+    </select>
+    <!-- kk.do chenjie 20200512  通过表单id找到表单的字段名和字段属性   end-->
+  <!-- kk.do DT_DirectorManager_T001 chenjie 20200515  董监事信息查询 start -->
+        <select id="DT_DirectorManager_T001.select" parameterClass="map" resultClass="mapBean">
+            select
+            id,
+            util_common.getEnumValueById(org_id) as org_id,
+            name,
+            util_common.getEnumValueById(gender) as gender,
+            util_common.getEnumValueById(post) as post,
+            education,
+            positional_title,
+            decode($isResume$,'1',nvl('',present_post_desc)) as present_post_desc ,
+            util_common.getEnumValueById(id_type) as id_type,
+            id_number,
+            util_common.getEnumValueById(status) as status,
+            to_char(date_of_appoint,'YYYY-MM-DD') as date_of_appoint,
+            to_char(date_of_depart,'YYYY-MM-DD') as date_of_depart,
+            remark,
+            decode($isResume$,'1',nvl('',presvious_post_desc)) as presvious_post_desc ,
+            serial_number
+            from vm_company_directors_info
+            where 1=1
+
+            <isNotEmpty prepend="and" property="name">
+                name like '%' || #name#||'%'
+            </isNotEmpty>
+            <isNotEmpty prepend="and" property="orgId">
+                util_common.getEnumValueById(org_id) = #orgId#
+            </isNotEmpty>
+            <isNotEmpty prepend="and" property="idType">
+                util_common.getEnumValueById(id_type) = #idType#
+            </isNotEmpty>
+            <isNotEmpty prepend="and" property="idNumber">
+                id_number like '%' || #idNumber#||'%'
+            </isNotEmpty>
+            <isNotEmpty prepend="and" property="status">
+                util_common.getEnumValueById(status) = #status#
+            </isNotEmpty>
+        </select>
+
+    <select id="DT_DirectorManager_T001.select.count" parameterClass="map" resultClass="long">
+        select count(*)
+        from vm_company_directors_info
+        where 1=1
+        <isNotEmpty prepend="and" property="name">
+            name like '%' || #name#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="orgId">
+            util_common.getEnumValueById(org_id) = #orgId#
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="idType">
+            util_common.getEnumValueById(id_type) = #idType#
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="idNumber">
+            id_number like '%' || #idNumber#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="status">
+            util_common.getEnumValueById(status) = #status#
+        </isNotEmpty>
+    </select>
+    <!-- kk.do DT_DirectorManager_T001 chenjie 20200515  董监事信息查询 end -->
+    <select id="memberIdByPostCode.select" resultClass="java.lang.String" parameterClass="java.util.HashMap">
+    select o.source_id from  org_relationship o
+    where o.objective1_id =
+    (select id from org_post o where o.code = #code#
+    and o.org_account_id = #accounId#)
+</select>
+
+    <!-- kk.do chenjie 20200619 根据流程模版编号找到需要导出的数据 start-->
+    <select id="ExtendedAttributesByTemplateNumber.select" resultClass="java.util.HashMap" parameterClass="java.lang.String" >
+        select field0007 as attrNum,field0008 as nodeNum,field0009 attrName,field0010 attrValue,field0011 as attrRemark from formson_2231 a left join formmain_2229 b on a.formmain_id=b.id
+        where b.field0001 =#flowType#
+    </select>
+    
+    <select id="CL_EXPORTCOM_T001.select" resultClass="java.util.HashMap" parameterClass="java.lang.String">
+        select grade,mainpoints,referenceevaluationmethod,specificAssessment,util_common.getEnumShowById( assessmentResult) as assessmentResult ,correctivePlanAndAction,util_user.getMemberNameByMemId(designatedcontactperson) as designatedcontactperson,ctp_attachment.fileName as noteTheFile,remark from
+        vm_selfEvaluationChildInfo  left join ctp_attachment on vm_selfEvaluationChildInfo.noteTheFile =ctp_attachment.sub_reference
+        where formmainId=#formId#
+        order by grade
+    </select>
+
+    <select id="CL_EXPORTCOM_T002.select" resultClass="java.util.HashMap" parameterClass="java.lang.String">
+        select grade as grade_exp,mainpoints as mainpoints_exp,referenceevaluationmethod as referenceevaluationmethod_exp,util_user.getMemberNameByMemId(designatedcontactperson) as designatedcontactperson_exp,specificAssessment as specificAssessment_exp,util_common.getEnumShowById( assessmentResult) as assessmentResult_exp ,correctivePlanAndAction as correctivePlanAndAction_exp ,ctp_attachment.fileName  as noteTheFile_exp,
+        remark as remark_exp,util_common.getEnumShowById(reviewOpinion) as reviewOpinion_exp ,theFactDescription as theFactDescription_exp,reviewRsultConfirmOpinions  as reviewRsultConfirmOpinions_exp from vm_selfEvaluationChildInfo left join ctp_attachment on vm_selfEvaluationChildInfo.noteTheFile =ctp_attachment.sub_reference
+        where formmainId=#formId#
+        order by grade
+    </select>
+    <!-- kk.do chenjie 20200619 根据流程模版编号找到流程扩展定 end-->
+    <!-- 宣传推介接口查询-->
+    <!-- kk.do fuzhiyuan 20240209 兼容宣传推介和客户服务材料审批cap4流程查询-->
+    <select id="CL_POPM_T001.select" parameterClass="map" resultClass="mapBean">
+        select * from (
+        select id,(CASE msg WHEN  '0' THEN '1' WHEN  '1' THEN '2' ELSE '其他' END) as type,msg,
+        util_user.getMemberNameByMemId(applyUser) as apply_user ,applyUser,
+        to_char(applyDate,'YYYY-MM-DD') as create_date , applyDate,state, topic,mail,title,
+        (CASE WHEN mail = '1' THEN lmpcontent WHEN msg = '1' THEN lmpcontent||msgContent ELSE lmpcontent||'其他' END)
+        as lmpcontent from vm_launchMaterialProcess vm where finishedflag =1
+        union all
+        select id,(CASE msg WHEN  '0' THEN '1' WHEN  '1' THEN '2' ELSE '其他' END) as type,msg,
+        util_user.getMemberNameByMemId(applyUser) as apply_user ,applyUser,
+        to_char(applyDate,'YYYY-MM-DD') as create_date ,applyDate, state, topic,mail,title,
+        (CASE WHEN mail = '1' THEN lmpcontent WHEN msg = '1' THEN lmpcontent||msgContent ELSE lmpcontent||'其他' END)
+        as lmpcontent from vm_customerserviceprocess where finishedflag =1
+        union all
+        select id,(CASE msg WHEN  '0' THEN '1' WHEN  '1' THEN '2' ELSE '其他' END) as type,msg,
+        util_user.getMemberNameByMemId(applyUser) as apply_user ,applyUser,
+        to_char(applyDate,'YYYY-MM-DD') as create_date ,applyDate, state, topic,mail,title,
+        (CASE WHEN mail = '1' THEN lmpcontent WHEN msg = '1' THEN lmpcontent||msgContent ELSE lmpcontent||'其他' END)
+        as lmpcontent from vm_customerserviceprocess_cap4 where finishedflag =1
+        union all
+        select id,(CASE msg WHEN  '0' THEN '1' WHEN  '1' THEN '2' ELSE '其他' END) as type,msg,
+        util_user.getMemberNameByMemId(applyUser) as apply_user ,applyUser,
+        to_char(applyDate,'YYYY-MM-DD') as create_date , applyDate,state, topic,mail,title,
+        (CASE WHEN mail = '1' THEN lmpcontent WHEN msg = '1' THEN lmpcontent||msgContent ELSE lmpcontent||'其他' END)
+        as lmpcontent from vm_launchMaterialProcess_cap4  where finishedflag =1
+        )   where 1 = 1
+        <isEqual compareValue="1"  property="type">
+            and  mail = 1
+            <isNotEmpty prepend="and" property="topic">
+                topic like '%' || #topic#|| '%'
+            </isNotEmpty>
+        </isEqual>
+        <isEqual compareValue="2"  property="type">
+            and  msg = 1
+            <isNotEmpty prepend="and" property="topic">
+                lmpcontent like '%' || #topic#|| '%'
+            </isNotEmpty>
+        </isEqual>
+        <isNotEmpty prepend="and" property="applyUser">
+            util_user.getMemberNameByMemId(applyUser) like '%' || #applyUser# || '%'
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="createDateBegin">
+            to_date(#createDateBegin#,'yyyy-mm-dd') <![CDATA[<=]]> trunc(applyDate)
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="createDateEnd">
+            to_date(#createDateEnd#,'yyyy-mm-dd') <![CDATA[>=]]> trunc(applyDate)
+        </isNotEmpty>
+        <isNotEmpty prepend=" " property="order">
+            $order$
+        </isNotEmpty>
+    </select>
+
+    <!-- 宣传推介count查询-->
+    <select id="CL_POPM_T001.select.count" parameterClass="map" resultClass="long">
+        select count(*)
+        from
+        (
+        select id,(CASE msg WHEN  '0' THEN '1' WHEN  '1' THEN '2' ELSE '其他' END) as type,msg,
+        util_user.getMemberNameByMemId(applyUser) as apply_user ,applyUser,
+        to_char(applyDate,'YYYY-MM-DD') as create_date , applyDate,state, topic,mail,title,
+        (CASE WHEN mail = '1' THEN lmpcontent WHEN msg = '1' THEN lmpcontent||msgContent ELSE lmpcontent||'其他' END)
+        as lmpcontent from vm_launchMaterialProcess vm where finishedflag =1
+        union all
+        select id,(CASE msg WHEN  '0' THEN '1' WHEN  '1' THEN '2' ELSE '其他' END) as type,msg,
+        util_user.getMemberNameByMemId(applyUser) as apply_user ,applyUser,
+        to_char(applyDate,'YYYY-MM-DD') as create_date ,applyDate, state, topic,mail,title,
+        (CASE WHEN mail = '1' THEN lmpcontent WHEN msg = '1' THEN lmpcontent||msgContent ELSE lmpcontent||'其他' END)
+        as lmpcontent from vm_customerserviceprocess where finishedflag =1
+        union all
+        select id,(CASE msg WHEN  '0' THEN '1' WHEN  '1' THEN '2' ELSE '其他' END) as type,msg,
+        util_user.getMemberNameByMemId(applyUser) as apply_user ,applyUser,
+        to_char(applyDate,'YYYY-MM-DD') as create_date ,applyDate, state, topic,mail,title,
+        (CASE WHEN mail = '1' THEN lmpcontent WHEN msg = '1' THEN lmpcontent||msgContent ELSE lmpcontent||'其他' END)
+        as lmpcontent from vm_customerserviceprocess_cap4 where finishedflag =1
+        union all
+        select id,(CASE msg WHEN  '0' THEN '1' WHEN  '1' THEN '2' ELSE '其他' END) as type,msg,
+        util_user.getMemberNameByMemId(applyUser) as apply_user ,applyUser,
+        to_char(applyDate,'YYYY-MM-DD') as create_date , applyDate,state, topic,mail,title,
+        (CASE WHEN mail = '1' THEN lmpcontent WHEN msg = '1' THEN lmpcontent||msgContent ELSE lmpcontent||'其他' END)
+        as lmpcontent from vm_launchMaterialProcess_cap4  where finishedflag =1
+        )
+        where 1=1
+
+        <isEqual compareValue="1"  property="type">
+            and  mail = 1
+            <isNotEmpty prepend="and" property="topic">
+                topic like '%' || #topic#|| '%'
+            </isNotEmpty>
+        </isEqual>
+        <isEqual compareValue="2"  property="type">
+            and  msg = 1
+            <isNotEmpty prepend="and" property="topic">
+                lmpcontent like '%' || #topic#|| '%'
+            </isNotEmpty>
+        </isEqual>
+        <isNotEmpty prepend="and" property="applyUser">
+            util_user.getMemberNameByMemId(applyUser) like '%' || #applyUser# || '%'
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="createDateBegin">
+            to_date(#createDateBegin#,'yyyy-mm-dd') <![CDATA[<=]]> trunc(applyDate)
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="createDateEnd">
+            to_date(#createDateEnd#,'yyyy-mm-dd') <![CDATA[>=]]> trunc(applyDate)
+        </isNotEmpty>
+        <isNotEmpty prepend=" " property="order">
+            $order$
+        </isNotEmpty>
+    </select>
+      <insert id="formContent.insert" parameterClass="java.util.HashMap" >
+  insert into ctp_content_all
+  (ID,
+   CREATE_ID,
+   CREATE_DATE,
+   MODIFY_ID,
+   MODIFY_DATE,
+   MODULE_TYPE,
+   MODULE_ID,
+   MODULE_TEMPLATE_ID,
+   CONTENT_TYPE,
+   CONTENT,
+   CONTENT_DATA_ID,
+   CONTENT_TEMPLATE_ID,
+   TITLE,
+   SORT)
+   values
+  (util_common.getAbsID,
+   '-6760911671874597139',
+  sysdate,
+   '-6760911671874597139',
+   sysdate,
+   #type#,
+   #formId#,
+   #module_template_id#,
+   '20',
+   '',
+   #formId#,
+   #content_template_id#,
+   #title#,
+   '0')
+    </insert>
+    <select id="h5Source.select" resultClass="java.util.HashMap">
+        select TEMPLATE_CODE, TEMPLATE_ID, APP_ID,TABLE_NAME from vm_h5paramconfig
+    </select>
+
+
+    <select id="allPrivRoleMenu.select" resultClass="java.lang.String">
+        select menuid from PRIV_ROLE_MENU
+    </select>
+    <select id="cap4BtnConfigByFormId.select" parameterClass="java.util.HashMap" resultClass="com.seeyon.apps.kk.customizebtn.model.CustomBtnConfigModel">
+        select
+        customBtnName
+        tableName,
+        bindId,
+        implClassPath,
+        implClassBeanName,
+        extendField,
+        functionDesc       from vm_customBtnConfig where bindId = #formId# and customBtnName = #buttonName#
+    </select>
+
+    <!-- vm_wf_CL_RoadShow0001_R001 投研路演流程-->
+    <select id = "CL_RoadShow0001_R001V1.select" parameterClass="map" resultClass="mapBean">
+        select
+        'CL_RoadShow0001_R001' as templateId,
+        id,
+        applierCode,
+        applierName,
+        applyDeptCode,
+        applyOrgName,
+        applyDate,
+        title,
+        way,
+        startTime,
+        endTime,
+        wfStatus,
+        prodCodeJoin,
+        prodNameJoin,
+        funderNameJoin,
+        FundCodeJoin,
+        customerName,
+        stage,
+        custid
+        from
+        vm_wf_CL_RoadShow0001_R001 v1 where
+        util_org.inDepartmentGroup(util_org.getDeptIdByDeptCode(applyDeptCode), 'structLine') = 1
+        <isNotEmpty prepend="AND"   property="applyDateStart">
+            to_date(v1.applyDate ,'yyyy-mm-dd') <![CDATA[>]]>=to_date(#applyDateStart#,'yyyy-mm-dd')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="applyDateEnd">
+            to_date(v1.applyDate ,'yyyy-mm-dd') <![CDATA[<]]>=to_date(#applyDateEnd#,'yyyy-mm-dd')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="deptCode">
+            applyDeptCode = #deptCode#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="applierCode">
+            applierCode = #applierCode#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="title">
+            title like '%'||#title#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="fundername">
+            fundernamejoin like '%'||#fundername#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="way">
+            way like '%'||#way#||'%'
+        </isNotEmpty>
+        order by applyDate desc
+    </select>
+
+    <select id = "CL_RoadShow0001_R001V1.select.count" parameterClass="map" resultClass="long">
+        select
+        count(*)
+        from
+        vm_wf_CL_RoadShow0001_R001 v1 where
+        util_org.inDepartmentGroup(util_org.getDeptIdByDeptCode(applyDeptCode), 'structLine') = 1
+        <isNotEmpty prepend="AND"   property="applyDateStart">
+            to_date(v1.applyDate ,'yyyy-mm-dd') <![CDATA[>]]>=to_date(#applyDateStart#,'yyyy-mm-dd')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="applyDateEnd">
+            to_date(v1.applyDate ,'yyyy-mm-dd') <![CDATA[<]]>=to_date(#applyDateEnd#,'yyyy-mm-dd')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="deptCode">
+            applyDeptCode = #deptCode#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="applierCode">
+            applierCode = #applierCode#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="title">
+            title like '%'||#title#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="fundername">
+            fundernamejoin like '%'||#fundername#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="way">
+            way like '%'||#way#||'%'
+        </isNotEmpty>
+    </select>
+
+    <select id="getHolidayCalendar.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+            to_char(datenum,'yyyy-mm-dd') datenum,
+            isrest,
+            datememo
+        from table(util_common.getHolidays(#year#,#includeWeekend#))
+    </select>
+
+    <delete id="deleteTableContent.delete" parameterClass="java.util.HashMap">
+        delete from ctp_content_all c
+        where
+        module_template_id = #module_template_id#
+        and content_template_id = #content_template_id#
+        <isNotEmpty prepend="AND"   property="formId">
+        CONTENT_DATA_ID = #formId#
+        </isNotEmpty>
+    </delete>
+
+    <select id="getUserInfoByCode.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        org.name as name,
+        org.ext_attr_1 as cellPhone,
+        org.ext_attr_2 as email,
+        org.ext_attr_3 as tel,
+        (select ext_attr_2 from org_unit where id = org.org_account_id) as address,
+        vm.usertitle as userTitle,
+        (select ext_attr_7 from org_unit where id = org.org_account_id) as url,
+        (select name from org_unit where id = org.org_account_id) as company,
+        org.org_account_id as accountId,
+        vm.id as mainId,
+        vm.traditionalName as traditionalName
+        from
+
+        org_member org left join vm_member vm on  (org.code = vm.kmCode)
+
+        where org.code = #code#
+        and org.is_deleted = 0 and org.is_enable = 1
+    </select>
+
+    <select id="getUserInfoByVmId.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        org.name as name,
+        org.ext_attr_1 as cellPhone,
+        org.ext_attr_2 as email,
+        org.ext_attr_3 as tel,
+        (select ext_attr_2 from org_unit where id = org.org_account_id) as address,
+        vm.usertitle as userTitle,
+        (select ext_attr_7 from org_unit where id = org.org_account_id) as url,
+        (select name from org_unit where id = org.org_account_id) as company,
+        vm.id as mainId
+
+        from
+
+        org_member org left join vm_member vm on  (org.code = vm.kmCode)
+
+        where vm.id = #id#
+        and org.is_deleted = 0 and org.is_enable = 1
+    </select>
+
+    <select id="getUserInfoById.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        org.name as name,
+        org.ext_attr_1 as cellPhone,
+        org.ext_attr_2 as email,
+        org.ext_attr_3 as tel,
+        (select ext_attr_2 from org_unit where id = org.org_account_id) as address,
+        vm.usertitle as userTitle,
+        (select ext_attr_7 from org_unit where id = org.org_account_id) as url,
+        (select name from org_unit where id = org.org_account_id) as company,
+        org.org_account_id as companyId,
+        vm.id as mainId
+
+        from
+
+        org_member org left join vm_member vm on  (org.code = vm.kmCode)
+
+        where org.id = #memberId#
+        and org.is_deleted = 0 and org.is_enable = 1
+    </select>
+
+    <select id="getAllUserCode.select"  resultClass="java.lang.String">
+        select
+        kmCode
+
+        from
+
+        vm_member
+        where kmCode is not null
+
+        and status = '在职'
+    </select>
+
+    <select id="getDownloadUserInfoById.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        (select file_url from CTP_ATTACHMENT where
+        SUB_REFERENCE = qrcode) as imgId
+
+
+        from
+
+        vm_member
+        where kmCode is not null
+
+        and id = #id#
+    </select>
+
+    <select id="getAllQrCodeId.select" resultClass="java.util.HashMap">
+        select
+        (select file_url from CTP_ATTACHMENT where
+        SUB_REFERENCE = qrcode) as imgId,
+        util_user.getMemberNameByMemCode(kmcode) name,
+        hrid
+        from
+
+        vm_member
+        where qrCode is not null
+
+        and status = '在职'
+    </select>
+
+    <select id="getMemberNameById.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select
+        (select name from org_member where id = userId) name
+        from
+
+        vm_member
+        where id = #id#
+    </select>
+
+<select id="Product_Element_T001.select" parameterClass="map" resultClass="mapBean">
+    select * from(
+    select
+    productName,/*产品名称*/
+    productCode,/*产品编号*/
+    id,
+    send_date senddate,
+    state flowStatus,
+    util_user.getMemCodeByMemId(send_user) sendUser,
+    util_org.getDeptCodeByDeptId(send_depart) departCode,
+    util_user.getMemberNameByMemId(send_user) send_user, /*申请人   */
+    to_char(send_date, 'yyyy-mm-dd') send_date, /*  申请日期  */
+    util_org.getDeptNameByDeptId(send_depart) send_depart, /*申请部门    */
+    util_common.getEnumValueById(product_category) product_category, /*集合计划类型*/
+    product_fullname, /*产品全称  */
+    util_user.getMemberNameByMemIds(sales_member) sales_member, /*项目负责销售人员*/
+    util_user.getMemberNameByMemIds(investment_manager) investment_manager, /*投资经理  */
+    trustee_member, /*托管人名称   */
+    util_common.getEnumValueById(main_investment_strategy) main_investment_strategy, /*主要投资策略  */
+    administrative_fee, /*年管理费率   */
+    util_common.getEnumValueById(is_performance_reward) is_performance_reward, /*是否有业绩报酬  */
+    per_reward_percentage, /*业绩报酬计提比例   */
+    trustee_fee, /*年托管费率   */
+    duration, /*计划存续期限   */
+    util_common.getEnumValueById(is_fof) is_fof, /*是否为FOF产品   */
+    util_common.getEnumValueById(is_qdii) is_qdii, /*是否为QDII产品  */
+    util_common.getEnumValueById(settlement_mode) settlement_mode, /*结算模式    */
+    investment_scope, /*  投资范围   */
+    special_investment_target, /*  拟实际运用的特殊投资标的*/
+    investment_restriction, /*  投资限制    */
+    position_deadline, /*建仓期   */
+    performance_benchmark, /*业绩比较基准*/
+    util_common.getEnumValueById(is_warn_stop_loss_line) is_warn_stop_loss_line, /*有无预警止损条款*/
+    warn_line, /*预警线 */
+    stop_loss_line, /*止损线 */
+    util_common.getEnumValueById(is_income_distribute) is_income_distribute, /*是否进行收益分配  */
+    util_common.getEnumValueById(bond_valuation_method) bond_valuation_method, /*估值方法  */
+    util_common.getEnumValueById(valuation_check) valuation_check, /*估值日   */
+    util_common.getEnumValueById(product_investment_type) product_investment_type, /*产品投资类型*/
+    investment_objective, /*投资目标   */
+    client_fullname, /*委托人名称及数量*/
+    util_common.getEnumValueById(launch_confirmation_day) launch_confirmation_day, /*参与退出确认日 */
+    util_common.getEnumValueById(is_use_elect_sig) is_use_elect_sig, /*是否采用电子合同  */
+    per_reward_benchmark, /*业绩报酬绝对计提基准年化收益率*/
+    util_common.getEnumValueById(duration_unit) duration_unit, /*计划存续期限单位    */
+    debt_limit_lower, /*存款债券等债权类资产的比例占资产管理计划总资产下限 */
+    debt_limit_upper, /*存款债券等债权类资产的比例占资产管理计划总资产上限 */
+    stock_limit_lower, /*投资于股票等股权类资产占资产管理计划总资产的比例下限*/
+    stock_limit_upper, /*投资于股票等股权类资产占资产管理计划总资产的比例上限*/
+    shop_derivative_limit_lower, /*投资于商品及金融衍生品的持仓合约价值占资产管理计划总资产的比例下限*/
+    shop_derivative_limit_upper, /*投资于商品及金融衍生品的持仓合约价值占资产管理计划总资产的比例上限*/
+    derivative_limit_lower, /*衍生品账户权益占资产管理计划总资产的比例下限  */
+    derivative_limit_upper, /*衍生品账户权益占资产管理计划总资产的比例上限  */
+    p_opening_frequency, /*产品开放频率值*/
+    decode(p_opening_frequency,
+    1,
+    p_open_frequency1_param1,
+    2,
+    p_open_frequency2_param1,
+    3,
+    p_open_frequency3_param1,
+    4,
+    p_open_frequency4_param2,
+    5,
+    p_open_frequency5_param1,6,'',7,'',0,'') p_opening_frequency_param1,
+    decode(p_opening_frequency,
+    1,
+    '',
+    2,
+    util_common.getEnumShowById(p_open_frequency2_param2),
+    3,
+    p_open_frequency3_param3,
+    4,
+    '',
+    5,
+    p_open_frequency5_param4,6,'',7,'',0,'') p_opening_frequency_param2,
+    decode(p_opening_frequency,
+    1,
+    '',
+    2,
+    p_open_frequency2_param4,
+    3,
+    '',
+    4,
+    '',
+    5,
+    p_open_frequency5_param3,6,'',7,'',0,'') p_opening_frequency_param3
+    from vm_wf_product_element_Double
+    union all
+    select
+    productName,/*产品名称*/
+    productCode,/*产品编号*/
+    id,
+    send_date senddate,
+    state flowStatus,
+    util_user.getMemCodeByMemId(send_user) sendUser,
+    util_org.getDeptCodeByDeptId(send_depart) departCode,
+    util_user.getMemberNameByMemId(send_user) send_user, /*申请人   */
+    to_char(send_date, 'yyyy-mm-dd') send_date, /*  申请日期  */
+    util_org.getDeptNameByDeptId(send_depart) send_depart, /*申请部门    */
+    util_common.getEnumValueById(product_category) product_category, /*集合计划类型*/
+    product_fullname, /*产品全称  */
+    util_user.getMemberNameByMemIds(sales_member) sales_member, /*项目负责销售人员*/
+    util_user.getMemberNameByMemIds(investment_manager) investment_manager, /*投资经理  */
+    trustee_member, /*托管人名称   */
+    util_common.getEnumValueById(main_investment_strategy) main_investment_strategy, /*主要投资策略  */
+    administrative_fee, /*年管理费率   */
+    util_common.getEnumValueById(is_performance_reward) is_performance_reward, /*是否有业绩报酬  */
+    per_reward_percentage, /*业绩报酬计提比例   */
+    trustee_fee, /*年托管费率   */
+    to_char(duration) duration, /*计划存续期限   */
+    util_common.getEnumValueById(is_fof) is_fof, /*是否为FOF产品   */
+    util_common.getEnumValueById(is_qdii) is_qdii, /*是否为QDII产品  */
+    util_common.getEnumValueById(settlement_mode) settlement_mode, /*结算模式    */
+    investment_scope, /*  投资范围   */
+    special_investment_target, /*  拟实际运用的特殊投资标的*/
+    investment_restriction, /*  投资限制    */
+    position_deadline, /*建仓期   */
+    performance_benchmark, /*业绩比较基准*/
+    util_common.getEnumValueById(is_warn_stop_loss_line) is_warn_stop_loss_line, /*有无预警止损条款*/
+    warn_line, /*预警线 */
+    stop_loss_line, /*止损线 */
+    util_common.getEnumValueById(is_income_distribute) is_income_distribute, /*是否进行收益分配  */
+    util_common.getEnumValueById(bond_valuation_method) bond_valuation_method, /*估值方法  */
+    util_common.getEnumValueById(valuation_check) valuation_check, /*估值日   */
+    util_common.getEnumValueById(product_investment_type) product_investment_type, /*产品投资类型*/
+    investment_objective, /*投资目标   */
+    client_fullname, /*委托人名称及数量*/
+    util_common.getEnumValueById(launch_confirmation_day) launch_confirmation_day, /*参与退出确认日 */
+    util_common.getEnumValueById(is_use_elect_sig) is_use_elect_sig, /*是否采用电子合同  */
+    per_reward_benchmark, /*业绩报酬绝对计提基准年化收益率*/
+    util_common.getEnumValueById(duration_unit) duration_unit, /*计划存续期限单位    */
+    debt_limit_lower, /*存款债券等债权类资产的比例占资产管理计划总资产下限 */
+    debt_limit_upper, /*存款债券等债权类资产的比例占资产管理计划总资产上限 */
+    stock_limit_lower, /*投资于股票等股权类资产占资产管理计划总资产的比例下限*/
+    stock_limit_upper, /*投资于股票等股权类资产占资产管理计划总资产的比例上限*/
+    shop_derivative_limit_lower, /*投资于商品及金融衍生品的持仓合约价值占资产管理计划总资产的比例下限*/
+    shop_derivative_limit_upper, /*投资于商品及金融衍生品的持仓合约价值占资产管理计划总资产的比例上限*/
+    derivative_limit_lower, /*衍生品账户权益占资产管理计划总资产的比例下限  */
+    derivative_limit_upper, /*衍生品账户权益占资产管理计划总资产的比例上限  */
+    p_opening_frequency, /*产品开放频率值*/
+    decode(p_opening_frequency,
+    1,
+    '',
+    2,
+    p_opening_frequency2_param2,
+    3,
+    '') p_opening_frequency_param1,
+    decode(p_opening_frequency, 1, '', 2, p_opening_frequency2_param4, 3, ''),
+    decode(p_opening_frequency,
+    1,
+    '',
+    2,
+    p_opening_frequency2_param5,
+    3,
+    '') p_opening_frequency_param3
+    from vm_wf_product_element_Single) t
+    where 1=1
+    <isNotEmpty prepend="AND"   property="productCode">
+        productCode like '%'||#productCode#||'%'
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="productName">
+        productName like '%'||#productName#||'%'
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="startDate">
+        senddate <![CDATA[>]]>=to_date(#startDate#,'YYYY-MM-DD')
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="endDate">
+        senddate <![CDATA[<]]>=to_date(#endDate#,'YYYY-MM-DD')
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="sendUser">
+        sendUser = #sendUser#
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="flowStatus">
+        flowStatus = #flowStatus#
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="departCode">
+        departCode in ($departCode$)
+    </isNotEmpty>
+    <isNotEmpty prepend=" " property="order">
+        $order$
+    </isNotEmpty>
+</select>
+<select id="Product_Element_T001.select.count" parameterClass="map" resultClass="long">
+    select count('x') from(
+    select
+    productName,/*产品名称*/
+    productCode,/*产品编号*/
+    id,
+    send_date senddate,
+    state flowStatus,
+    util_user.getMemCodeByMemId(send_user) sendUser,
+    util_org.getDeptCodeByDeptId(send_depart) departCode,
+    util_user.getMemberNameByMemId(send_user) send_user, /*申请人   */
+    to_char(send_date, 'yyyy-mm-dd') send_date, /*  申请日期  */
+    util_org.getDeptNameByDeptId(send_depart) send_depart, /*申请部门    */
+    util_common.getEnumValueById(product_category) product_category, /*集合计划类型*/
+    product_fullname, /*产品全称  */
+    util_user.getMemberNameByMemIds(sales_member) sales_member, /*项目负责销售人员*/
+    util_user.getMemberNameByMemIds(investment_manager) investment_manager, /*投资经理  */
+    trustee_member, /*托管人名称   */
+    util_common.getEnumValueById(main_investment_strategy) main_investment_strategy, /*主要投资策略  */
+    administrative_fee, /*年管理费率   */
+    util_common.getEnumValueById(is_performance_reward) is_performance_reward, /*是否有业绩报酬  */
+    per_reward_percentage, /*业绩报酬计提比例   */
+    trustee_fee, /*年托管费率   */
+    duration, /*计划存续期限   */
+    util_common.getEnumValueById(is_fof) is_fof, /*是否为FOF产品   */
+    util_common.getEnumValueById(is_qdii) is_qdii, /*是否为QDII产品  */
+    util_common.getEnumValueById(settlement_mode) settlement_mode, /*结算模式    */
+    investment_scope, /*  投资范围   */
+    special_investment_target, /*  拟实际运用的特殊投资标的*/
+    investment_restriction, /*  投资限制    */
+    position_deadline, /*建仓期   */
+    performance_benchmark, /*业绩比较基准*/
+    util_common.getEnumValueById(is_warn_stop_loss_line) is_warn_stop_loss_line, /*有无预警止损条款*/
+    warn_line, /*预警线 */
+    stop_loss_line, /*止损线 */
+    util_common.getEnumValueById(is_income_distribute) is_income_distribute, /*是否进行收益分配  */
+    util_common.getEnumValueById(bond_valuation_method) bond_valuation_method, /*估值方法  */
+    util_common.getEnumValueById(valuation_check) valuation_check, /*估值日   */
+    util_common.getEnumValueById(product_investment_type) product_investment_type, /*产品投资类型*/
+    investment_objective, /*投资目标   */
+    client_fullname, /*委托人名称及数量*/
+    util_common.getEnumValueById(launch_confirmation_day) launch_confirmation_day, /*参与退出确认日 */
+    util_common.getEnumValueById(is_use_elect_sig) is_use_elect_sig, /*是否采用电子合同  */
+    per_reward_benchmark, /*业绩报酬绝对计提基准年化收益率*/
+    util_common.getEnumValueById(duration_unit) duration_unit, /*计划存续期限单位    */
+    debt_limit_lower, /*存款债券等债权类资产的比例占资产管理计划总资产下限 */
+    debt_limit_upper, /*存款债券等债权类资产的比例占资产管理计划总资产上限 */
+    stock_limit_lower, /*投资于股票等股权类资产占资产管理计划总资产的比例下限*/
+    stock_limit_upper, /*投资于股票等股权类资产占资产管理计划总资产的比例上限*/
+    shop_derivative_limit_lower, /*投资于商品及金融衍生品的持仓合约价值占资产管理计划总资产的比例下限*/
+    shop_derivative_limit_upper, /*投资于商品及金融衍生品的持仓合约价值占资产管理计划总资产的比例上限*/
+    derivative_limit_lower, /*衍生品账户权益占资产管理计划总资产的比例下限  */
+    derivative_limit_upper, /*衍生品账户权益占资产管理计划总资产的比例上限  */
+    p_opening_frequency, /*产品开放频率值*/
+    decode(p_opening_frequency,
+    1,
+    p_open_frequency1_param1,
+    2,
+    p_open_frequency2_param1,
+    3,
+    p_open_frequency3_param1,
+    4,
+    p_open_frequency4_param2,
+    5,
+    p_open_frequency5_param1,6,'',7,'',0,'') p_opening_frequency_param1,
+    decode(p_opening_frequency,
+    1,
+    '',
+    2,
+    util_common.getEnumShowById(p_open_frequency2_param2),
+    3,
+    p_open_frequency3_param3,
+    4,
+    '',
+    5,
+    p_open_frequency5_param4,6,'',7,'',0,'') p_opening_frequency_param2,
+    decode(p_opening_frequency,
+    1,
+    '',
+    2,
+    p_open_frequency2_param4,
+    3,
+    '',
+    4,
+    '',
+    5,
+    p_open_frequency5_param3,6,'',7,'',0,'') p_opening_frequency_param3
+    from vm_wf_product_element_Double
+    union all
+    select
+    productName,/*产品名称*/
+    productCode,/*产品编号*/
+    id,
+    send_date senddate,
+    state flowStatus,
+    util_user.getMemCodeByMemId(send_user) sendUser,
+    util_org.getDeptCodeByDeptId(send_depart) departCode,
+    util_user.getMemberNameByMemId(send_user) send_user, /*申请人   */
+    to_char(send_date, 'yyyy-mm-dd') send_date, /*  申请日期  */
+    util_org.getDeptNameByDeptId(send_depart) send_depart, /*申请部门    */
+    util_common.getEnumValueById(product_category) product_category, /*集合计划类型*/
+    product_fullname, /*产品全称  */
+    util_user.getMemberNameByMemIds(sales_member) sales_member, /*项目负责销售人员*/
+    util_user.getMemberNameByMemIds(investment_manager) investment_manager, /*投资经理  */
+    trustee_member, /*托管人名称   */
+    util_common.getEnumValueById(main_investment_strategy) main_investment_strategy, /*主要投资策略  */
+    administrative_fee, /*年管理费率   */
+    util_common.getEnumValueById(is_performance_reward) is_performance_reward, /*是否有业绩报酬  */
+    per_reward_percentage, /*业绩报酬计提比例   */
+    trustee_fee, /*年托管费率   */
+    to_char(duration) duration, /*计划存续期限   */
+    util_common.getEnumValueById(is_fof) is_fof, /*是否为FOF产品   */
+    util_common.getEnumValueById(is_qdii) is_qdii, /*是否为QDII产品  */
+    util_common.getEnumValueById(settlement_mode) settlement_mode, /*结算模式    */
+    investment_scope, /*  投资范围   */
+    special_investment_target, /*  拟实际运用的特殊投资标的*/
+    investment_restriction, /*  投资限制    */
+    position_deadline, /*建仓期   */
+    performance_benchmark, /*业绩比较基准*/
+    util_common.getEnumValueById(is_warn_stop_loss_line) is_warn_stop_loss_line, /*有无预警止损条款*/
+    warn_line, /*预警线 */
+    stop_loss_line, /*止损线 */
+    util_common.getEnumValueById(is_income_distribute) is_income_distribute, /*是否进行收益分配  */
+    util_common.getEnumValueById(bond_valuation_method) bond_valuation_method, /*估值方法  */
+    util_common.getEnumValueById(valuation_check) valuation_check, /*估值日   */
+    util_common.getEnumValueById(product_investment_type) product_investment_type, /*产品投资类型*/
+    investment_objective, /*投资目标   */
+    client_fullname, /*委托人名称及数量*/
+    util_common.getEnumValueById(launch_confirmation_day) launch_confirmation_day, /*参与退出确认日 */
+    util_common.getEnumValueById(is_use_elect_sig) is_use_elect_sig, /*是否采用电子合同  */
+    per_reward_benchmark, /*业绩报酬绝对计提基准年化收益率*/
+    util_common.getEnumValueById(duration_unit) duration_unit, /*计划存续期限单位    */
+    debt_limit_lower, /*存款债券等债权类资产的比例占资产管理计划总资产下限 */
+    debt_limit_upper, /*存款债券等债权类资产的比例占资产管理计划总资产上限 */
+    stock_limit_lower, /*投资于股票等股权类资产占资产管理计划总资产的比例下限*/
+    stock_limit_upper, /*投资于股票等股权类资产占资产管理计划总资产的比例上限*/
+    shop_derivative_limit_lower, /*投资于商品及金融衍生品的持仓合约价值占资产管理计划总资产的比例下限*/
+    shop_derivative_limit_upper, /*投资于商品及金融衍生品的持仓合约价值占资产管理计划总资产的比例上限*/
+    derivative_limit_lower, /*衍生品账户权益占资产管理计划总资产的比例下限  */
+    derivative_limit_upper, /*衍生品账户权益占资产管理计划总资产的比例上限  */
+    p_opening_frequency, /*产品开放频率值*/
+    decode(p_opening_frequency,
+    1,
+    '',
+    2,
+    p_opening_frequency2_param2,
+    3,
+    '') p_opening_frequency_param1,
+    decode(p_opening_frequency, 1, '', 2, p_opening_frequency2_param4, 3, ''),
+    decode(p_opening_frequency,
+    1,
+    '',
+    2,
+    p_opening_frequency2_param5,
+    3,
+    '') p_opening_frequency_param3
+    from vm_wf_product_element_Single) t
+    where 1=1
+    <isNotEmpty prepend="AND"   property="productCode">
+        productCode like '%'||#productCode#||'%'
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="productName">
+        productName like '%'||#productName#||'%'
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="startDate">
+        senddate <![CDATA[>]]>=to_date(#startDate#,'YYYY-MM-DD')
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="endDate">
+        senddate <![CDATA[<]]>=to_date(#endDate#,'YYYY-MM-DD')
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="sendUser">
+        sendUser = #sendUser#
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="flowStatus">
+        flowStatus = #flowStatus#
+    </isNotEmpty>
+    <isNotEmpty prepend="AND"   property="departCode">
+        departCode  in ($departCode$)
+    </isNotEmpty>
+    <isNotEmpty prepend=" " property="order">
+        $order$
+    </isNotEmpty>
+</select>
+    <select id="OAUserHelpConfig.select" resultClass="mapBean">
+        select
+        id,
+        flowNumber,
+        xpath,
+        helpDesc,
+        helpUrl,
+        urlSHowType,
+        showType,
+        fullText,
+        helpEnableUrl
+        from vm_oauserhelpconfig  where isenable = -3841538853571705149
+    </select>
+
+<select id="findNeedSendAlertAffair.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+    $findMemberSql$
+</select>
+    <update id="browserInfo.insert" parameterClass="java.util.HashMap">
+        insert into vm_memberLoginInfo
+        (id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        loginMember,
+        loginDate,
+        browserType,
+        otherInfo,
+        sourceMenuId,
+        taskId,
+        masterDateId
+        )
+        values
+        (#formId#,
+        1,
+        -6760911671874597139,
+        sysdate,
+        0,
+        sysdate,
+        0,
+        0,
+        0,
+        null,
+        0,
+        -6760911671874597139,
+        sysdate,
+        #loginMember#,
+        #loginDate#,
+        #browserType#,
+        #otherInfo#,
+        #sourceMenuId#,
+        #taskId#,
+        #masterDateId#
+        )
+    </update>
+    <select id="portalCustomizeMenu.select" resultClass="java.lang.String">
+        select id  from portal_customize_menu
+    </select>
+    <select id="portalIds.select" resultClass="java.lang.String">
+        select distinct portal_id from portal_nav where nav_type = 'menu'
+    </select>
+
+    <select id="getWorkFlowInfoByActivityId.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        form_id    as "formId",
+        form_name    as "formName",
+        wf_template_id    as "wfTemplateId",
+        wf_process_name    as "wfProcessName",
+        wf_activity_id    as "wfActivityId",
+        wf_activity_name    as "wfActivityName",
+        wf_activity_desc    as "wfActivityDesc",
+        wf_activity_extend_param    as "wfActivityExtendParam",
+        wf_activity_performer_type    as "wfActivityPerformerType",
+        wf_activity_performer_value    as "wfActivityPerformerValue",
+        wf_activity_performer_desc    as "wfActivityPerformerDesc",
+        wf_activity_performer_account    as "wfActivityPerformerAccount",
+        wf_activity_right_code    as "wfActivityRightCode",
+        wf_activity_right_name    as "wfActivityRightName"
+        from VM_WFACTIVITYINFO
+        where wf_activity_id = #activityId#
+    </select>
+
+    <select id="getBulDateById.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        id     as "id",
+        title as "title",
+        type_id as "typeId",
+        publish_scope as "publishScope",
+        publish_department_id as "publishDepartmentId",
+        brief as "brief",
+        keywords as "keywords",
+        data_format as "dataFormat",
+        create_date as "createDate",
+        create_user as "createUser",
+        audit_date as "auditDate",
+        audit_user_id as "auditUserId",
+        audit_advice as "auditAdvice",
+        publish_date as "publishDate",
+        publish_user_id as "publishUserId",
+        pigeonhole_date as "pigeonholeDate",
+        pigeonhole_user_id as "pigeonholeUserId",
+        pigeonhole_path as "pigeonholePath",
+        update_date as "updateDate",
+        update_user as "updateUser",
+        read_count as "readCount",
+        top_order as "topOrder",
+        state as "state",
+        deleted_flag as "deletedFlag",
+        accountid as "accountid",
+        ext1 as "ext1",
+        ext2 as "ext2",
+        ext3 as "ext3",
+        ext4 as "ext4",
+        ext5 as "ext5",
+        att_flag as "attFlag",
+        show_publish_user_flag as "showPublishUserFlag",
+        spacetype as "spacetype",
+        publish_choose as "publishChoose",
+        write_publish as "writePublish",
+        open_record_read as "openRecordRead",
+        short_content as "shortContent",
+        hide_publish_scope_flag as "hidePublishScopeFlag",
+        expire_date as "expireDate",
+        top_number_group as "topNumberGroup",
+        top_number_unit as "topNumberUnit",
+        audit_type  as "auditType",
+        ceb_type as "cebType",
+        out_permit as "outPermit"
+        from bul_data
+        where id = #id#
+    </select>
+
+    <!-- 查询出所有生效的超期提醒配置记录 -->
+    <select id="overdueNodeConfig.select"  resultClass="java.util.HashMap">
+        select
+        id,
+        templateNo,
+        tableName,
+        configNo,
+        title,
+        content,
+        pushConditions,
+        pushMember,
+        configDisplay,
+        isuse
+        from vm_overduenoteconfig where isuse = -3841538853571705149
+    </select>
+
+    <select id="postMemberByTaskName.select" resultClass="java.lang.String" parameterClass="java.util.HashMap">
+        select f.mainmember || ',' || f.submember from VM_DEPTPOST f where  util_common.getEnumShowById(f.busimodel)=#businessModel# and f.questname=#taskName#
+    </select>
+
+
+    <select id="rabbitMqFlowConf.select" resultClass="com.seeyon.apps.kk.amqp.model.RabbitMqFlowConfModel">
+        select
+        flowName,
+        flowCode,
+        flowBean,
+        onStartFunctionName,
+        onCancelFunctionName,
+        onStopFunctionName,
+        onStepBackFunctionName,
+        onFinishedFunctionName,
+        onWorkitemFunctionName,
+        workitemNode,
+        enable
+        from vm_rabbitMqFlowConf where enable = -3841538853571705149
+    </select>
+
+    <select id="rabbitMqConf.select" resultClass="com.seeyon.apps.kk.amqp.model.RabbitMqBusinessConfModel">
+        select
+        functionName,
+        functionCode,
+        exchangeName,
+        enable
+        from vm_rabbitMqConf where enable = -3841538853571705149
+    </select>
+    <select id="rabbitMqQueueConf.select" resultClass="java.util.HashMap">
+        select
+        mqe.exchangeName as "exchangeName",
+        mqe.exchangeType as "exchangeType",
+        mqes.queueName as "queueName",
+        mqes.routingkey as "routingkey",
+        mqes.threshold as "threshold",
+        mqes.percentage as "percentage",
+        mqes.receiverFWork as "receiverFWork",
+        mqes.finalThreshold as "finalThreshold"
+        from vm_mq_exchange mqe
+        left join vm_mq_exchange_son mqes on mqes.formmainId = mqe.id
+        where mqes.isSendMessage = '-3841538853571705149'
+    </select>
+
+    <!-- 查询队列名称通过主表id -->
+    <select id="queryQueueNameByFormmainId.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select
+        mqes.queueName as "queueName"
+        from vm_mq_exchange_son mqes
+        left join vm_mq_exchange mqe on mqes.formmainId = mqe.id
+        where mqes.formmainId = #formmainId#
+    </select>
+
+    <!-- 查询交换机信息通过主表id -->
+    <select id="queryExchangeNameByDataId.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        mqe.id as "id",
+        mqe.exchangeName as "exchangeName",
+        mqe.exchangeType as "exchangeType"
+        from vm_mq_exchange mqe
+        where mqe.id = #id#
+    </select>
+
+    <!-- 插入交换机队列信息 -->
+    <insert id="insertQueueByExchangeName.insert" parameterClass="java.util.HashMap">
+        insert into vm_mq_exchange_son(
+        id,
+        formmainId,
+        queueName,
+        routingkey)
+        values(
+        util_common.getAbsID,
+        #formmainId#,
+        #queueName#,
+        #routingkey#
+        )
+    </insert>
+    <!-- 查询没有回调成功的函数 -->
+    <select id = "fgOnlineEditNoCallBack.select" resultClass="java.util.HashMap">
+        select
+        to_char(id) "id",
+        templateNo "templateNo",
+        isCallBack "isCallBack",
+        to_char(nvl(failRetryCount, '0')) "failRetryCount",
+        contractFile "contractFile",
+        totalContractAmount "totalContractAmount",
+        counterparty "counterparty",
+        contractAmountUpperForShort "contractAmountUpperForShort"
+        from vm_onlineDocEdit f where f.isCallBack =  -1089048568118490234 and (f.failRetryCount <![CDATA[<]]> 5 or f.failRetryCount is null)
+    </select>
+
+    <!-- 获取全量推送失败任务待触发列表 -->
+    <select id = "getPushFailedTask.select" resultClass="java.util.HashMap">
+        select
+        vfp.id as "id",
+        vfp.url as "url",
+        vfp.callType as "callType",
+        vfp.lambdaFunction as "lambdaFunction",
+        vfp.json as "json",
+        vfm.beanName as "beanName",
+        vfm.methedName as "methedName"
+        from vm_fg_feature_push vfp
+        left join vm_fg_feature_manage vfm on vfm.feature = vfp.feature
+        where util_common.getEnumValueById(vfm.isOpen) = '1'
+        and (vfp.status is null or util_common.getEnumValueById(vfp.status) = '1')
+        and util_common.getEnumValueById(vfp.isNeedPush) = '1'
+        order by  util_common.getEnumValueById(vfm.priority) desc
+    </select>
+
+    <!-- 通过主表id获取推送失败任务 -->
+    <select id="getPushFailedTaskById.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        vfp.id as "id",
+        vfp.url as "url",
+        vfp.callType as "callType",
+        vfp.lambdaFunction as "lambdaFunction",
+        vfp.json as "json",
+        vfm.beanName as "beanName",
+        vfm.methedName as "methedName"
+        from vm_fg_feature_push vfp
+        left join vm_fg_feature_manage vfm on vfm.feature = vfp.feature
+        where util_common.getEnumValueById(vfm.isOpen) = '1'
+        and (vfp.status is null or util_common.getEnumValueById(vfp.status) = '1')
+        and util_common.getEnumValueById(vfp.isNeedPush) = '1'
+        and vfp.id = #dataId#
+    </select>
+
+    <insert id="insertCtpContentAll.insert" parameterClass="java.util.HashMap">
+        insert into ctp_content_all
+        (ID,
+        CREATE_ID,
+        CREATE_DATE,
+        MODIFY_ID,
+        MODIFY_DATE,
+        MODULE_TYPE,
+        MODULE_ID,
+        MODULE_TEMPLATE_ID,
+        CONTENT_TYPE,
+        CONTENT,
+        CONTENT_DATA_ID,
+        CONTENT_TEMPLATE_ID,
+        TITLE,
+        SORT)
+        select
+        util_common.getAbsID,
+        '-6760911671874597139',
+        sysdate,
+        '-6760911671874597139',
+        sysdate,
+        42,
+        id,
+        #moduleTemplateId#,
+        '20',
+        '',
+        id,
+        #contentTemplateId#,
+        #title#,
+        '0'
+        from $tableName$ vm where id not  in(select content_data_id from ctp_content_all c where c.content_template_id = #contentTemplateId# and content_data_id is not null)
+    </insert>
+    <insert id="insertCtp4ContentAll.insert" parameterClass="java.util.HashMap">
+        insert into ctp_content_all
+        (ID,
+        CREATE_ID,
+        CREATE_DATE,
+        MODIFY_ID,
+        MODIFY_DATE,
+        MODULE_TYPE,
+        MODULE_ID,
+        MODULE_TEMPLATE_ID,
+        CONTENT_TYPE,
+        CONTENT,
+        CONTENT_DATA_ID,
+        CONTENT_TEMPLATE_ID,
+        TITLE,
+        SORT)
+        (
+        select
+        util_common.getAbsID,
+        '-6760911671874597139',
+        sysdate,
+        '-6760911671874597139',
+        sysdate,
+        42,
+        id,
+        moduleTemplateId,
+        '20',
+        '',
+        id,
+        contentTemplateId,
+        'CAP4-日志记录',
+        '0'
+        from vm_log_record vm where id =#formId#
+        )
+    </insert>
+    <select id="findFGSQLFlowExecuteInfoByFlowInfo" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        to_char(fces.eventType) eventType,
+        fces.SQLContent,
+        eventname,
+        to_char(fces.executeSort)  executeSort
+        from vm_cap4_eventDataDoc fed
+        join vm_cap4_eventDataDocSon  fces
+        on fed.id = fces.formmain_id
+        where fed.flowTemplateCode = #templateCode#
+        and fces.eventType = #eventType#
+        and fces.eventName  IN
+        <iterate conjunction="," open="(" close=")" property="eventName">
+            #eventName[]#
+        </iterate>
+    </select>
+    <update id="executeEventSQLByFlowInfo.update" parameterClass="java.lang.String">
+        $sql$
+    </update>
+
+    <select id="fgOnlineSonByMainId.select" resultClass="java.util.HashMap" parameterClass="java.lang.String">
+        select
+        id "id",
+        formmain_id "formmain_id",
+        paymentBatch "paymentBatch",
+        paymentAmount "paymentAmount",
+        expectedPaymentDate "expectedPaymentDate",
+        percentage "percentage",
+        paymentTerms "paymentTerms",
+        remarks "remarks",
+        paymentAmountUpperForShort "paymentAmountUpperForShort"
+        from vm_fgonlinedocSon where formmain_id = #id#
+    </select>
+
+    <select id="dataUnloadByCode.select" parameterClass="java.lang.String" resultClass="mapBean">
+        select writeDate,
+        dataFileName,
+        to_char(fileNameWithTime) fileNameWithTime,
+        to_char(isNeedAttachment) isNeedAttachment,
+        to_char(isZip) isZip,
+        fileOutPath,
+        dataUnloadCode
+        from vm_dataUnloadConfig where dataUnloadCode = #dataUnloadCode#
+    </select>
+
+    <!-- 查询部门岗位记录-->
+    <select id = "queryDepartPostRecord.select" parameterClass = "map" resultClass="mapBean">
+        select
+        id "id",
+        modifydate "modifydate",
+        dept "dept",
+        busimodel "busimodel",
+        questname "questname",
+        postscope "postscope",
+        mainmember "mainmember",
+        submember "submember"
+        from vm_deptpost where
+        1 = 1
+        <isNotEmpty prepend="and" property="name">
+            questName = #name#
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="modelId">
+            busimodel = #modelId#
+        </isNotEmpty>
+    </select>
+    <!--根据菜单名称获取菜单的名称-->
+    <select id="findMenuNameById.select" parameterClass="java.lang.String" resultClass="mapBean">
+        select distinct name,tableName
+        from
+        (select id,nvl(ext7, name) name,'priv_menu' tableName from priv_menu
+        union all
+        select id, show_name as name, 'portal_customize_menu' tableName  from portal_customize_menu)
+        where id  =  #menuId#
+    </select>
+    <!-- 获取所有生效的菜单数据项 -->
+    <select id="allEnableFilterMenu.select"  resultClass="com.seeyon.apps.kk.menu.model.FilterMenuModel">
+        select
+        to_char(filterType) filterType,
+        menuName,
+        to_char(menuId) menuId,
+        to_char(enable) enable
+        from vm_enumFilterConfigCap4 where enable = -3841538853571705149
+    </select>
+
+    <!-- 查询所有启用的轻舟配置 -->
+    <select id="config.selectAllEnabled" resultClass="java.util.HashMap">
+        SELECT
+        d.sysCode "sysCode",
+        d.sourceHost "sourceHost",
+        d.targetHost "targetHost",
+        to_char(i.enable) "enable",
+        i.interfaceCode "interfaceCode",
+        to_char(i.startQingzhou) "startQingzhou",
+        i.interfacePath "interfacePath",
+        to_char(d.startQingzhouHost) "startQingzhouHost"
+        FROM vm_qingzhou_domain d
+        LEFT JOIN vm_qingzhou_interface_config i ON d.sysCode = i.sysCode
+        WHERE i.enable = -3841538853571705149
+    </select>
+
+    <!-- 根据sysCode查询轻舟配置 -->
+    <select id="config.selectBySysCode" resultClass="java.util.HashMap" parameterClass="string">
+        SELECT
+        d.sysCode "sysCode",
+        d.sourceHost "sourceHost",
+        d.targetHost "targetHost",
+        to_char(i.enable) "enable",
+        i.interfaceCode "interfaceCode",
+        to_char(i.startQingzhou) "startQingzhou",
+        i.interfacePath "interfacePath",
+        to_char(d.startQingzhouHost) "startQingzhouHost"
+        FROM vm_qingzhou_domain d
+        LEFT JOIN vm_qingzhou_interface_config i ON d.sysCode = i.sysCode
+        WHERE d.sysCode = #sysCode# AND i.enable = -3841538853571705149
+    </select>
+
+    <!-- 根据interfaceCode查询轻舟配置 -->
+    <select id="config.selectByInterfaceCode" resultClass="java.util.HashMap" parameterClass="string">
+        SELECT
+        d.sysCode "sysCode",
+        d.sourceHost "sourceHost",
+        d.targetHost "targetHost",
+        to_char(i.enable) "enable",
+        i.interfaceCode "interfaceCode",
+        to_char(i.startQingzhou) "startQingzhou",
+        i.interfacePath "interfacePath",
+        to_char(d.startQingzhouHost) "startQingzhouHost"
+        FROM vm_qingzhou_domain d
+        LEFT JOIN vm_qingzhou_interface_config i ON d.sysCode = i.sysCode
+        WHERE i.interfaceCode = #interfaceCode# AND i.enable = -3841538853571705149
+    </select>
+
+    <!-- 根据sysCode查询接口编码列表 -->
+    <select id="interfaceConfig.selectInterfaceCodesBySysCode" resultClass="string" parameterClass="string">
+        SELECT interfaceCode
+        FROM vm_qingzhou_interface_config
+        WHERE sysCode = #sysCode# AND enable = -3841538853571705149
+    </select>
+    
+    <!-- 富工作相关SQL -->
+    
+    <!-- 查询所有启用的富工作推送配置，通过LEFT JOIN获取通道配置信息 -->
+    <select id="mwork.selectAllPushConfigs" resultClass="com.seeyon.apps.kk.mwork.model.MworkConfigModel">
+        SELECT 
+            p.id as id,
+            p.matching_rule as matchingRule,
+            p.channel_code as channelCode,
+            p.is_enabled as isEnabled,
+            p.regex_match as regexMatch,
+            p.template_id as templateId,
+            c.app_id as appId,
+            c.app_secret as appSecret,
+            c.title_prefix_config as titlePrefixConfig
+        FROM vm_rich_work_push_config p
+        LEFT JOIN vm_mwork_channel_config c ON p.channel_code = c.channel_code
+        WHERE p.is_enabled = -3841538853571705149  /* 只查询启用的配置 */
+    </select>
+    
+    <!-- 根据ID查询富工作推送配置，通过LEFT JOIN获取通道配置信息 -->
+    <select id="mwork.selectPushConfigById" resultClass="com.seeyon.apps.kk.mwork.model.MworkConfigModel" parameterClass="java.lang.Long">
+        SELECT 
+            p.id as id,
+            p.matching_rule as matchingRule,
+            p.channel_code as channelCode,
+            p.is_enabled as isEnabled,
+            p.regex_match as regexMatch,
+            p.template_id as templateId,
+            c.app_id as appId,
+            c.app_secret as appSecret,
+            c.title_prefix_config as titlePrefixConfig
+        FROM vm_rich_work_push_config p
+        LEFT JOIN vm_mwork_channel_config c ON p.channel_code = c.channel_code
+        WHERE p.id = #id#
+    </select>
+    
+    <!-- 根据通道编码查询富工作推送配置列表，通过LEFT JOIN获取通道配置信息 -->
+    <select id="mwork.selectPushConfigsByChannelCode" resultClass="com.seeyon.apps.kk.mwork.model.MworkConfigModel" parameterClass="string">
+        SELECT 
+            p.id as id,
+            p.matching_rule as matchingRule,
+            p.channel_code as channelCode,
+            p.is_enabled as isEnabled,
+            p.regex_match as regexMatch,
+            p.template_id as templateId,
+            c.app_id as appId,
+            c.app_secret as appSecret,
+            c.title_prefix_config as titlePrefixConfig
+        FROM vm_rich_work_push_config p
+        LEFT JOIN vm_mwork_channel_config c ON p.channel_code = c.channel_code
+        WHERE p.channel_code = #channelCode# AND p.is_enabled = -3841538853571705149  /* 根据通道编码查询且启用的配置 */
+    </select>
+</sqlMap>

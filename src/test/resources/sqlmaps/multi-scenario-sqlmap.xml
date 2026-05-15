@@ -1,0 +1,117 @@
+<sqlMap namespace="user">
+	<select id="findUsersByFilters" parameterClass="map" resultClass="user">
+		SELECT id, name, status, created_at
+		FROM users
+		<dynamic prepend="WHERE">
+			<isNotEmpty property="name">
+				AND name = #name#
+			</isNotEmpty>
+			<isNotEmpty property="status">
+				AND status = #status#
+			</isNotEmpty>
+			<isNotEmpty property="ids">
+				AND id IN
+				<iterate property="ids" open="(" close=")" conjunction=",">
+					#ids[]#
+				</iterate>
+			</isNotEmpty>
+		</dynamic>
+	</select>
+	<select id="findUsersById" parameterClass="java.lang.String" resultClass="user">
+		SELECT id, name, status, created_at
+		FROM users where id = #Id#
+	</select>
+	<select id="findUsersByIdMap" parameterClass="map" resultClass="user">
+		SELECT id, name, status, created_at
+		FROM users where id = #id#
+	</select>
+	<select id="findUsersByIdNumber" parameterClass="java.lang.Long" resultClass="user">
+		SELECT id, name, status, created_at
+		FROM users where id = #id#
+	</select>
+	<select id="findUsersByIdsList" parameterClass="java.util.List" resultClass="user">
+		SELECT id, name, status, created_at
+		FROM users where id IN
+		<iterate property="ids" open="(" close=")" conjunction=",">
+			#ids[]#
+		</iterate>
+	</select>
+	<select id="findUsersByKeyword" parameterClass="map" resultClass="user">
+		SELECT id, name, status
+		FROM users
+		<dynamic prepend="WHERE">
+			<isNotEmpty property="keyword">
+				AND (name LIKE '%' || #keyword# || '%' OR email LIKE '%' || #keyword# || '%')
+			</isNotEmpty>
+			<isEmpty property="deleted">
+				AND deleted = 0
+			</isEmpty>
+		</dynamic>
+	</select>
+	<select id="findUserContactById" parameterClass="map" resultClass="map">
+		SELECT name, email
+		FROM users where id = #id#
+	</select>
+	<select id="findUsersAfter" parameterClass="map" resultClass="user">
+		SELECT id, name FROM users WHERE created_at
+		<![CDATA[>=]]>
+		#startTime#
+	</select>
+	<select id="findWithComments" parameterClass="map" resultClass="user">
+		<!-- leading comment -->
+		SELECT id, name FROM users
+		<dynamic prepend="WHERE">
+			<!-- name condition comment -->
+			<isNotEmpty property="name">
+				AND name = #name#
+			</isNotEmpty>
+			<!-- status condition comment -->
+			<isNotEmpty property="status">
+				AND status = #status#
+			</isNotEmpty>
+		</dynamic>
+	</select>
+	<select id="findUsersRawAndSafe" parameterClass="map" resultClass="user">
+		SELECT id, name, status
+		FROM users
+		WHERE status = #status#
+		ORDER BY $orderBy$
+	</select>
+	<update id="updateUser" parameterClass="map">
+		UPDATE users
+		<dynamic prepend="SET">
+			<isNotEmpty property="name">
+				name = #name#,
+			</isNotEmpty>
+			<isNotEmpty property="status">
+				status = #status#,
+			</isNotEmpty>
+			<isNotEmpty property="email">
+				email = #email#,
+			</isNotEmpty>
+		</dynamic>
+		WHERE id = #id#
+	</update>
+	<delete id="deleteUsersByIds" parameterClass="map">
+		DELETE FROM users
+		<dynamic prepend="WHERE">
+			<isNotEmpty property="ids">
+				id IN
+				<iterate property="ids" open="(" close=")" conjunction=",">
+					#ids[]#
+				</iterate>
+			</isNotEmpty>
+		</dynamic>
+	</delete>
+	<delete id="deleteUsersByCodes" parameterClass="map">
+		DELETE FROM users
+		<dynamic prepend="WHERE">
+			<isNotEmpty property="codes">
+				code IN
+				<iterate property="codes" open="(" close=")" conjunction=",">
+					#codes[]#
+				</iterate>
+			</isNotEmpty>
+		</dynamic>
+	</delete>
+</sqlMap>

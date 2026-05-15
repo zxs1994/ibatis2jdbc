@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+
+# Maven / Java
+/target/
+*.class
+*.log
+
+# IDE
+/.idea/
+/.vscode/
+
+# Generated test reports
+/*-report.md
+
+# Local scratch files

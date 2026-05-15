@@ -1,0 +1,5126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+    <!-- 入职准备（formmain_1660），根据入职审批号查询流程信息 -->
+    <select id="stepBackFlowInfo.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT field0044 AS flowId,
+        field0004 AS memberId,
+        field0005 AS staffName,
+        field0007 AS kmAccount,
+        field0010 AS deptId,
+        field0009 AS place,
+        field0012 AS post,
+        field0050 AS papersType,
+        field0049 AS papersNo,
+        field0013 AS workPhone,
+        field0014 AS telephone
+        FROM formmain_1660
+        WHERE field0044 =#flowId#
+    </select>
+    <!-- 请假申请，查询时间内请假记录 -->
+    <select id="leaveInDate.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT T.FIELD0001 AS LEAVEID, T.FIELD0002 AS APPLYUSER FROM $absenceTableName$ T
+        INNER JOIN ( SELECT T2.ID, T3.SHOWVALUE AS FIELD0015, T4.SHOWVALUE AS FIELD0017
+        FROM $absenceTableName$ T2
+        LEFT JOIN CTP_ENUM_ITEM T3 ON T2.FIELD0015 = T3.ID
+        LEFT JOIN CTP_ENUM_ITEM T4 ON T2.FIELD0017 = T4.ID ) S1 ON S1.ID = T.ID
+        WHERE T.STATE = 1
+        AND ((TO_DATE(#startDate#, 'YYYY-MM-DD') &gt; T.FIELD0014 AND TO_DATE(#startDate#, 'YYYY-MM-DD') &lt;
+        T.FIELD0016)
+        OR (TO_DATE(#endDate#, 'YYYY-MM-DD') &gt; T.FIELD0014 AND TO_DATE(#endDate#, 'YYYY-MM-DD') &lt; T.FIELD0016)
+        OR (TO_DATE(#startDate#, 'YYYY-MM-DD') &lt; T.FIELD0014 AND TO_DATE(#endDate#, 'YYYY-MM-DD') &gt; T.FIELD0016)
+        OR (T.FIELD0014 = TO_DATE(#startDate#, 'YYYY-MM-DD') AND S1.FIELD0015 = #startDateMorN#)
+        OR (T.FIELD0014 = TO_DATE(#startDate#, 'YYYY-MM-DD') AND S1.FIELD0015 = DECODE(#startDateMorN#, '下午', '下午'))
+        OR (T.FIELD0016 = TO_DATE(#endDate#, 'YYYY-MM-DD') AND S1.FIELD0017 = #endDateMorN#)
+        OR (T.FIELD0016 = TO_DATE(#endDate#, 'YYYY-MM-DD') AND S1.FIELD0017 = DECODE(#endDateMorN#, '上午', '上午'))
+        OR (T.FIELD0014 = TO_DATE(#endDate#, 'YYYY-MM-DD') AND S1.FIELD0015 = #endDateMorN#)
+        OR (T.FIELD0016 = TO_DATE(#startDate#, 'YYYY-MM-DD') AND S1.FIELD0017 = #startDateMorN#))
+        <isEmpty prepend="and" property="userId">
+            1=0
+        </isEmpty>
+        <isNotEmpty prepend="and" property="userId">
+            T.FIELD0002 in
+            <iterate open="(" close=")" conjunction="," property="userId">
+                #userId[]#
+            </iterate>
+        </isNotEmpty>
+    </select>
+
+
+    <!-- 香港请假申请，查询时间内请假记录 OA00008433 weishangyu -->
+    <select id="HKLeaveInDate.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT T.serialNo AS LEAVEID, T.applyUser AS APPLYUSER FROM vm_wf_hkLeaveApply T
+        INNER JOIN ( SELECT T2.ID, T3.SHOWVALUE AS leaveStartHalfDay, T4.SHOWVALUE AS leaveEndHalfDay
+        FROM vm_wf_hkLeaveApply T2
+        LEFT JOIN CTP_ENUM_ITEM T3 ON T2.leaveStartHalfDay = T3.ID
+        LEFT JOIN CTP_ENUM_ITEM T4 ON T2.leaveEndHalfDay = T4.ID ) S1 ON S1.ID = T.ID
+        WHERE T.STATE = 1
+        AND ((TO_DATE(#startDate#, 'YYYY-MM-DD') &gt; T.leaveStartDate AND TO_DATE(#startDate#, 'YYYY-MM-DD') &lt;
+        T.leaveEndDate)
+        OR (TO_DATE(#endDate#, 'YYYY-MM-DD') &gt; T.leaveStartDate AND TO_DATE(#endDate#, 'YYYY-MM-DD') &lt;
+        T.leaveEndDate)
+        OR (TO_DATE(#startDate#, 'YYYY-MM-DD') &lt; T.leaveStartDate AND TO_DATE(#endDate#, 'YYYY-MM-DD') &gt;
+        T.leaveEndDate)
+        OR (T.leaveStartDate = TO_DATE(#startDate#, 'YYYY-MM-DD') AND S1.leaveStartHalfDay = #startDateMorN#)
+        OR (T.leaveStartDate = TO_DATE(#startDate#, 'YYYY-MM-DD') AND S1.leaveStartHalfDay = DECODE(#startDateMorN#,
+        '下午', '下午'))
+        OR (T.leaveEndDate = TO_DATE(#endDate#, 'YYYY-MM-DD') AND S1.leaveEndHalfDay = #endDateMorN#)
+        OR (T.leaveEndDate = TO_DATE(#endDate#, 'YYYY-MM-DD') AND S1.leaveStartHalfDay = DECODE(#endDateMorN#, '上午',
+        '上午'))
+        OR (T.leaveStartDate = TO_DATE(#endDate#, 'YYYY-MM-DD') AND S1.leaveStartHalfDay = #endDateMorN#)
+        OR (T.leaveEndDate = TO_DATE(#startDate#, 'YYYY-MM-DD') AND S1.leaveEndHalfDay = #startDateMorN#))
+        <isNotEmpty prepend="and" property="userId">
+            T.applyUser in
+            <iterate open="(" close=")" conjunction="," property="userId">
+                #userId[]#
+            </iterate>
+        </isNotEmpty>
+    </select>
+
+    <!-- 销假申请，查询时间内请假记录是否存在对应销假记录 -->
+    <!-- 20230112 weishangyu 添加条件：销假流程已结束 -->
+    <select id="cancelInDate.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT t1.id FROM $absenceCancelTableName$ t1
+        WHERE t1.field0006 = #leaveId#
+        AND STATE = 1
+        AND ( to_date(#endDate#, 'YYYY-MM-DD') &lt; t1.field0015
+        OR to_date(#startDate#, 'YYYY-MM-DD') &gt; t1.field0017
+        OR (to_date(#endDate#, 'YYYY-MM-DD') = t1.field0015 and util_common.getEnumShowById(field0016) = '下午' and #endDateHalf# = '上午')
+        OR (to_date(#startDate#, 'YYYY-MM-DD') = t1.field0017 and util_common.getEnumShowById(field0018) = '上午' and #startDate# = '下午')
+        OR t1.field0013 = '-2733701732180602896' )
+        and id in (select form_recordId from col_summary where state = 3 and templete_id = -7111560710701037197)
+        ORDER BY t1.start_date DESC
+    </select>
+
+    <!-- 销假申请，查询时间内请假记录是否存在对应销假记录  OA00008433 weishangyu -->
+    <select id="HKCancelInDate.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT t1.id FROM vm_wf_hkLeaveBackApply t1
+        WHERE t1.leaveFlowSerialNo = #leaveId#
+        AND STATE = 1
+        AND ( to_date(#endDate#, 'YYYY-MM-DD') &lt; t1.newLeaveStartDate
+        OR to_date(#startDate#, 'YYYY-MM-DD') &gt; t1.newLeaveEndDate
+        OR t1.leaveBackType = '-2733701732180602896' )
+        ORDER BY t1.start_date DESC
+    </select>
+
+    <!-- 销假申请，查询在途销假 -->
+    <select id="getLivingResum.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT t1.id FROM $absenceCancelTableName$ t1
+        WHERE t1.field0006 = #flowId# AND STATE = 1
+    </select>
+
+    <!-- 销假申请，查询在途相关销假申请 -->
+    <select id="getHKLivingResum.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT t1.id FROM vm_wf_hkLeaveBackApply t1
+        WHERE t1.leaveFlowSerialNo = #flowId# AND STATE = 1
+    </select>
+
+    <!-- 默认组设置，根据默认组名称查询默认组信息 -->
+    <select id="defaultInfo.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT t1.FIELD0005 AS beforeMember
+        FROM $defaultInfoTableName$ t1 WHERE t1.field0003 = #deptName#
+    </select>
+    <!-- 默认组设置，更新新员工信息 -->
+    <update id="updateDefaultInfo.update" parameterClass="map">
+        update $defaultInfoTableName$ t1
+        set t1.modify_date = CAST(to_date(#curdate#, 'YYYY-MM-DD hh24:mi:ss') AS TIMESTAMP ),
+        t1.field0005 = #totalMem#
+        where t1.field0003 = #deptName#
+    </update>
+    <!-- kk.do 20240706 入职流程插入个人基本信息表时,新增插入“真实姓名”字段-->
+    <!-- 个人基本信息，插入新员工信息 -->
+    <insert id="insertStaffBasic.insert" parameterClass="map">
+        INSERT INTO $staffBasicTableName$
+        ( ID, STATE, START_MEMBER_ID, START_DATE, APPROVE_MEMBER_ID, APPROVE_DATE, FINISHEDFLAG, RATIFYFLAG,
+        RATIFY_MEMBER_ID, RATIFY_DATE, SORT, MODIFY_MEMBER_ID, MODIFY_DATE, FIELD0001, FIELD0002, FIELD0003,
+        FIELD0004, FIELD0005, FIELD0006, FIELD0007, FIELD0008, FIELD0014,field0015,field0016,field0051,field0036)
+        VALUES (#id#, 1, 0, CAST(to_date(#curdate#, 'YYYY-MM-DD hh24:mi:ss') AS TIMESTAMP ), 0,
+        CAST(to_date(#curdate#, 'YYYY-MM-DD hh24:mi:ss') AS TIMESTAMP ), 0, 0, 0, NULL, 0, 0,
+        CAST(to_date(#curdate#, 'YYYY-MM-DD hh24:mi:ss') AS TIMESTAMP ), #memberId#, #address#, NULL,
+        '-812415069995905183', NULL, 0, NULL, 0, #deptId#,#code#,#staffHrNo#, #accountId#, #chnname#)
+    </insert>
+    <!-- 个人基本信息，根据员工编号查询个人基本信息 -->
+    <select id="checkStaffInfoMain.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT t1.id FROM $staffInfoTableName$ t1, org_member t2
+        WHERE t2.code = #code# AND t1.field0001 = t2.id
+    </select>
+    <!-- 个人基本信息，根据主表记录ID和年份查询个人年假信息 -->
+    <select id="checkStaffYearInfo.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT t1.id FROM $staffInfoSonName$ t1
+        WHERE t1.formmain_id = #formMainId# AND t1.field0009 = #year#
+    </select>
+    <!-- 个人基本信息，插入基本信息主表 -->
+    <insert id="insertStaffInfoMain.insert" parameterClass="map">
+        INSERT INTO $staffInfoTableName$
+        ( ID, STATE, START_MEMBER_ID, START_DATE, APPROVE_MEMBER_ID, APPROVE_DATE, FINISHEDFLAG, RATIFYFLAG,
+        RATIFY_MEMBER_ID, RATIFY_DATE, SORT, MODIFY_MEMBER_ID, MODIFY_DATE, FIELD0001, FIELD0002, FIELD0003,
+        FIELD0004, FIELD0005, FIELD0006, FIELD0007, FIELD0008, FIELD0014)
+        VALUES ( #id#, 1, 0, CAST(to_date(#curdate#, 'YYYY-MM-DD hh24:mi:ss') AS TIMESTAMP ), 0,
+        CAST(to_date(#curdate#, 'YYYY-MM-DD hh24:mi:ss') AS TIMESTAMP ), 0, 0, 0, NULL, 0, 0,
+        CAST(to_date(#curdate#, 'YYYY-MM-DD hh24:mi:ss') AS TIMESTAMP ), #userId#, NULL, #marriage#,
+        #isFundManager#, NULL, 0, NULL, 0, #deptId#)
+    </insert>
+    <!-- 个人基本信息，插入基本信息子表 -->
+    <insert id="insertStaffInfoSon.insert" parameterClass="map">
+        INSERT INTO $staffInfoSonName$
+        ( ID, formmain_id, SORT, field0009, field0010, field0011, field0012, field0013)
+        VALUES ( #id#, #formMainId#, 0, #year#, #days#, 0, #days#, 0 )
+    </insert>
+    <!-- 个人基本信息，更新基本信息主表 -->
+    <update id="updateStaffInfoMain.update" parameterClass="map">
+        update $staffInfoTableName$ t1
+        set t1.modify_date = CAST(to_date(#curdate#, 'YYYY-MM-DD hh24:mi:ss') AS TIMESTAMP ),
+        t1.field0003 = #marriage#,
+        <!-- 20210316魏尚玉 定时任务轮询时为所有人员状态栏位为空的数据添加默认值’在职‘ -->
+        <!-- t1.field0007 = case when (t1.field0007 = '') or (t1.field0007 is null) then '在职' else t1.field0007 end,-->
+        t1.field0004 = #isFundManager#,
+        <!-- 20210908魏尚玉 根据OA的部门更新员工基本信息部门 -->
+        t1.field0014 = #deptId#,
+        t1.field0033 = #loginName#,
+        t1.field0034 = #phone#,
+        t1.field0035 = #ageLimit#,
+        t1.field0036 = #chnname#,
+        <!-- 20230524 xuhanqing 定时任务轮询时单位从org_member取，在职状态与hr工号从hr系统取 -->
+        t1.field0051 = #companyId#,
+        t1.field0007 = #empStatus#,
+        t1.field0016 = #hrBadge#
+        where t1.field0001 = #userId#
+    </update>
+    <!-- 个人基本信息，更新基本信息子表 -->
+    <update id="updateStaffInfoSon.update" parameterClass="map">
+        update $staffInfoSonName$ t2 set t2.field0010 = #days#
+        <!-- 20210114 weishangyu BUG#24973 -->
+        <!-- 更新数据时 重新计算剩余天数 -->
+        ,t2.field0012=(#days# - t2.field0011)
+
+        where #formMainId# = t2.formmain_id and t2.field0009 = #year#
+    </update>
+    <!-- 个人基本信息，查询用于请假校验的相关数据 -->
+    <select id="getLeaveVerifyDate.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT t4.showvalue AS ifManager,
+        t1.field0005 AS firstMarriage,
+        t1.field0006 AS usedMarriageDay,
+        t1.field0008 AS appliedMarriageDay,
+        nvl(t2.field0012, '0') AS restYearDay,
+        t2.field0013 AS appliedYearDay,
+        CASE t3.ext_attr_11
+        WHEN 1 THEN '男'
+        WHEN 2 THEN '女'
+        ELSE ''
+        END AS sex
+        FROM $staffInfoTableName$ t1
+        LEFT JOIN $staffInfoSonName$ t2 ON t1.id = t2.formmain_id AND t2.field0009 = #year#
+        LEFT JOIN org_member t3 ON t3.id = t1.field0001
+        LEFT JOIN ctp_enum_item t4 ON t4.id = t1.field0004
+        WHERE t1.field0001 = #userId#
+    </select>
+
+    <!-- 个人基本信息，查询用于香港请假校验的相关数据  OA00008433 weishangyu -->
+    <select id="getHKLeaveVerifyDate.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT
+        t1.firstMarriage,
+        t1.usedMarriageDay,
+        t1.appliedMarriageDay,
+        nvl(t2.remainAnnualLeaveDays, '0') AS restYearDay,
+        t2.onOrderAnnualLeaveDays AS appliedYearDay,
+        CASE t3.ext_attr_11
+        WHEN 1 THEN '男'
+        WHEN 2 THEN '女'
+        ELSE ''
+        END AS sex
+        FROM vm_cap_hkMemberLeaveInfo t1
+        LEFT JOIN vm_cap_hkMemberLeaveInfo_son t2 ON t1.id = t2.formmain_id AND t2.year = #year#
+        LEFT JOIN org_member t3 ON t3.id = t1.memberId
+        WHERE t1.memberId = #userId#
+    </select>
+
+    <!-- 假期基本信息，查询假期最大天数 最小请假天数 -->
+    <select id="getLeaveMaxAndMinDay.select" resultClass="java.util.HashMap" parameterClass="map">
+        select nvl(t1.field0006, '0') as leaveMaxDay ,nvl(t1.field0005 , '0') as leaveMinDay from $vacationTableName$ t1
+        left join ctp_enum_item s1 on s1.id = t1.field0001
+        left join ctp_enum_item s2 on s2.id = t1.field0002
+        where t1.field0001 = #leaveType#
+        <isEqual property="hasDetail" compareValue="1">
+            and t1.field0002 = #leaveDetailType#
+        </isEqual>
+    </select>
+
+
+    <!-- 香港假期基本信息，查询假期最大天数 最小请假天数  OA00008433 weishangyu -->
+    <select id="getHKLeaveMaxAndMinDay.select" resultClass="java.util.HashMap" parameterClass="map">
+        select nvl(t1.maxvactiondays, '0') as leaveMaxDay ,nvl(t1.minvactiondays , '0') as leaveMinDay from
+        vm_vacationbaseinfoHK t1
+        left join ctp_enum_item s1 on s1.id = t1.vactiontype
+        where t1.vactiontype = #leaveType#
+    </select>
+
+    <!-- 员工请假记录，根据开始和结束日期查询请假和销假记录 -->
+    <select id="leaveInfo.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT TO_CHAR(T1.START_DATE, 'YYYY-MM-DD') AS LEAVE_FILEDATE,
+        T1.ID AS LEAVEID, T3.NAME AS APPLY_NAME, NVL(T3.CODE, ' ') AS APPLY_NO,
+        T4.NAME AS AGENT_NAME, NVL(T4.CODE, ' ') AS AGENT_NO, NVL(T5.CODE, ' ') AS APPLYDEPTNO,
+        TO_CHAR(T1.FIELD0004, 'YYYY-MM-DD') AS LEAVE_APPLY_DATE,
+        T6.ENUMVALUE AS LEAVE_TYPE, NVL(T7.ENUMVALUE, ' ') AS LEAVE_DETAIL_TYPE,
+        TO_CHAR(T1.FIELD0010, 'YYYY-MM-DD') AS LEAVE_START_DATE,
+        CASE T8.SHOWVALUE
+        WHEN '上午' THEN 'AM'
+        WHEN '下午' THEN 'PM'
+        ELSE ' '
+        END AS LEAVE_STARTDATEAMORPM,
+        TO_CHAR(T1.FIELD0012, 'YYYY-MM-DD') AS LEAVE_END_DATE,
+        CASE T9.SHOWVALUE
+        WHEN '上午' THEN 'AM'
+        WHEN '下午' THEN 'PM'
+        ELSE ' '
+        END AS LEAVE_ENDDATEAMORPM,
+        T1.FIELD0014 AS LEAVE_DAY, T1.FIELD0016 AS LEAVE_REASON,
+        CASE T10.SHOWVALUE
+        WHEN '是' THEN 'T'
+        WHEN '否' THEN 'F'
+        ELSE ' '
+        END AS LEAVECOUNTRYFLAG,
+        NVL(T1.FIELD0017, ' ') AS COUNTRY,
+        NVL(TO_CHAR(T1.FIELD0019, 'YYYY-MM-DD'), ' ') AS EXIT_DATE,
+        NVL(TO_CHAR(T1.FIELD0020, 'YYYY-MM-DD'), ' ') AS RETURN_DATE,
+        T1.FIELD0018 AS STAY_DAY,
+        NVL(TO_CHAR(T2.FIELD0032, 'YYYY-MM-DD'), ' ') AS CANCEL_FILEDATE,
+        T2.ID AS CANCEL_ID,
+        NVL(TO_CHAR(T2.FIELD0024, 'YYYY-MM-DD'), ' ') AS CANCEL_APPLY_DATE,
+        NVL(T11.ENUMVALUE, ' ') AS CANCEL_APPLY_TYPE,
+        NVL(TO_CHAR(T2.FIELD0025, 'YYYY-MM-DD'), ' ') AS CANCEL_START_DATE,
+        CASE T12.SHOWVALUE
+        WHEN '上午' THEN 'AM'
+        WHEN '下午' THEN 'PM'
+        ELSE ' '
+        END AS CANCEL_STARTDATEAMORPM,
+        NVL(TO_CHAR(T2.FIELD0027, 'YYYY-MM-DD'), ' ') AS CANCEL_END_DATE,
+        CASE T13.SHOWVALUE
+        WHEN '上午' THEN 'AM'
+        WHEN '下午' THEN 'PM'
+        ELSE ' '
+        END AS CANCEL_ENDDATEAMORPM,
+        NVL(T2.FIELD0030, ' ') AS CANCEL_REASON, T2.FIELD0029 AS CANCEL_DAY
+        FROM $formmain$ T1
+        LEFT JOIN $formson$ T2 ON T1.ID = T2.FORMMAIN_ID
+        LEFT JOIN ORG_MEMBER T3 ON T1.FIELD0001 = T3.ID
+        LEFT JOIN ORG_MEMBER T4 ON T1.FIELD0002 = T4.ID
+        LEFT JOIN ORG_UNIT T5 ON T1.FIELD0003 = T5.ID
+        LEFT JOIN CTP_ENUM_ITEM T6 ON T1.FIELD0008 = T6.ID
+        LEFT JOIN CTP_ENUM_ITEM T7 ON T1.FIELD0009 = T7.ID
+        LEFT JOIN CTP_ENUM_ITEM T8 ON T1.FIELD0011 = T8.ID
+        LEFT JOIN CTP_ENUM_ITEM T9 ON T1.FIELD0013 = T9.ID
+        LEFT JOIN CTP_ENUM_ITEM T10 ON T1.FIELD0015 = T10.ID
+        LEFT JOIN CTP_ENUM_ITEM T11 ON T2.FIELD0023 = T11.ID
+        LEFT JOIN CTP_ENUM_ITEM T12 ON T2.FIELD0026 = T12.ID
+        LEFT JOIN CTP_ENUM_ITEM T13 ON T2.FIELD0028 = T13.ID
+        WHERE T1.START_DATE BETWEEN TO_DATE(#startDate#, 'YYYY-MM-DD') AND TO_DATE(#endDate#, 'YYYY-MM-DD')
+        OR T2.FIELD0032 BETWEEN TO_DATE(#startDate#, 'YYYY-MM-DD') AND TO_DATE(#endDate#, 'YYYY-MM-DD')
+        <!-- 解决查询时会获取销假归档日期为null的记录的BUG -->
+        <!-- or T2.FIELD0032 is null -->
+    </select>
+    <!-- 工作日设置，获取时间内节假日信息 -->
+    <select id="getFestival.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT s1.DATE_NUM FROM worktime_specialday s1
+        WHERE s1.is_rest = '2'
+        AND s1.org_account_id IN (SELECT a1.org_account_id FROM org_member a1 WHERE a1.id = #userId#)
+        AND (to_date(s1.date_num, 'YYYY-MM-DD') BETWEEN to_date(#startDate#, 'YYYY-MM-DD') AND to_date(#endDate#,
+        'YYYY-MM-DD'))
+    </select>
+    <!-- 工作日设置，判断是否仅为节假日 -->
+    <select id="isOnlyFestDay.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT s1.ID FROM worktime_specialday s1
+        WHERE s1.is_rest = '2'
+        AND s1.org_account_id IN ( SELECT a1.org_account_id FROM org_member a1 WHERE a1.id = #userId#)
+        AND to_date(s1.date_num, 'YYYY-MM-DD') = to_date(#checkDate#, 'YYYY-MM-DD')
+    </select>
+    <!-- 工作日设置，判断是否仅为休息日 -->
+    <select id="isOnlyRestDay.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT s1.ID FROM worktime_specialday s1
+        WHERE s1.is_rest = '1'
+        AND s1.org_account_id IN ( SELECT a1.org_account_id FROM org_member a1 WHERE a1.id = #userId#)
+        AND to_date(s1.date_num, 'YYYY-MM-DD') = to_date(#checkDate#, 'YYYY-MM-DD')
+    </select>
+    <!-- 工作日设置，判断是否为非工作日 -->
+    <select id="isRestDay.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT s1.ID,s1.DATE_NUM FROM worktime_specialday s1
+        WHERE ( s1.is_rest = '2' OR s1.is_rest = '1')
+        AND s1.org_account_id IN ( SELECT a1.org_account_id FROM org_member a1 WHERE a1.id = #userId#)
+        AND to_date(s1.date_num, 'YYYY-MM-DD') = to_date(#checkDate#, 'YYYY-MM-DD')
+    </select>
+    <!-- 判断是否为销假，在确定销假流程结束后，未查到记录则已销假 -->
+    <select id="isCancelDay.select" resultClass="java.util.HashMap" parameterClass="map">
+        select vc.id,vc.leaveStartDate,vc.leaveStartDateMA,vc.leaveEndDate,vc.leaveEndDateMA,vu.applyUser from VM_CANCELLEAVEDAYSON_SICK vc
+        left join VM_USERAPPLYFORLEAVE_SICK vu on vc.formmain_id = vu.id
+        where vu.applyUser = #userId#
+        and (
+        (to_date(to_char(vc.leaveStartDate, 'yyyy-MM-dd'), 'yyyy-MM-dd') &lt; to_date(#date#, 'yyyy-MM-dd') and to_date(to_char(vc.leaveEndDate, 'yyyy-MM-dd'), 'yyyy-MM-dd') &gt; to_date(#date#, 'yyyy-MM-dd')) or
+        (to_date(to_char(vc.leaveStartDate, 'yyyy-MM-dd'), 'yyyy-MM-dd') = to_date(#date#, 'yyyy-MM-dd') and to_date(to_char(vc.leaveEndDate, 'yyyy-MM-dd'), 'yyyy-MM-dd') = to_date(#date#, 'yyyy-MM-dd') and (vc.leaveStartDateMA = #dateMorN# or (vc.leaveStartDateMA = '770469099444389055' and vc.leaveEndDateMA = '3338464713283357441'))) or
+        (to_date(to_char(vc.leaveStartDate, 'yyyy-MM-dd'), 'yyyy-MM-dd') = to_date(#date#, 'yyyy-MM-dd') and to_date(to_char(vc.leaveEndDate, 'yyyy-MM-dd'), 'yyyy-MM-dd') != to_date(#date#, 'yyyy-MM-dd') and (vc.leaveStartDateMA = #dateMorN# or vc.leaveStartDateMA = '770469099444389055')) or
+        (to_date(to_char(vc.leaveStartDate, 'yyyy-MM-dd'), 'yyyy-MM-dd') != to_date(#date#, 'yyyy-MM-dd') and to_date(to_char(vc.leaveEndDate, 'yyyy-MM-dd'), 'yyyy-MM-dd') = to_date(#date#, 'yyyy-MM-dd') and (vc.leaveEndDateMA = #dateMorN# or vc.leaveEndDateMA = '3338464713283357441') )
+        )
+    </select>
+
+
+    <!-- 判断是否为病假 -->
+    <select id="isSickDay.select" resultClass="java.util.HashMap" parameterClass="map">
+        select vu.id as "id",
+        to_char(vc.leaveStartDate, 'yyyy-MM-dd') as "leaveStartDate",
+        util_common.getEnumValueById(vc.leaveStartDateMA) as "leaveStartDateMA",
+        to_char(vc.leaveEndDate, 'yyyy-MM-dd') as "leaveEndDate",
+        util_common.getEnumValueById(vc.leaveEndDateMA) as "leaveEndDateMA",
+        vc.leaveDay as "leaveDay",
+        vc.leaveSerialNum as "leaveSerialNum"
+        from VM_USERAPPLYFORLEAVE_SICK vu
+        left join VM_CANCELLEAVEDAYSON_SICK vc on vc.formmain_id = vu.id
+        where vu.applyUser = #userId# and vu.dayType = '-4565462988988594193'
+        and (
+        (to_date(to_char(vu.beginDate, 'yyyy-MM-dd'), 'yyyy-MM-dd') &lt; to_date(#date#, 'yyyy-MM-dd') and to_date(to_char(vu.endDate, 'yyyy-MM-dd'), 'yyyy-MM-dd') &gt; to_date(#date#, 'yyyy-MM-dd')) or
+        (to_date(to_char(vu.beginDate, 'yyyy-MM-dd'), 'yyyy-MM-dd') = to_date(#date#, 'yyyy-MM-dd') and to_date(to_char(vu.endDate, 'yyyy-MM-dd'), 'yyyy-MM-dd') = to_date(#date#, 'yyyy-MM-dd') and (vu.startTime = #dateMorN# or (vu.startTime = '770469099444389055' and vu.endTime = '3338464713283357441'))) or
+        (to_date(to_char(vu.beginDate, 'yyyy-MM-dd'), 'yyyy-MM-dd') = to_date(#date#, 'yyyy-MM-dd') and to_date(to_char(vu.endDate, 'yyyy-MM-dd'), 'yyyy-MM-dd') != to_date(#date#, 'yyyy-MM-dd') and (vu.startTime = #dateMorN# or vu.startTime = '770469099444389055')) or
+        (to_date(to_char(vu.beginDate, 'yyyy-MM-dd'), 'yyyy-MM-dd') != to_date(#date#, 'yyyy-MM-dd') and to_date(to_char(vu.endDate, 'yyyy-MM-dd'), 'yyyy-MM-dd') = to_date(#date#, 'yyyy-MM-dd') and (vu.endTime = #dateMorN# or vu.endTime = '3338464713283357441') )
+        )
+    </select>
+
+
+    <!-- 组织关系表（org_relationship），查询指定人员指定角色下直属部门的层级 -->
+    <select id="lowerDepartmentLevel.select" resultClass="java.lang.String" parameterClass="map">
+        SELECT min(length(u.path))
+        FROM org_relationship rs
+        LEFT JOIN org_unit u ON u.id = rs.objective0_id
+        WHERE rs.source_id = #userId#
+        AND rs.objective1_id IN ( SELECT r.id FROM org_role r WHERE r.name = #roleName#)
+    </select>
+    <!-- 组织关系表（org_relationship），查询指定人员指定角色下直属部门的相关角色 -->
+    <select id="lowerDepartmentManager.select" resultClass="mapBean" parameterClass="map">
+        SELECT rs1.source_id id
+        FROM org_relationship rs1
+        LEFT JOIN org_relationship rs2 ON rs1.objective0_id = rs2.objective0_id
+        LEFT JOIN org_unit u ON u.id = rs1.objective0_id
+        WHERE rs1.objective1_id IN (SELECT r.id
+        FROM org_role r
+        WHERE r.name = #checkRole#)
+        AND rs2.source_id = #userId#
+        AND rs2.objective1_id IN ( SELECT r.id FROM org_role r WHERE r.name = #roleName#)
+        AND length(u.path) = #level#
+    </select>
+
+    <!-- 查询指定人员及下属的休假信息(不含已销假或部分销假), 人力资源部可以查询所有人员 -->
+    <select id="findLeaveDayByUserId.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT id, #userId# AS STAFFID,(SELECT name FROM org_member t WHERE t.id = field0001) AS NAME,
+        trunc(field0010) AS STARTDATE, util_common.getEnumShowById(q.field0011) AS STARTDATEMORN,
+        trunc(field0012) AS ENDDATE, util_common.getEnumShowById(q.field0013) AS ENDDATEMORN,
+        util_common.getEnumShowById(q.field0008) AS TYPE,
+        1 AS ISFINISHED
+        FROM $ehrLeaveInfoTable$ q
+        WHERE (field0010 BETWEEN #startDate# AND #endDate#
+        OR field0012 BETWEEN #startDate# AND #endDate#
+        OR (field0010 &lt; #startDate# AND field0012 &gt; #endDate#))
+        AND field0006 = util_common.getEnumIdByRefName('请假记录状态', '已请假')
+        AND field0001 IN ( SELECT COLUMN_VALUE FROM TABLE(util_org.getUnderlingMemId(#userId#))
+        UNION
+        SELECT m.id FROM org_member m
+        WHERE m.is_internal = 1 AND m.is_virtual = 0 AND m.is_enable = 1 AND m.is_deleted = 0
+        AND EXISTS (SELECT 1 FROM org_member m
+        WHERE m.id = #userId# AND m.org_department_id = util_org.getDeptIdByDeptCode('77715')))
+    </select>
+
+    <!-- 查询香港子公司指定人员及下属的休假信息(不含已销假或部分销假)  OA00008433 weishangyu -->
+    <select id="findHkLeaveDayByUserId.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT id,
+        applyUser as STAFFID,
+        (SELECT name FROM org_member t WHERE t.id = applyUser) AS NAME,
+        trunc(leaveStartDate) AS STARTDATE,
+        util_common.getEnumShowById(q.leaveStartHalfDay) AS STARTDATEMORN,
+        trunc(leaveEndDate) AS ENDDATE,
+        util_common.getEnumShowById(q.leaveEndHalfDay) AS ENDDATEMORN,
+        util_common.getEnumShowById(q.leaveType) AS TYPE,
+        1 AS ISFINISHED
+        FROM vm_cap_hkLeaveRecord q
+        WHERE (leaveStartDate BETWEEN #startDate# AND #endDate#
+        OR leaveEndDate BETWEEN #startDate# AND #endDate#
+        OR (leaveStartDate &lt; #startDate# AND leaveEndDate &gt; #endDate#))
+        AND recordState = util_common.getEnumIdByRefName('请假记录状态', '已请假')
+        AND applyUser IN ( SELECT COLUMN_VALUE FROM TABLE(util_org.getUnderlingMemId(#userId#))
+        UNION
+        SELECT m.id FROM org_member m
+        WHERE m.is_internal = 1 AND m.is_virtual = 0 AND m.is_enable = 1 AND m.is_deleted = 0
+        AND EXISTS (SELECT 1 FROM org_member m
+        WHERE m.id = #userId# AND (m.org_post_id = (select id from org_post where code = 'HKZGHROfficer' )
+        or m.org_post_id = (select id from org_post where code = 'HKZGCEO' )
+        or m.org_post_id = (select id from org_post where code = 'HKZGFinanceOfficer' )
+        ))
+        UNION
+        select to_number(memberId) from vm_cap_chargeMemberRelation where chargeMember = #userId#
+        UNION
+        select distinct(to_number(applyUser)) from vm_wf_hkLeaveApply where #userId# in (select * from
+        util_common.split(noticeMembers,','))
+        )
+    </select>
+
+    <!-- 查询部分销假的请假时间 -->
+    <select id="findLeaveDayByUserId4Cancel.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT k1.id, #userId# AS STAFFID,(SELECT name FROM org_member t WHERE t.id = k1.field0001) NAME,
+        STARTDATE, STARTDATEMORN, ENDDATE, ENDDATEMORN, 1 AS ISFINISHED,
+        util_common.getEnumShowById(k1.field0008) AS TYPE
+        FROM formmain_2157 k1
+        JOIN ( SELECT formmain_id, trunc(field0025) AS STARTDATE,
+        util_common.getEnumShowById(q.field0026) AS STARTDATEMORN,
+        trunc(field0027) AS ENDDATE, util_common.getEnumShowById(q.field0028) AS ENDDATEMORN
+        FROM $ehrLeaveCancelInfoTable$ q
+        WHERE field0023 =util_common.getEnumIdByRefName('销假类型', '部分销假')
+        AND formmain_id IN (
+        SELECT ID FROM $ehrLeaveInfoTable$
+        WHERE (field0010 BETWEEN #startDate# AND #endDate# OR field0012 BETWEEN #startDate# AND #endDate# OR (field0010&lt;#startDate#
+        AND field0012&gt;#endDate#))
+        AND field0006=util_common.getEnumIdByRefName('请假记录状态', '已销假')
+        AND field0001 IN ( SELECT COLUMN_VALUE FROM TABLE (util_org.getUnderlingMemId(#userId#))
+        UNION
+        SELECT m.id FROM org_member m WHERE m.is_internal=1 AND m.is_virtual=0 AND m.is_enable=1 AND m.is_deleted=0 AND
+        EXISTS ( SELECT 1 FROM org_member m WHERE m.id = #userId# AND
+        m.org_department_id=util_org.getDeptIdByDeptCode('77715') )
+        )
+        )
+        ) k2 ON k1.id = k2.formmain_id
+    </select>
+
+    <!-- 查询香港子公司部分销假的请假时间  OA00008433 weishangyu-->
+    <select id="findHkLeaveDayByUserId4Cancel.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT k1.id, #userId# AS STAFFID,(SELECT name FROM org_member t WHERE t.id = k1.applyUser) NAME,
+        STARTDATE AS STARTDATE,
+        STARTDATEMORN as STARTDATEMORN,
+        ENDDATE as ENDDATE,
+        ENDDATEMORN as ENDDATEMORN, 1 AS ISFINISHED,
+        util_common.getEnumShowById(k1.leaveType) AS TYPE
+        FROM vm_cap_hkLeaveRecord k1
+        JOIN ( SELECT formmainId, trunc(newLeaveStartDate) AS STARTDATE,
+        util_common.getEnumShowById(q.newLeaveStartHalfDay) AS STARTDATEMORN,
+        trunc(newLeaveEndDate) AS ENDDATE, util_common.getEnumShowById(q.newLeaveEndHalfDay) AS ENDDATEMORN
+        FROM vm_cap_hkLeaveRecord_son q
+        WHERE leaveBackType =util_common.getEnumIdByRefName('销假类型', '部分销假')
+        AND formmainId IN (
+        SELECT ID FROM vm_cap_hkLeaveRecord
+        WHERE (leaveStartDate BETWEEN #startDate# AND #endDate# OR leaveEndDate BETWEEN #startDate# AND #endDate# OR
+        (leaveStartDate&lt;#startDate# AND leaveEndDate&gt;#endDate#))
+        AND recordState=util_common.getEnumIdByRefName('请假记录状态', '已销假')
+        AND applyUser IN ( SELECT COLUMN_VALUE FROM TABLE (util_org.getUnderlingMemId(#userId#))
+        UNION
+        SELECT m.id FROM org_member m
+        WHERE m.is_internal = 1 AND m.is_virtual = 0 AND m.is_enable = 1 AND m.is_deleted = 0
+        AND EXISTS (SELECT 1 FROM org_member m
+        WHERE m.id = #userId# AND (m.org_post_id = (select id from org_post where code = 'HKZGHROfficer' )
+        or m.org_post_id = (select id from org_post where code = 'HKZGCEO' )
+        or m.org_post_id = (select id from org_post where code = 'HKZGFinanceOfficer' )
+        ))
+        UNION
+        select to_number(memberId) from vm_cap_chargeMemberRelation where chargeMember = #userId#
+        )
+        )
+        ) k2 ON k1.id = k2.formmainId
+    </select>
+    <!-- 查询指定人员及下属的在途请假信息, 人力资源部可以查询所有人员 -->
+    <select id="findUnfinishedLeaveDayByUserId.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT csy.id as id, #userId# AS STAFFID,(SELECT name FROM org_member t WHERE t.id = field0002) AS NAME,
+        trunc(field0014) AS STARTDATE, util_common.getEnumShowById(field0015) AS STARTDATEMORN,
+        trunc(field0016) AS ENDDATE, util_common.getEnumShowById(field0017) AS ENDDATEMORN,
+        0 AS ISFINISHED,
+        util_common.getEnumShowById(fm.field0010) AS TYPE
+        from $leaveFlowTable$ fm
+        left join col_summary csy on csy.form_recordid=fm.id
+        WHERE ( field0014 BETWEEN #startDate# AND #endDate#
+        OR field0016 BETWEEN #startDate# AND #endDate#
+        OR (field0014 &lt; #startDate# AND field0016 &gt; #endDate#) )
+        AND fm.finishedflag = 0
+        AND fm.state = 1
+        AND field0002 IN ( SELECT COLUMN_VALUE FROM TABLE (util_org.getUnderlingMemId(#userId#))
+        UNION
+        SELECT m.id FROM org_member m WHERE m.is_internal=1 AND m.is_virtual=0 AND m.is_enable=1 AND m.is_deleted=0 AND
+        EXISTS ( SELECT 1 FROM org_member m WHERE m.id = #userId# AND
+        m.org_department_id=util_org.getDeptIdByDeptCode('77715')))
+    </select>
+
+    <!-- 查询香港子公司指定人员及下属的在途请假信息  OA00008433 weishangyu -->
+    <select id="findHkUnfinishedLeaveDayByUserId.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT fm.id as id, #userId# AS STAFFID,(SELECT name FROM org_member t WHERE t.id = applyUser) AS NAME,
+        trunc(leaveStartDate) AS STARTDATE, util_common.getEnumShowById(leaveStartHalfDay) AS STARTDATEMORN,
+        trunc(leaveEndDate) AS ENDDATE, util_common.getEnumShowById(leaveEndHalfDay) AS ENDDATEMORN,
+        0 AS ISFINISHED,
+        util_common.getEnumShowById(fm.leaveType) AS TYPE
+        from vm_wf_hkLeaveApply fm
+        left join col_summary csy on csy.form_recordid=fm.id
+        WHERE ( leaveStartDate BETWEEN #startDate# AND #endDate#
+        OR leaveEndDate BETWEEN #startDate# AND #endDate#
+        OR (leaveStartDate &lt; #startDate# AND leaveEndDate &gt; #endDate#) )
+        AND fm.finishedflag = 0
+        AND fm.state = 1
+        AND applyUser IN ( SELECT COLUMN_VALUE FROM TABLE (util_org.getUnderlingMemId(#userId#))
+        UNION
+        SELECT m.id FROM org_member m
+        WHERE m.is_internal = 1 AND m.is_virtual = 0 AND m.is_enable = 1 AND m.is_deleted = 0
+        AND EXISTS (SELECT 1 FROM org_member m
+        WHERE m.id = #userId# AND (m.org_post_id = (select id from org_post where code = 'HKZGHROfficer' )
+        or m.org_post_id = (select id from org_post where code = 'HKZGCEO' )
+        or m.org_post_id = (select id from org_post where code = 'HKZGFinanceOfficer' )
+        ))
+        UNION
+        select to_number(memberId) from vm_cap_chargeMemberRelation where chargeMember = #userId#
+        UNION
+        select distinct(to_number(applyUser)) from vm_wf_hkLeaveApply where #userId# in (select * from
+        util_common.split(noticeMembers,','))
+        )
+    </select>
+
+
+
+    <!-- 查询其余在途请假信息 -->
+    <select id="getOtherLeavingFlow.select" resultClass="mapBean" parameterClass="map">
+        Select id as id,field0002 as applyuser,field0004 as applydept,trunc(field0014) as startdate,field0015 as
+        startdatehalf,
+        trunc(field0016) as enddate, field0017 as enddatehalf
+        from $leaveFlowTable$
+        where finishedflag = 0
+        <isNotEmpty prepend="and" property="currentFlow">
+            id &lt;&gt; #currentFlow#
+        </isNotEmpty>
+        and state = 1
+    </select>
+
+    <!-- 查询人员某月年假信息 -->
+    <select id="getActualYearDay.select" resultClass="java.lang.String" parameterClass="map">
+        select $monthFieldName$ as monthYearDay
+        from $mainTable$ t1,$sonTable$ t2
+        where t1.id=t2.formmain_id
+        and $yearFieldName$=#year#
+        and $userFieldName$=#user#
+    </select>
+
+    <!-- 更新人员某月年假信息 -->
+    <update id="updateActualYearDay.update" parameterClass="map">
+        update $sonTable$ t2
+        set $monthFieldName$=#monthYearDay#
+        where t2.formmain_id=
+        (select id from $mainTable$ where $userFieldName$=#user# and $yearFieldName$=#year#)
+
+    </update>
+    <!-- 获取人员年休假计划 -->
+    <select id="getYearLeavePlan.select" resultClass="mapBean" parameterClass="map">
+        <!-- m1p:1月计划，m1a:1月实际，以此类推  -->
+        select t.member as member,t.yearday as yearday,
+        t.planmonth_1 as m1p,t.actualmonth_1 as m1a,t.planmonth_2 as m2p,t.actualmonth_2 as m2a,
+        t.planmonth_3 as m3p,t.actualmonth_3 as m3a,t.planmonth_4 as m4p,t.actualmonth_4 as m4a,
+        t.planmonth_5 as m5p,t.actualmonth_5 as m5a,t.planmonth_6 as m6p,t.actualmonth_6 as m6a,
+        t.planmonth_7 as m7p,t.actualmonth_7 as m7a,t.planmonth_8 as m8p,t.actualmonth_8 as m8a,
+        t.planmonth_9 as m9p,t.actualmonth_9 as m9a,t.planmonth_10 as m10p,t.actualmonth_10 as m10a,
+        t.planmonth_11 as m11p,t.actualmonth_11 as m11a,t.planmonth_12 as m12p,t.actualmonth_12 as m12a
+        from vm_yearleaveday t
+        where t.year=#year#
+        <isNotEmpty prepend="and" property="memberList">
+            t.member in
+            <iterate open="(" close=")" conjunction="," property="memberList">
+                #memberList[]#
+            </iterate>
+        </isNotEmpty>
+    </select>
+    <!-- 初始化年休假计划反馈 -->
+    <insert id="initYearLeavePlan.insert" parameterClass="map">
+        INSERT INTO $tableName$
+        ( ID, formmain_id, SORT, field0011,field0012,
+        field0013,field0014,field0015,field0016,field0017,field0018,
+        field0020,field0021,field0022,field0023,field0024,field0025,
+        field0027,field0028,field0029,field0030,field0031,field0032,
+        field0034,field0035,field0036,field0037,field0038,field0039)
+        VALUES ( #id#, #formmain_id#, #sort#, #member#, #yearDay#,
+        #m1p#,#m1a#,#m2p#,#m2a#,#m3p#,#m3a#,
+        #m4p#,#m4a#,#m5p#,#m5a#,#m6p#,#m6a#,
+        #m7p#,#m7a#,#m8p#,#m8a#,#m9p#,#m9a#,
+        #m10p#,#m10a#,#m11p#,#m11a#,#m12p#,#m12a#)
+    </insert>
+
+    <!-- 获取单位下属部门（除高管部外） shkk.do20190912修改-->
+    <select id="getDeptListByAccountList.select" resultClass="mapBean" parameterClass="map">
+        SELECT DISTINCT ou.code
+        FROM org_unit ou,
+        (SELECT '^'||PATH aPATH FROM org_unit
+        <isNotEmpty prepend="WHERE" property="orgAccount">
+            NAME IN
+            <iterate open="(" close=")" conjunction="," property="orgAccount">
+                #orgAccount[]#
+            </iterate>
+        </isNotEmpty>
+        ) t
+        WHERE regexp_like(ou.path,t.aPATH) AND regexp_like(ou.code,'^[0-9]+[0-9]$$')
+        AND ou.NAME NOT LIKE '%高管部%' AND ou.TYPE = 'Department'
+        AND is_internal=1 AND is_enable=1 AND is_deleted=0 AND CODE IS NOT NULL
+    </select>
+
+    <!-- 获取获取单位下属部门分管领导 shkk.do20190912修改-->
+    <select id="getLineLeaderList.select" resultClass="mapBean" parameterClass="map">
+        select om.code from org_member om where id in( SELECT DISTINCT RL.SOURCE_ID
+        FROM ORG_RELATIONSHIP RL
+        WHERE RL.TYPE = 'Member_Role'
+        AND RL.OBJECTIVE1_ID IN (SELECT ID FROM ORG_ROLE R WHERE R.NAME = '分管领导')
+        <isNotEmpty prepend="and" property="orgAccount">
+            RL.objective0_id IN(SELECT DISTINCT ou.id
+            FROM org_unit ou,
+            (SELECT '^'||PATH aPATH FROM org_unit
+            WHERE NAME IN
+            <iterate open="(" close=")" conjunction="," property="orgAccount">
+                #orgAccount[]#
+            </iterate>
+            ) t
+            WHERE regexp_like(ou.path,t.aPATH) AND regexp_like(ou.code,'^[0-9]+[0-9]$$')
+            AND ou.NAME NOT LIKE '%高管部%' AND ou.TYPE = 'Department'
+            AND is_internal=1 AND is_enable=1 AND is_deleted=0 AND CODE IS NOT NULL))
+        </isNotEmpty>
+    </select>
+
+    <!-- 将年休假计划底表中实际请假天数置为0 -->
+    <update id="clearActualYearLeaveDay.update" parameterClass="map">
+        UPDATE vm_yearleaveday
+        SET actualmonth_1 = 0,actualmonth_2 = 0,actualmonth_3 = 0,actualmonth_4 = 0,
+        actualmonth_5 = 0,actualmonth_6 = 0,actualmonth_7 = 0,actualmonth_8 = 0,
+        actualmonth_9 = 0,actualmonth_10 = 0,actualmonth_11 = 0,actualmonth_12 = 0
+    </update>
+
+    <!-- 获取分管领导下属部门 -->
+    <select id="getlineleaderdept.select" resultClass="mapBean" parameterClass="map">
+        SELECT ou.id
+        FROM org_unit ou
+        WHERE ou.ID in(SELECT OBJECTIVE0_ID FROM ORG_RELATIONSHIP RL WHERE RL.SOURCE_ID=#leaderId#)
+        and ou.TYPE = 'Department' AND is_internal=1 AND is_enable=1
+        AND regexp_like(ou.code,'^[0-9]+[0-9]$') AND ou.NAME NOT LIKE '%高管部%'
+    </select>
+
+    <!-- 根据部门经理，获取其管理部门 -->
+    <select id="getDeptByDeptManager.select" resultClass="mapBean" parameterClass="map">
+        SELECT ID as dept FROM org_unit
+        WHERE ID in(SELECT OBJECTIVE0_ID FROM ORG_RELATIONSHIP RL WHERE RL.SOURCE_ID=#deptManager#
+        AND RL.TYPE = 'Member_Role' AND RL.OBJECTIVE1_ID IN
+        (SELECT ID FROM ORG_ROLE R WHERE R.NAME = '部门经理'))
+    </select>
+
+    <!-- 获取部门年休假信息 -->
+    <select id="getDeptYearLeavePlan.select" resultClass="mapBean" parameterClass="map">
+        SELECT DISTINCT dept,
+        nvl(planmonth_1,0)+nvl(planmonth_2,0)+nvl(planmonth_3,0) as planquarter_1,
+        nvl(actualmonth_1,0)+nvl(actualmonth_2,0)+nvl(actualmonth_3,0) as actualquarter_1,
+        nvl(planmonth_4,0)+nvl(planmonth_5,0)+nvl(planmonth_6,0) as planquarter_2,
+        nvl(actualmonth_4,0)+nvl(actualmonth_5,0)+nvl(actualmonth_6,0) as actualquarter_2,
+        nvl(planmonth_7,0)+nvl(planmonth_8,0)+nvl(planmonth_9,0) as planquarter_3,
+        nvl(actualmonth_7,0)+nvl(actualmonth_8,0)+nvl(actualmonth_9,0) as actualquarter_3,
+        nvl(planmonth_10,0)+nvl(planmonth_11,0)+nvl(planmonth_12,0) as planquarter_4,
+        nvl(actualmonth_10,0)+nvl(actualmonth_11,0)+nvl(actualmonth_12,0) as actualquarter_4
+        FROM vm_yearleaveday
+        where dept=#dept# and year=#year#
+    </select>
+    <!-- 初始化部门季度休假信息 -->
+    <insert id="initDeptYearLeavePlan.insert" parameterClass="map">
+        INSERT INTO $tableName$
+        ( ID, formmain_id, SORT, field0042,field0043,field0044,field0046,field0047,field0049,field0050)
+        VALUES ( #id#, #formmain_id#, #sort#, #dept#,
+        #planquarter_1#,#actualquarter_1#,#planquarter_2#,#actualquarter_2#,
+        #planquarter_3#,#actualquarter_3#)
+    </insert>
+
+    <!-- 查询请假记录中，某一年份的年假信息 -->
+    <select id="getActualYearLeaveDay.select" resultClass="mapBean" parameterClass="map">
+        select t1.field0001 as member,t1.field0003 as dept,t1.field0008 as leavetype,
+        to_char(t1.field0010,'yyyy-mm-dd') as startdate,(select s2.enumvalue from ctp_enum_item s2 where
+        s2.id=t1.field0011) as startdatehalf,
+        to_char(t1.field0012,'yyyy-mm-dd') as enddate,(select s3.enumvalue from ctp_enum_item s3 where
+        s3.id=t1.field0013) as enddatehalf,
+        (select s4.showvalue from ctp_enum_item s4 where s4.id=t2.field0023) as cancelleavetype,
+        to_char(t2.field0025,'yyyy-mm-dd') as newstartdate,(select s5.enumvalue from ctp_enum_item s5 where
+        s5.id=t2.field0026) as newstartdatehalf,
+        to_char(t2.field0027,'yyyy-mm-dd') as newenddate,(select s6.enumvalue from ctp_enum_item s6 where
+        s6.id=t2.field0028) as newenddatehalf,
+        from $mainTable$ t1,$sonTable$ t2
+        where t1.id=t2.formmain_id
+        and to_char(t1.field0010,'yyyy')=#currentYear#
+        and (select s1.showvalue from ctp_enum_item s1 where s1.id=t1.field0008) = '年假'
+    </select>
+    <!-- 获取所有离职时间大于>15天，且未到达信息技术部处理人员 -->
+    <select id="getLeaveInfo.select" resultClass="com.seeyon.apps.kk.hr.model.LeaveInfo" parameterClass="string">
+
+        select distinct v.id, title, to_char(leavedate,'yyyy-mm-dd') as leavedate, leavemember,
+        leavedepart, agentmember, memberaddress, note, authorinfo
+        from vm_wfleaveinfo v, ctp_affair c
+        where v.id = c.object_id(+) and (sysdate-15) > v.leavedate and v.id not in (
+        select v.id from vm_wfleaveinfo v, ctp_affair c
+        where v.id = c.object_id(+) and (sysdate-15) > v.leavedate and c.activity_id = #{activity_id}#
+        )
+    </select>
+    <!-- 获取所有离职移交CAP4离职时间大于>15天，且未到达信息技术部处理人员 -->
+    <select id="getCap4LeaveInfo.select" resultClass="java.util.HashMap" parameterClass="string">
+        select distinct v.id,
+        c.activity_id,
+        to_char(leavedate, 'yyyy-mm-dd') as leavedate,
+        leaveUserId,
+        deptCode,
+        agentNo,
+        workplace,
+        remark,
+        flowUrl,
+        isCloseAccount
+        from vm_wf_cap4leaveinfo v
+        left join
+        ctp_affair c
+        on v.id = c.form_recordid
+        where  (sysdate - 15) > v.leavedate
+        and c.activity_id =  #{activity_id}#
+        and c.state = 3
+        and (v.isCloseAccount is null or v.isCloseAccount != -1089048568118490234)
+        and (v.remark is null  or v.remark not in ('派遣人员转正式员工', '母子公司调动'))
+        and v.leaveUserId not in (select staffNo from vm_wf_vm_RevokeSysAccCAP4)
+    </select>
+    <!-- 通过离职移交流程获取记录ID -->
+    <select id="getNoteById.select" resultClass="java.lang.Long" parameterClass="string">
+        select id from formmain_3531 where field0011 = #id#
+    </select>
+
+    <select id="getVactionByVactionType.select" resultClass="mapBean" parameterClass="map">
+        select vactionType,vactiondetailType,isincludeFest,isincludeRest,minvactiondays,maxvactiondays
+        from vm_vacationbaseinfo v where v.vactionType = #vactionType#
+        <isNotEmpty prepend="and" property="vactionDetailType">
+            v.vactiondetailtype = #vactionDetailType#
+        </isNotEmpty>
+    </select>
+
+    <!--获取香港请假基本信息  OA00008433 weishangyu -->
+    <select id="getVactionBaseInfoHK.select" resultClass="mapBean" parameterClass="map">
+        select vactionType,isincludeFest,isincludeRest,minvactiondays,maxvactiondays
+        from vm_vacationbaseinfoHK v where util_common.getEnumValueById(v.vactionType) = #vactionType#
+    </select>
+    <!--20230113 weishangyu 可销假天数=已用天数-在途天数  此公式在“在途天数是销假天数”的情况下是成立的，当“在途天数中有请假天数”时会计算错误，所以
+    此处只查询已用天数，在后续代码处理中使用已用天数减去所有相关的销假在途天数，得出可用于销假的天数
+
+    -->
+    <select id="personalInfoByUserIdHK.select" parameterClass="map" resultClass="java.util.HashMap">
+        select f1.memberId as "userId",
+        f2.year as "year",
+        f2.usedAnnualLeaveDays as "usedDays",
+        /*to_char(field0011 - field0013) as leaveDay,可用于销假的天数*/
+        remainAnnualLeaveDays as "restDay",
+        onOrderAnnualLeaveDays as "noTheWayDay"
+        from vm_cap_hkMemberLeaveInfo f1
+        left join vm_cap_hkMemberLeaveInfo_son f2
+        on f1.id = f2.formmain_id
+        where f1.memberId = #userId# and f2.year between #startYear# and #endYear# order by f2.year asc
+    </select>
+
+    <select id="personalInfoByUserId.select" parameterClass="map" resultClass="java.util.HashMap">
+        select f1.field0001 as "userId",
+        f2.field0009 as "year",
+        f2.field0011 as "usedDays",
+        /*to_char(field0011 - field0013) as leaveDay,可用于销假的天数*/
+        field0012 as "restDay",
+        field0013 as "noTheWayDay"
+        from formmain_2153 f1
+        left join formson_2154 f2
+        on f1.id = f2.formmain_id
+        where f1.field0001 = #userId# and f2.field0009 between #startYear# and #endYear# order by f2.field0009 asc
+    </select>
+
+    <select id="queryCurrentDirector.select" resultClass="java.util.HashMap" parameterClass="map">
+        select
+        id,
+        state,
+        start_member_id,
+        startdate,
+        approve_member_id,
+        approve_date,
+        finished_flag,
+        ratify_flag,
+        ratify_member_id,
+        ratify_date,
+        modify_member_id,
+        modify_date, sort,
+        org_id,
+        name,
+        gender,
+        post,
+        education,
+        positional_title,
+        present_post_desc,
+        id_type,
+        id_number,
+        status,
+        date_of_appoint,
+        date_of_depart,
+        remark,
+        presvious_post_desc,
+        serial_number,
+        filler,
+        fill_date,
+        filler_dept,
+        record_module,
+        edu_degree,
+        nextSynTime
+        from vm_company_directors_info
+        where
+        (util_common.getEnumShowById(org_id) = '高管')
+    </select>
+
+    <select id="queryPartTimeMemberIdNo.select" resultClass="java.util.HashMap" parameterClass="map">
+        select
+
+        v1.id_type as "idType",
+        v1.id_number as "idNumber",
+        v1.nextSynTime as "nextSynTime",
+        v1.name as "name"
+
+        from vm_company_directors_info v1
+        group by v1.id_type,v1.id_number,v1.nextsyntime,v1.name having count(name)>1
+    </select>
+
+    <!-- 初始化部门季度休假信息 -->
+    <insert id="insertLeaveSubInfo.insert" parameterClass="map">
+        INSERT INTO vm_directors_leave_sub
+        (
+        ID,
+        FORMMAIN_ID,
+        SORT,
+        name,
+        leave_reason,
+        leave_remark,
+        gender,
+        org_id,
+        post,
+        date_of_appoint,
+        date_of_depart,
+        adjustType,
+        adjustDate,
+        status,
+        id_type,
+        id_type_updated,
+        id_number,
+        id_number_updated,
+        positional_title,
+        positional_title_updated,
+        education,
+        education_updated,
+        edu_degree,
+        edu_degree_updated,
+        present_post_desc,
+        present_post_desc_updated,
+        presvious_post_desc,
+        presvious_post_desc_updated,
+        record_module,
+        record_module_updated
+
+        )
+        VALUES (
+        #id#,
+        #formmain_id#,
+        0,
+        #name#,
+        #leave_reason#,
+        #leave_remark#,
+        #gender#,
+        #org_id#,
+        #post#,
+        to_date(#date_of_appoint#,'yyyy-mm-dd'),
+        to_date(#date_of_depart#,'yyyy-mm-dd'),
+        #adjustType#,
+        #adjustDate#,
+        #status#,
+        #id_type#,
+        #id_type_updated#,
+        #id_number#,
+        #id_number_updated#,
+        #positional_title#,
+        #positional_title_updated#,
+        #education#,
+        #education_updated#,
+        #edu_degree#,
+        #edu_degree_updated#,
+        #present_post_desc#,
+        #present_post_desc_updated#,
+        #presvious_post_desc#,
+        #presvious_post_desc_updated#,
+        #record_module#,
+        #record_module_updated#
+        )
+    </insert>
+
+
+    <!-- 默认组设置，更新新员工信息 -->
+    <update id="updateDirectorRecord.update" parameterClass="map">
+        update VM_COMPANY_DIRECTORS_INFO
+        set record = #record#
+        where date_of_appoint = #dateOfAppoint#
+        and id_type = #idType#
+        and id_number = #idNumber#
+        and org_id = #org#
+
+    </update>
+
+    <select id="getHolidayByDay.select" resultClass="java.util.HashMap" parameterClass="map">
+        select
+        to_char(datenum,'yyyy-mm-dd') datenum,
+        isrest,
+        datememo
+        from table(util_common.getHolidays(#year#,1)) where to_char(datenum,'yyyy-mm-dd') = #date#
+    </select>
+
+
+    <select id="getParantalLeavePeriod.select" resultClass="com.seeyon.apps.kk.hr.model.ParentalLeave"
+            parameterClass="map">
+        select
+        parental.id as "id",
+        parental.formmain_Id as "formmainId",
+        base.memberId as "staffId",
+        parental.childId as "childId",
+        parental.holidayPeriodStart as "holidayPeriodStart",
+        parental.holidayPeriodEnd as "holidayPeriodEnd",
+        parental.holidayCount as "holidayCount",
+        parental.holidayUsed as "holidayUsed",
+        parental.holidayRest as "holidayRest",
+        parental.holidayProcessing as "holidayProcessing",
+        parental.idCopy as "idCopy"
+        from vm_baseMemberInfo base left join vm_parentalLeaveInfo parental on base.id = parental.formmain_Id
+        where base.memberId = #userId#
+        and (
+        (#startDate# &lt; parental.holidayPeriodEnd and #endDate# &gt;= parental.holidayPeriodStart)
+        or
+        (#startDate# &lt; parental.holidayPeriodEnd and #endDate# &gt;= parental.holidayPeriodStart)
+        )
+        order by parental.holidayPeriodStart, parental.childId asc
+    </select>
+    <select id="getParantalLeavePeriodById.select" resultClass="com.seeyon.apps.kk.hr.model.ParentalLeave"
+            parameterClass="java.lang.String">
+        select
+        parental.id as "id",
+        parental.formmain_Id as "formmainId",
+        parental.childId as "childId",
+        parental.holidayPeriodStart as "holidayPeriodStart",
+        parental.holidayPeriodEnd as "holidayPeriodEnd",
+        parental.holidayCount as "holidayCount",
+        parental.holidayUsed as "holidayUsed",
+        parental.holidayRest as "holidayRest",
+        parental.holidayProcessing as "holidayProcessing",
+        parental.idCopy as "idCopy"
+        from vm_parentalLeaveInfo parental
+        where id = #id#
+
+    </select>
+
+    <select id="getParentalLeaveRecord.select" resultClass="com.seeyon.apps.kk.hr.model.ParentalLeaveRecord"
+            parameterClass="map">
+        select
+        id as "id",
+        identityNo as "identityNo",
+        staffId as "staffId",
+        currentDate as "currentDate",
+        isHalfDay as "isHalfDay",
+        isCancel as "isCancel",
+        cancelDate as "cancelDate"
+        from vm_parentalLeaveRecord
+        where identityNo = #identityNo#
+        and staffId = #staffId#
+        and currentDate = #currentDate#
+        and isHalfDay = #isHalfDay#
+        and isCancel = 8705337157000773743
+
+    </select>
+
+
+    <insert id="addParentalLeaveRecord.insert" parameterClass="com.seeyon.apps.kk.hr.model.ParentalLeaveRecord">
+        INSERT INTO vm_parentalleaverecord
+        (
+        id,
+        identityNo,
+        staffId,
+        currentDate,
+        isHalfDay,
+        isCancel,
+        cancelDate,
+        periodId,
+        leaveFlowId,
+        cancelLeaveFlowId
+        )
+        VALUES (
+        #id#,
+        #identityNo#,
+        #staffId#,
+        #currentDate#,
+        #isHalfDay#,
+        #isCancel#,
+        #cancelDate#,
+        #periodId#,
+        (select subject from ctp_affair where form_recordId = #leaveFlowId# group by subject) ,
+        (select subject from ctp_affair where form_recordId = #cancelLeaveFlowId# group by subject)
+        )
+    </insert>
+
+
+    <select id="getParentalLeaveFlowInfo.select" resultClass="java.util.HashMap" parameterClass="java.lang.String">
+        select
+        id as id,
+        writer as "writer",
+        writerDept as "writerDept",
+        writeDate as "writeDate",
+        leaveType as "leaveType",
+        startDate as "startDate",
+        startHalfDay as "startHalfDay",
+        endDate as "endDate",
+        endHalfDay as "endHalfDay",
+        calcPeriod0 as "calcPeriod0",
+        discountDay0 as "discountDay0",
+        calcPeriod1 as "calcPeriod1",
+        discountDay1 as "discountDay1",
+        calcPeriod2 as "calcPeriod2",
+        discountDay2 as "discountDay2",
+        calcPeriod3 as "calcPeriod3",
+        discountDay3 as "discountDay3",
+        calcPeriod4 as "calcPeriod4",
+        discountDay4 as "discountDay4"
+        from vm_wf_parentalleave
+        where id = #id#
+
+    </select>
+
+    <select id="getParentalLeaveCancelFlowInfo.select" resultClass="java.util.HashMap"
+            parameterClass="java.lang.String">
+        select
+        id as id,
+        writer as "writer",
+        writerDept as "writerDept",
+        writeDate as "writeDate",
+        leaveRecord as "leaveRecord",
+        leaveType as "leaveType",
+        startDate as "startDate",
+        startHalfDay as "startHalfDay",
+        endDate as "endDate",
+        endHalfDay as "endHalfDay",
+        cancelType as "cancelType",
+        newstartDate as "newstartDate",
+        newstartHalfDay as "newstartHalfDay",
+        newendDate as "newendDate",
+        newendHalfDay as "newendHalfDay"
+        from vm_wf_parentalleavecancel
+        where id = #id#
+
+    </select>
+
+
+    <insert id="insertFormRelation.insert" parameterClass="java.util.HashMap">
+        insert into form_relation_record
+        (id,
+        from_masterdata_id,
+        to_masterdata_id,
+        state,
+        field_name,
+        form_type,
+        type,
+        member_id,
+        from_subdata_id,
+        to_subdata_id,
+        from_form_id,
+        to_form_id)
+        values
+        (util_common.getAbsID,
+        #recordId#,
+        (select id from col_summary where form_recordid=#flowId#),
+        1,
+        #attachField#,
+        '1',
+        '1',
+        '-6760911671874597139',
+        '0',
+        '0',
+        '-8899514785812624908',
+        '6734388298582673815'
+
+        )
+
+    </insert>
+
+
+    <select id="getCancelLeaveRecords.select" resultClass="com.seeyon.apps.kk.hr.model.ParentalLeaveRecord"
+            parameterClass="java.util.HashMap">
+        select
+        id as "id",
+        identityNo as "identityNo",
+        staffId as "staffId",
+        currentDate as "currentDate",
+        isHalfDay as "isHalfDay",
+        isCancel as "isCancel",
+        cancelDate as "cancelDate",
+        periodId as "periodId"
+        from vm_parentalLeaveRecord
+        where
+        staffId = #staffId#
+        and currentDate &gt;= #newStartDate#
+        and currentDate &lt;= #newEndDate#
+        and isCancel = 8705337157000773743
+        order by currentDate asc ,ishalfday desc
+    </select>
+
+    <update id="updateParentalLeavePeriod.update" parameterClass="com.seeyon.apps.kk.hr.model.ParentalLeave">
+        update vm_parentalleaveInfo
+        set holidayUsed = #holidayUsed#,
+        holidayRest = #holidayRest#
+        where id = #id#
+    </update>
+
+    <update id="updateParentalLeaveRecord.update" parameterClass="com.seeyon.apps.kk.hr.model.ParentalLeaveRecord">
+        update vm_parentalleaverecord
+        set isCancel = #isCancel#,
+        cancelDate = #cancelDate#,
+        cancelLeaveFlowId = (select subject from ctp_affair where form_recordId = #cancelLeaveFlowId# group by subject)
+        where id = #id#
+    </update>
+
+    <update id="allBaseMemberInfo.update">
+        update vm_baseMemberInfo
+        set isinvestmanager = -812415069995905183,
+        istopmanager = -1089048568118490234,
+        isinvestdepartmanager = -1089048568118490234,
+        isinvesthelp = -1089048568118490234
+    </update>
+
+    <update id="baseMemberInfoByUserId.update" parameterClass="java.util.HashMap">
+        update vm_baseMemberInfo set
+        <dynamic prepend=" ">
+            <isNotEmpty prepend="," property="isTopManager">
+                istopmanager = -3841538853571705149
+            </isNotEmpty>
+            <isNotEmpty prepend="," property="isInvestDepartManager">
+                isinvestdepartmanager =-3841538853571705149
+            </isNotEmpty>
+            <isNotEmpty prepend="," property="isInvestHelp">
+                isinvesthelp = -3841538853571705149
+            </isNotEmpty>
+            <isNotEmpty prepend="," property="isInvestManager">
+                isinvestmanager =8754640325005626184
+            </isNotEmpty>
+        </dynamic>
+        where
+        util_user.getMemCodeByMemId(memberId) IN
+        <iterate conjunction="," open="(" close=")" property="memIds">
+            #memIds[]#
+        </iterate>
+    </update>
+
+
+    <select id="isWorkDay.select" resultClass="java.lang.Integer" parameterClass="java.util.Date">
+        select to_char(util_common.isWorkDay(#date#)) from dual
+    </select>
+
+    <select id="getLastWorkDay.select" resultClass="java.lang.String" parameterClass="java.util.Date">
+        select util_common.getLastWorkDay(#date#) from dual
+    </select>
+
+    <select id="getNextWorkDay.select" resultClass="java.lang.String" parameterClass="java.util.Date">
+        select to_char(util_common.getNextWorkDay(#date#)) from dual
+    </select>
+
+    <update id="leaveDayDate.update" parameterClass="java.util.HashMap">
+        update vm_wf_parentalleave set startDateextend = #startDate#, endDateextend = #endDate#
+        where id = #id#
+    </update>
+
+    <select id="findLeaveStartDate.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select c.startdate, c.enddate, c. starthalf, c.endhalt
+        from vm_leaveDayrecordtable c
+        where
+        (
+        (#startDate# between c.startdate and c.enddate and c.enddate != #endDate#)
+        or
+        (enddate = #startDate# -1
+        and c.endhalt = 3338464713283357441)
+        )
+        and c.leaver = #userId#
+    </select>
+
+
+    <insert id="mergeParentalChildInfo.insert" parameterClass="com.seeyon.apps.kk.hr.model.ParentalLeave">
+
+        merge into vm_parentalLeaveInfo a
+        using
+        (select #childId# as childId,#holidayPeriodStart# as holidayPeriodStart,#formmainId# as formmain_id from dual) c
+        on ( a.childId = c.childId and a.holidayPeriodStart=c.holidayPeriodStart and a.formmain_id = c.formmain_id)
+        when not matched then
+        insert(
+        id,
+        formmain_id,
+        childId,
+        holidayPeriodStart,
+        holidayPeriodEnd,
+        holidayCount,
+        holidayUsed,
+        holidayRest,
+        holidayProcessing,
+        idCopy
+        )
+        values(#id#,
+        #formmainId#,
+        #childId#,
+        #holidayPeriodStart#,
+        #holidayPeriodEnd#,
+        #holidayCount#,
+        #holidayUsed#,
+        #holidayRest#,
+        #holidayProcessing#,
+        #idCopy#
+        )
+
+        when matched then
+        update set holidayCount = #holidayCount#
+    </insert>
+    <select id="getMemberBaseInfoIdByMemberId.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select id from VM_BASEMEMBERINFO where memberId = #memberId#
+    </select>
+
+
+    <delete id="deleteEmptyParentalChildInfo.delete">
+        delete from vm_parentalLeaveInfo where childid is null or holidayperiodstart is null
+    </delete>
+    <!-- 删除所有已经销假的记录 -->
+    <delete id="allCancelDayRecord.delete" parameterClass="java.util.HashMap">
+        delete from
+        vm_DailyLeaveTravelRecord where
+        leaveSerialNum in (
+        select distinct serialNum
+        from vm_userapplyforleave f
+        where f.recordStatus = 2149466679256501365 and to_char(f.modify_date, 'yyyy-mm-dd')  BETWEEN #startDate# AND #endDate#
+        connect by id = prior id
+        and level <![CDATA[<=]]> enddate - begindate + 1
+        and prior sys_guid() is not null)
+    </delete>
+    <!-- 删除所有已经出差申请撤销的记录 -->
+    <delete id="allCancelSurveyRecord.delete" parameterClass="java.util.HashMap">
+        delete from
+        vm_DailyLeaveTravelRecord where
+        travelSerialNum in (
+        select distinct serialNum
+        from vm_evectionRecord f
+        where f.applyStatus = #applyStatus# and to_char(f.modify_date, 'yyyy-mm-dd')  BETWEEN #startDate# AND #endDate#
+        connect by id=prior id
+        and level <![CDATA[<=]]> travelEndDate-travelBeginDate+1
+        and prior sys_guid() is not null)
+    </delete>
+
+    <delete id="allCancelDayRecordCtpContent.delete">
+        delete from ctp_content_all f
+        where f.module_template_id = -9154120848050929403
+        and f.content_template_id = 6050223712139953374
+        and  not exists
+        (select 1
+        from vm_DailyLeaveTravelRecord vdd
+        where f.content_data_id = vdd.id)
+    </delete>
+    <select id="empBusinessCard.select" parameterClass="java.util.HashMap"
+            resultClass="com.seeyon.apps.kk.hr.model.BaseMemberInfoModel">
+        select
+        f.id,
+        to_char(f.memberId) memberId,
+        f.loginName,
+        nvl(f.chnname, f3.name) chnname,
+        engname,
+        departid,
+        chnTitle,
+        engTitle,
+        f.qq,
+        f.officeAddress,
+        f.partTimeOfficeAddress,
+        f.ecard,
+        f.nameCardTemplate,
+        util_common.getEnumShowById(f.showDeptChnName) showDeptChnName,
+        util_common.getEnumShowById(f.showDeptEngName) showDeptEngName,
+        util_common.getEnumShowById(f.showdeptEngAddress) showdeptEngAddress,
+        f2_parent.name accountName,
+        f2_parent.second_name accountEnName,
+        f7.field0005 accountEnAddress,
+        f2_parent.ext_attr_4 accountLandline,
+        f2_parent.ext_attr_5 accountFax,
+        nvl(f.departCn, util_org.getDeptNameByDeptId(f.departId)) departName,
+        f2_parent.ext_attr_2 accountAddress,
+        f2_parent.ext_attr_3 accountZIP,
+        f2_parent.code,
+        f3.ext_attr_2 email,
+        f3.ext_attr_3 Landline,
+        f.phone,
+        f.otherPhone,
+        f4.departEnName,
+        f6.departEnName partTimeDepartEnName,
+        f.businessQRCard,
+        f.kmCode,
+        util_org.getDeptNameByDeptId(f.partTimeDepartment) partTimeDepartName,
+        f.traditionalName,
+        f.partTimeTitle,
+        f.partTimeChnTitle,
+        f.partTimeEngTitle,
+        f8.field0005 partTimeAccountEnAddress,
+        f5_parent.ext_attr_4 partTimeAccountLandline,
+        f5_parent.ext_attr_5 partTimeAccountFax,
+        f5_parent.code partTimeAccountCode,
+        f5_parent.ext_attr_7 url,
+        f5_parent.name partTimeAccountName,
+        f5_parent.second_name partTimeAccountEnName,
+        f5_parent.ext_attr_2 partTimeAccountAddress,
+        f5_parent.ext_attr_3 partTimeAccountZIP
+        from
+        vm_basememberinfo f
+        left join org_unit f2 ON f.departId = f2.id
+        left join org_unit f2_parent ON f2.org_account_id = f2_parent.id
+        left join org_unit f5 ON f.partTimeDepartment = f5.id
+        left join org_unit f5_parent ON f5.org_account_id = f5_parent.id
+        left join org_member f3
+        on f.memberId = f3.id
+        left join vm_deptaffairrole f4
+        on f.departId = f4.roleDept
+        left join vm_deptaffairrole f6
+        on f.partTimeDepartment = f6.roleDept
+        left join  formmain_6276 f7
+        on f2_parent.code = f7.field0003
+        left join  formmain_6276 f8
+        on f5_parent.code = f8.field0003
+        where  f3.is_internal = 1 and f3.is_enable = 1 and f3.is_deleted = 0
+        <isNotEmpty prepend="AND" property="kmCodes">
+            kmCode IN
+            <iterate conjunction="," open="(" close=")" property="kmCodes">
+                #kmCodes[]#
+            </iterate>
+        </isNotEmpty>
+    </select>
+    <select id="memberQrcode.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select to_char(f2.file_url) file_url
+        from vm_basememberinfo f1
+        left join ctp_attachment f2
+        on f1.businessQRCard = f2.sub_reference
+        where  businessQRCard is not null
+        and kmCode = #kmCode#
+    </select>
+    <select id="memberPartTimeQrcode.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select to_char(f2.file_url) file_url
+        from vm_basememberinfo f1
+        left join ctp_attachment f2
+        on f1.partTimeQRCard = f2.sub_reference
+        where  partTimeQRCard is not null
+        and kmCode = #kmCode#
+    </select>
+    <update id="deleteAllECardReference">
+        update vm_basememberinfo
+        set ecard = null
+    </update>
+
+    <select id="eCardDownInfo.select" resultClass="java.util.HashMap" parameterClass="java.util.HashMap">
+        select ecard, to_char(f1.hrCode) hrCode,to_char(f2.file_url) as fieldId, nvl(f1.chnname, f3.name) chnname ,partTimeEcard,to_char(f2p.file_url) as partTimeFieldId
+        from vm_basememberinfo f1
+        left join ctp_attachment f2
+        on f1.ecard = f2.sub_reference
+        left join ctp_attachment f2p
+        on f1.partTimeEcard = f2p.sub_reference
+        left join org_member f3
+        on f1.memberId = f3.id
+        where ecard is not null
+        <isNotEmpty prepend="AND" property="kmCodes">
+            kmCode IN
+            <iterate conjunction="," open="(" close=")" property="kmCodes">
+                #kmCodes[]#
+            </iterate>
+        </isNotEmpty>
+    </select>
+
+    <select id="companyEnName.select" resultClass="java.lang.String">
+        select companyEnName from vm_companyExtend where companyCode = 'FGF'
+    </select>
+    <select id="cardExcelExport.select" resultClass="java.util.HashMap" parameterClass="java.util.HashMap">
+        select chnname 中文姓名_1,
+        engname 英文姓名_2,
+        chnTitle 中文抬头_3,
+        engTitle 英文抬头_4,
+        f2.name 单位名称_5,
+        nvl(f.departCn, util_org.getDeptNameByDeptId(f.departId)) 部门名称_6,
+        f4.departEnName 部门英文名称_7,
+        f2.ext_attr_2 单位地址_8,
+        'accountEnAddress' 单位英文地址_9,
+        f.officeAddress 办公地址_10,
+        f.phone 手机号_11,
+        f.otherPhone 其他手机号_12,
+        f3.ext_attr_3 座机_13,
+        f3.ext_attr_2 邮箱_14,
+        f2.ext_attr_3 单位邮编_15,
+        f.qq qq_16,
+        f.wechat 微信_17,
+        util_common.getEnumShowById(f.showDeptEngName) 是否显示部门英文名称_18,
+        util_common.getEnumShowById(f.showdeptEngAddress) 是否显示单位英文地址_19
+        from vm_basememberinfo f
+        left join org_unit f2
+        on 1 = 1
+        left join org_member f3
+        on f.memberId = f3.id
+        left join vm_deptaffairrole f4
+        on f.departId = f4.roleDept
+        where f2.id = 97839079791739420
+        and f3.is_internal = 1
+        and f3.is_enable = 1
+        and f3.is_deleted = 0
+        and f.memberState = '在职'
+        <isNotEmpty prepend="AND" property="kmCodes">
+            kmCode IN
+            <iterate conjunction="," open="(" close=")" property="kmCodes">
+                #kmCodes[]#
+            </iterate>
+        </isNotEmpty>
+    </select>
+
+    <select id="cardDownInfo.select" resultClass="java.util.HashMap" parameterClass="java.util.HashMap">
+        select nameCardTemplate, to_char(f1.hrCode) hrCode,to_char(f2.file_url) as fieldId, f1.chnname from
+        vm_basememberinfo f1
+        left join ctp_attachment f2
+        on f1.nameCardTemplate = f2.sub_reference
+        where nameCardTemplate is not null
+        <isNotEmpty prepend="AND" property="kmCodes">
+            kmCode IN
+            <iterate conjunction="," open="(" close=")" property="kmCodes">
+                #kmCodes[]#
+            </iterate>
+        </isNotEmpty>
+    </select>
+
+    <update id="updateEmpBaseInfo.update" parameterClass="java.util.HashMap">
+        update vm_basememberinfo
+        set
+        <dynamic prepend=" ">
+            <isNotEmpty prepend="," property="showDeptEngName">
+                showDeptEngName = #showDeptEngName#
+            </isNotEmpty>
+            <isNotEmpty prepend="," property="showdeptEngAddress">
+                showdeptEngAddress = #showdeptEngAddress#
+            </isNotEmpty>
+            <isNotEmpty prepend="," property="phone">
+                phone = #phone#
+            </isNotEmpty>
+            <isNotEmpty prepend="," property="otherphone">
+                otherphone = #otherphone#
+            </isNotEmpty>
+            <isNotEmpty prepend="," property="qq">
+                qq = #qq#
+            </isNotEmpty>
+            <isNotEmpty prepend="," property="chnTitle">
+                chnTitle = #chnTitle#
+            </isNotEmpty>
+            <isNotEmpty prepend="," property="engTitle">
+                engTitle = #engTitle#
+            </isNotEmpty>
+            <isNotEmpty prepend="," property="officeAddress">
+                officeAddress = #officeAddress#
+            </isNotEmpty>
+            <isNotEmpty prepend="," property="engname">
+                engname = #engname#
+            </isNotEmpty>
+            <isNotEmpty prepend="," property="departCn">
+                departCn = #departCn#
+            </isNotEmpty>
+            <isNotEmpty prepend="," property="wechat">
+                wechat = #wechat#
+            </isNotEmpty>
+
+        </dynamic>
+        where kmcode = #kmCode#
+    </update>
+    <select id="paperCardModelFileUrl.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select f.file_url fieldId from ctp_attachment f where f.sub_reference = #attard#
+    </select>
+
+    <!--查询香港员工假期信息表  OA00008433 weishangyu-->
+    <select id="getHKMembersAnnualLeaveInfo.select" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        memberId as "memberId",
+        memberDept as "memberDept",
+        memberState as "memberState",
+        post as "post",
+        joinDate as "joinDate",
+        resignDate as "resignDate",
+        remainExtraLeave as "remainExtraLeave",
+        onOrderExtraLeave as "onOrderExtraLeave",
+        noticeMembers as "noticeMembers",
+        usedMarriageDay as "usedMarriageDay",
+        appliedMarriageDay as "appliedMarriageDay",
+        chargeMember as "chargeMember",
+        firstMarriage as "firstMarriage"
+        from vm_cap_hkMemberLeaveInfo
+    </select>
+
+    <!--查询香港员工假期信息子表  OA00008433 weishangyu-->
+    <select id="getHKMembersLeaveDetailByMainId.select" parameterClass="java.lang.String"
+            resultClass="java.util.HashMap">
+        select
+        id as "id",
+        formmain_id as "formmainId",
+        year as "year",
+        annualLeaveStart as "annualLeaveStart",
+        annualLeaveEnd as "annualLeaveEnd",
+        annualLeaveDays as "annualLeaveDays",
+        usedAnnualLeaveDays as "usedAnnualLeaveDays",
+        remainAnnualLeaveDays as "remainAnnualLeaveDays",
+        onOrderAnnualLeaveDays as "onOrderAnnualLeaveDays"
+        from vm_cap_hkMemberLeaveInfo_son
+        where formmain_id = #id#
+        order by year desc
+    </select>
+
+    <!--查询当日香港请假流程  OA00008433 weishangyu-->
+    <!-- kk.fuzhiyuan 2025/12/02 兼容部分销假已结束数据-->
+    <select id="getTodayHKLeaveApply.select" resultClass="java.util.HashMap">
+        select
+        t.id,
+        t."applyUser",
+        t."leaveStartDate",
+        t."leaveStartHalfDay",
+        t."leaveEndDate",
+        t."leaveEndHalfDay",
+        t."type",
+        t."recordSign"
+        from (
+        SELECT  q.id,
+        q.applyUser as "applyUser",
+        trunc(q.leaveStartDate) AS "leaveStartDate",
+        util_common.getEnumShowById(q.leaveStartHalfDay) AS "leaveStartHalfDay",
+        trunc(q.leaveEndDate) AS "leaveEndDate",
+        util_common.getEnumShowById(q.leaveEndHalfDay) AS "leaveEndHalfDay",
+        util_common.getEnumShowById(q.leaveType) AS "type",
+        q.recordsign AS "recordSign"
+        FROM vm_cap_hkLeaveRecord q
+        left join vm_wf_hkleavebackapply qk on qk.leaveFlowSerialNo = q.recordSign
+        WHERE q.recordState = util_common.getEnumIdByRefName('请假记录状态', '已请假') and (qk.state is null or qk.state  = 0)
+        UNION ALL
+        SELECT  id,
+        applyUser as "applyUser",
+        trunc(newLeaveStartDate) AS "leaveStartDate",
+        util_common.getEnumShowById(newLeaveStartHalfDay) AS "leaveStartHalfDay",
+        trunc(newLeaveEndDate) AS "leaveEndDate",
+        util_common.getEnumShowById(newLeaveEndHalfDay) AS "leaveEndHalfDay",
+        util_common.getEnumShowById(leaveType) AS "type",
+        recordsign AS "recordSign"
+        FROM vm_cap_hkLeaveRecord_son where leaveBackType = util_common.getEnumIdByRefName('销假类型', '部分销假')
+        ) t
+        where 1=1
+        and (t."leaveStartDate" &lt;= sysdate and t."leaveEndDate" &gt;= sysdate - 1 )
+    </select>
+
+    <!--查询当日未结束香港请假流程  OA00008433 weishangyu-->
+    <!-- kk.fuzhiyuan 2025/12/02 兼容部分销假未结束数据-->
+    <select id="getTodayHKLeaveApplyUnfinished.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        t."applyUser",
+        t."leaveStartDate",
+        t."leaveStartHalfDay",
+        t."leaveEndDate",
+        t."leaveEndHalfDay",
+        t."type"
+        from (
+        select
+        applyUser as "applyUser",
+        leaveStartDate as "leaveStartDate",
+        util_common.getEnumShowById(leaveStartHalfDay) as "leaveStartHalfDay",
+        leaveEndDate as "leaveEndDate",
+        util_common.getEnumShowById(leaveEndHalfDay) as "leaveEndHalfDay",
+        finishedflag as "finishedflag",
+        serialNo as "serialNo",
+        util_common.getEnumShowById(leaveType) AS "type"
+        from vm_wf_hkLeaveApply where state  = 1 and finishedflag = 0
+        UNION ALL
+        select
+        applyUser as "userId",
+        newLeaveStartDate as "leaveStartDate",
+        util_common.getEnumShowById(newLeaveStartHalfDay) as "leaveStartHalfDay",
+        newLeaveEndDate as "leaveEndDate",
+        util_common.getEnumShowById(newLeaveEndHalfDay) as "leaveEndHalfDay",
+        finishedflag as "finishedflag",
+        leaveFlowSerialNo as "serialNo",
+        util_common.getEnumShowById(leaveType) AS "type"
+        from vm_wf_hkleavebackapply where state  = 1 and finishedflag = 0 and leaveBackType = util_common.getEnumIdByRefName('销假类型', '部分销假')
+        ) t
+        where 1=1
+        <isNotEmpty property="finishedFlowSign">
+            and t."serialNo" not in ($finishedFlowSign$)
+        </isNotEmpty>
+        and (t."leaveStartDate" &lt;= sysdate
+        and t."leaveEndDate" &gt;= sysdate - 1 )
+    </select>
+
+    <!--查询当日香港出差流程（已结束）-->
+    <select id="getTodayHKEvectionApply.select" resultClass="java.util.HashMap">
+        SELECT id,
+        evectionNo as "evectionNo",
+        evectionMember as "applyUser",
+        evectionRetinues as "evectionRetinues",
+        trunc(startDate) AS "leaveStartDate",
+        trunc(endDate) AS "leaveEndDate",
+        evectionExplain AS "evectionExplain",
+        destination AS "destination",
+        applyStatus AS "applyStatus"
+        FROM vm_cap_evectionrecord q
+        WHERE (startDate &lt;= sysdate
+        and endDate  &gt;= sysdate - 1 )
+    </select>
+
+    <!--查询当日香港出差流程（在途）-->
+    <select id="getTodayHKEvectionApplyUnfinished.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        SELECT id,
+        evectionMember as "applyUser",
+        evectionRetinues as "evectionRetinues",
+        trunc(startDate) AS "leaveStartDate",
+        trunc(endDate) AS "leaveEndDate",
+        evectionExplain AS "evectionExplain",
+        destination AS "destination",
+        applyStatus AS "applyStatus"
+        from vm_cap_wf_evectionhk
+        where 1=1
+        <isNotEmpty property="finishedFlowSign">
+            and serialNo not in ($finishedFlowSign$)
+        </isNotEmpty>
+        and (startDate &lt;= sysdate
+        and endDate &gt;= sysdate - 1 )
+    </select>
+
+
+    <!-- 查询香港子公司HR部门岗位中的人员邮箱，用于发送短信提醒 -->
+    <select id="getHKhrReceivers.select" resultClass="java.lang.String">
+        select EXT_ATTR_2 from org_member where id in (
+        select OBJECTIVE0_id from org_relationship where source_id = (select id from org_team where id =
+        -3861360978288357917) and type = 'Team_Member'
+        )
+    </select>
+
+
+    <!--新增香港员工年假信息  OA00008433 weishangyu-->
+    <insert id="addHKMembersLeaveDetailInfo.insert" parameterClass="java.util.HashMap">
+        insert into vm_cap_hkMemberLeaveInfo_son
+        (
+        id,
+        formmain_id,
+        sort,
+        year,
+        annualLeaveStart,
+        annualLeaveEnd,
+        annualLeaveDays,
+        usedAnnualLeaveDays,
+        remainAnnualLeaveDays,
+        onOrderAnnualLeaveDays,
+        preYear
+        )
+        values(
+        util_common.getAbsID,
+        #formmainId#,
+        -#year#,
+        #year#,
+        #annualLeaveStart#,
+        #annualLeaveEnd#,
+        #annualLeaveDays#,
+        #usedAnnualLeaveDays#,
+        #remainAnnualLeaveDays#,
+        #onOrderAnnualLeaveDays#,
+        #preYear#
+        )
+    </insert>
+
+    <!--查询公司中全部香港员工信息  OA00008433 weishangyu-->
+    <select id="selectHKMembersFromOrgMember.select" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        1 as "state",
+        -6760911671874597139 as "start_member_id",
+        sysdate as "start_date",
+        0 as "approve_member_id",
+        sysdate as "approve_date",
+        0 as "finishedflag",
+        0 as "ratifyflag",
+        0 as "ratify_member_id",
+        null as "ratify_date",
+        0 as "sort",
+        id as "memberId",
+        util_user.getDeptIdByMemId(id) as "memberDept",
+        -3531013148299411114 as "memberState",
+        '' as "post",
+        create_time as "joinDate",
+        null as "resignDate",
+        0 as "remainExtraLeave",
+        0 as "onOrderExtraLeave",
+        null as "noticeMembers",
+        0 as "chargeMember",
+        null as "firstMarriage",
+        0 as "usedMarriageDay",
+        0 as "appliedMarriageDay"
+        from org_member m where org_Account_id = -2948740806339441327
+        and is_internal = 1 AND is_virtual = 0 AND is_enable = 1 AND is_deleted = 0 and is_admin = 0 and type != 2
+        and not exists(select 1 from vm_cap_hkMemberLeaveInfo l where l.memberId = m.id)
+    </select>
+
+
+    <!--新增香港员工假期表记录  OA00008433 weishangyu-->
+    <insert id="addHKMembersFromOrgMember.insert" parameterClass="java.util.HashMap">
+        insert into vm_cap_hkMemberLeaveInfo
+        (
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        writer,
+        writeDate,
+        memberId,
+        memberDept,
+        memberState,
+        post,
+        joinDate,
+        resignDate,
+        remainExtraLeave,
+        onOrderExtraLeave,
+        noticeMembers,
+
+        chargeMember,
+        firstMarriage,
+        usedMarriageDay,
+        appliedMarriageDay
+        ) values (
+        #id#,
+        1,
+        -6760911671874597139,
+        SYSDATE,
+        0,
+        SYSDATE,
+        0,
+        0,
+        0,
+        null,
+        0,
+        '-6760911671874597139',
+        sysdate,
+        #memberId#,
+        #memberDept#,
+        '7369887914205400284',
+        #post#,
+        #joinDate#,
+        #resignDate#,
+        #remainExtraLeave#,
+        #onOrderExtraLeave#,
+        #noticeMembers#,
+
+        #chargeMember#,
+        #firstMarriage#,
+        #usedMarriageDay#,
+        #appliedMarriageDay#
+
+        )
+
+    </insert>
+    <!--查询未配置主管信息的香港员工  OA00008433 weishangyu-->
+    <select id="getNoChargerMembers.select" resultClass="java.util.HashMap">
+
+        select
+        memberId as "memberId",
+        memberDept as "memberDept"
+        from vm_cap_hkMemberLeaveInfo
+        where memberId not in (select memberId from vm_cap_chargeMemberRelation)
+    </select>
+
+    <!--新增香港员工主管信息配置  OA00008433 weishangyu-->
+    <insert id="addChargeMemberRelation.insert" parameterClass="java.util.HashMap">
+        insert into vm_cap_chargeMemberRelation
+        (
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        applyUser,
+        applyDept,
+        applyDate,
+        memberId,
+        memberDept,
+        chargeMember
+        ) values (
+        #id#,
+        1,
+        -6760911671874597139,
+        SYSDATE,
+        0,
+        SYSDATE,
+        0,
+        0,
+        0,
+        null,
+        0,
+        #applyUser#,
+        #applyDept#,
+        #applyDate#,
+        #memberId#,
+        #memberDept#,
+        #chargeMember#
+
+        )
+
+    </insert>
+
+
+    <!--根据岗位代码查询员工邮箱  OA00008433 weishangyu-->
+    <select id="getSenderEmailByPostCode.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select ext_attr_2 from org_member where org_post_id = (select id from org_post where code = #code#)
+    </select>
+
+
+    <update id="updateHKLeaveInfoChargeMember.update" parameterClass="map">
+        update vm_cap_hkMemberLeaveInfo
+        set chargeMember = #chargeMember#
+        where memberId = #memberId#
+    </update>
+
+    <select id = "getDeptManagerByDeptIdHr.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        SELECT SOURCE_ID FROM ORG_RELATIONSHIP RL WHERE RL.OBJECTIVE0_ID=#deptId#
+        AND RL.TYPE = 'Member_Role' AND RL.OBJECTIVE1_ID IN
+        (SELECT ID FROM ORG_ROLE R WHERE R.NAME = '部门经理')
+    </select>
+
+    <select id = "getUnfinishedReturnLeaveFlowByUserId.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        field0001 as "leaveFlowNo",
+        field0008 as "leaveDays",
+        field0009 as "leaveStartDate",
+        field0010 as "leaveStartMorN",
+        field0011 as "leaveEndDate",
+        field0012 as "leaveEndMorN",
+        field0013 as "leaveRtnType",
+        field0015 as "newLeaveStartDate",
+        field0016 as "newLeaveStartMorN",
+        field0017 as "newLeaveEndDate",
+        field0018 as "newLeaveEndMorN",
+        field0022 as "newLeaveDays",
+        field0030 as "returnDays",
+        field0036 as "preLeaveYear",
+        field0037 as "currentLeaveYear",
+        field0038 as "nextLeaveYear",
+        field0039 as "preYearRtnDays",
+        field0040 as "currentYearRtnDays",
+        field0041 as "nextYearRtnDays"
+            from formmain_2163 where id in
+        (select form_recordId from col_summary where templete_id = -7111560710701037197 and  start_member_id = #userId#  and state = 0)
+    </select>
+
+    <select id = "getUnfinishedReturnLeaveFlowByUserIdHK.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        serialNo as "leaveFlowNo",
+        leaveDays as "leaveDays",
+        leaveStartDate as "leaveStartDate",
+        leaveStartHalfDay as "leaveStartMorN",
+        leaveEndDate as "leaveEndDate",
+        leaveEndHalfDay as "leaveEndMorN",
+        leaveBackType as "leaveRtnType",
+        newLeaveStartDate as "newLeaveStartDate",
+        newLeaveStartHalfDay as "newLeaveStartMorN",
+        newLeaveEndDate as "newLeaveEndDate",
+        newLeaveEndHalfDay as "newLeaveEndMorN",
+        newLeaveDay as "newLeaveDays",
+        leaveBackDays as "returnDays",
+        preYear as "preLeaveYear",
+        year as "currentLeaveYear",
+        nextYear as "nextLeaveYear",
+        preYearDaysCount as "preYearRtnDays",
+        currentYearDaysCount as "currentYearRtnDays",
+        nextYearDaysCount as "nextYearRtnDays"
+        from vm_wf_hkLeaveBackApply where id in
+        (select form_recordId from col_summary where templete_id = -771164294647560130 and  start_member_id = #userId#  and state = 0)
+    </select>
+
+    <select id="memberkeyinfo.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        to_char(f.memberId) memberId,
+        f.kmCode,
+        f.hrCode,
+        f.loginName
+        from
+        vm_basememberinfo f
+        where f.memberState = '在职'
+        <isNotEmpty prepend="AND" property="kmCode">
+            kmCode = #kmCode#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="hrCode">
+            hrCode = #hrCode#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="loginName">
+            loginName = #loginName#
+        </isNotEmpty>
+    </select>
+
+    <update id="updateInvestManagers.update" parameterClass="java.lang.String">
+        update formmain_2161
+        set field0080 =
+        (select (listagg(c.mainmember || ',' || c.submember, ',') within
+        group(order by c.submember)) as a
+        from VM_DEPTPOST c
+        where c.busimodel = '4053677126668929503'
+        and c.questname in ('公司投资决策委员会',
+        '固收投资决策委员会',
+        '海外权益投资决策委员会',
+        '量化投资决策委员会',
+        '权益投资决策委员会',
+        '社保养老金投资决策委员会',
+        '衍生品投资决策委员会'))
+        where id = #formId#
+    </update>
+
+    <update id="updateHrNoAndWorkPlace.update" parameterClass="java.util.HashMap">
+        update addressbook
+        set ext_attr_3 = #workPlace#,
+        ext_attr_6 = #hrNo#
+        where member_id = #memberId#
+    </update>
+
+    <update id="copyLeaveFlowDays.update" parameterClass="java.lang.String">
+        update FORMMAIN_2161
+        set field0034 = field0013,
+        field0063 = field0053,
+        field0064 = field0054,
+        field0065 = field0055,
+        field0066 = field0056,
+        field0067 = field0057,
+        field0068 = field0058,
+        field0069 = field0059,
+        field0070 = field0060,
+        field0071 = field0061,
+        field0072 = field0062
+        where id = #formId#
+    </update>
+
+    <!--查询组合选择推送配置信息-->
+    <select id="getInvestPlanSendInfoById.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        serialNo as "serialNo",
+        writer as "writer",
+        writeDept as "writeDept",
+        writeDate as "writeDate",
+        sendPlanName as "sendPlanName",
+        taskDeclaration as "taskDeclaration",
+        planYear as "planYear",
+        planNo as "planNo"
+        from vm_cap_investPlanSend  where id = #id#
+    </select>
+
+
+    <select id="getSendMemberByPlanNo.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        main.id as "id",
+        main.planName as "planName",
+        main.planNo as "planNo",
+        main.planYear as "planYear",
+        main.synDate as "synDate",
+        main.serialNo as "serialNo",
+        main.planType as "planType",
+        (select EXT_ATTR_6 from addressbook where member_id = son.memberName) as "hrNo",
+        son.memberName as "memberName",
+        son.isSeniorExecutive as "isSeniorExecutive",
+        son.isDirector as "isDirector",
+        son.isFundManager  as "isFundManager"
+        from vm_cap_investPlanInfo main left join vm_cap_investPlanInfo_son son on main.id = son.formmain_id where planNo = #planNo#
+    </select>
+
+    <select id="getSendInvestPlanMemberIdByPlanNo.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select memberName from vm_cap_wf_investPlanCollect t where t.planNo = #planNo#
+    </select>
+
+    <select id="getDoneInvestCollectByPlanNo.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select
+        memberName as "memberName"
+        from vm_cap_wf_investPlanCollect wf
+        where planNo = #planNo# and 3 = (select state from col_summary where form_recordId = wf.id)
+    </select>
+
+    <delete id="deleteInvestPlanSendSon.delete" parameterClass="java.lang.String">
+        delete from vm_cap_investPlanSend_son where formmain_id = (select id from vm_cap_investPlanSend where planNo = #sendPlanNo#)
+    </delete>
+
+    <insert id="insertInvestPlanSendSon.insert" parameterClass="java.util.HashMap">
+        insert into vm_cap_investPlanSend_son(
+        id,
+        formmain_id,
+        memberDept,
+        unReplyMembers,
+        replyMembers)
+        values(
+        util_common.getAbsID,
+        (select id from vm_cap_investPlanSend where planNo = #planNo#),
+        #deptId#,
+        #unReplyMembers#,
+        #replyMembers#
+        )
+    </insert>
+
+
+    <insert id="insertInvestPlanResultMain.insert" parameterClass="java.util.HashMap">
+        insert into vm_cap_investPlanResult(
+        id,
+        state             ,
+        start_member_id   ,
+        start_date        ,
+        approve_member_id ,
+        approve_date      ,
+        finishedflag      ,
+        ratifyflag        ,
+        ratify_member_id  ,
+        ratify_date       ,
+        sort              ,
+        modify_member_id  ,
+        modify_date       ,
+        serialNo,
+        planName,
+        planNo,
+        sendDate)
+        values(
+        #id#,
+        1,-6760911671874597139,SYSDATE,0,SYSDATE,0,0,0,null,0,-6760911671874597139,SYSDATE,
+        #serialNo#,
+        #planName#,
+        #planNo#,
+        #sendDate#
+        )
+    </insert>
+
+    <select id="getInvestPlanResultByPlanNo.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        serialNo as "serialNo",
+        planName as "planName",
+        planNo as "planNo",
+        sendDate as "sendDate"
+        from vm_cap_investPlanResult wf
+        where planNo = #planNo#
+    </select>
+
+    <insert id="insertPlanInfoMain.insert" parameterClass="java.util.HashMap">
+        insert into vm_cap_investPlanInfo(
+        id,
+        state             ,
+        start_member_id   ,
+        start_date        ,
+        approve_member_id ,
+        approve_date      ,
+        finishedflag      ,
+        ratifyflag        ,
+        ratify_member_id  ,
+        ratify_date       ,
+        sort              ,
+        modify_member_id  ,
+        modify_date       ,
+        planName,
+        planNo,
+        planYear,
+        synDate,
+        serialNo,
+        planType)
+        values(
+        #id#,
+        1,-6760911671874597139,SYSDATE,0,SYSDATE,0,0,0,null,0,-6760911671874597139,SYSDATE,
+        #planName#,
+        #planNo#,
+        #planYear#,
+        #synDate#,
+        #serialNo#,
+        #planType#
+        )
+    </insert>
+
+    <insert id="insertPlanInfoSon.insert" parameterClass="java.util.HashMap">
+        insert into vm_cap_investPlanInfo_son(
+        id,
+        formmain_id,
+        memberName,
+        isSeniorExecutive,
+        isDirector,
+        isFundManager)
+        values(
+        util_common.getAbsID,
+        #formmain_id#,
+        #memberName#,
+        #isSeniorExecutive#,
+        #isDirector#,
+        #isFundManager#
+        )
+    </insert>
+
+    <select id="getInvestCollectInfo.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        main.id as "id",
+        main.serialNo as "serialNo",
+        main.planName as "planName",
+        main.planNo as "planNo",
+        main.sendDate as "sendDate",
+        main.planYear as "planYear",
+        son.formmain_id as "formmainId",
+        son.productName as "productName",
+        son.memberName as "memberName",
+        son.memberHrNo as "memberHrNo",
+        son.productId  as "productId",
+        son.fundCode as "fundCode",
+        son.productShortName  as "productShortName",
+        son.investProportion  as "investProportion"
+        from vm_cap_investPlanResult main left join vm_cap_investPlanResult_son son on main.id = son.formmain_id
+
+        where 1 = 1
+        <isNotEmpty prepend="AND" property="planNo">
+            planNo = #planNo#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="planYear">
+            planYear = #year#
+        </isNotEmpty>
+
+    </select>
+
+
+
+    <select id="getUnfinishedInvestFlowByPlanNo.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        memberName as "memberName"
+        from vm_cap_wf_investPlanCollect wf
+        where planNo = #planNo# and 0 = (select state from col_summary where form_recordId = wf.id)
+    </select>
+
+    <select id="getManagerFundIdByManagerId.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select pirid from vm_fundproductinfo where id in (select formmain_id from vm_fundproductinfoson where fundmanagername = #memberId#)
+    </select>
+
+    <select id="memberAddressBookInfo.select" resultClass="java.util.HashMap">
+        select to_char(f.member_id) memberId, f.ext_attr_4 state,f.ext_attr_6 hrCode from addressbook f where f.ext_attr_4 is not null
+    </select>
+
+    <select id="getGatedReadRecord.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        readStatus as "readStatus",
+        gatedPlace as "gatedPlace",
+        fileName as "fileName",
+        fileCreateDate as "fileCreateDate",
+        fileReadDate as "fileReadDate"
+        from vm_cap_gatedReadRecord t where
+
+        t.gatedPlace = #gatedPlace#
+        and t.fileName = #fileName#
+        and t.fileCreateDate = #fileCreateDate#
+        and readStatus = -3841538853571705149
+    </select>
+
+    <insert id="addGatedReadRecord.insert" parameterClass="java.util.HashMap">
+        insert into vm_cap_gatedReadRecord(
+        id,
+        state             ,
+        start_member_id   ,
+        start_date        ,
+        approve_member_id ,
+        approve_date      ,
+        finishedflag      ,
+        ratifyflag        ,
+        ratify_member_id  ,
+        ratify_date       ,
+        sort              ,
+        modify_member_id  ,
+        modify_date       ,
+        readStatus,
+        gatedPlace,
+        fileName,
+        fileCreateDate,
+        fileReadDate)
+        values(
+        #id#,
+        1,-6760911671874597139,SYSDATE,0,SYSDATE,0,0,0,null,0,-6760911671874597139,SYSDATE,
+        #readStatus#,
+        #gatedPlace#,
+        #fileName#,
+        #fileCreateDate#,
+        #fileReadDate#
+        )
+    </insert>
+
+    <select id="getOADimissionMembersId.select" resultClass="java.lang.String">
+        select
+
+        member_id as "memberId"
+        from addressbook where ext_attr_4 = '离职'
+    </select>
+
+
+    <select id="getGatedMemberRelation.select" resultClass="java.util.HashMap">
+        select
+        ID,
+        STATE,
+        START_MEMBER_ID,
+        START_DATE,
+        APPROVE_MEMBER_ID,
+        APPROVE_DATE,
+        FINISHEDFLAG,
+        RATIFYFLAG,
+        RATIFY_MEMBER_ID,
+        RATIFY_DATE,
+        SORT,
+        MODIFY_MEMBER_ID,
+        MODIFY_DATE,
+        useable as "useable",
+        gatedPlace as "gatedPlace",
+        memberId as "memberId",
+        memberKMCode as "memberKMCode",
+        gatedRecordKey as "gatedRecordKey",
+        gatedRecordValue as "gatedRecordValue"
+        from vm_cap_gatedMemberRelation where useable = -3841538853571705149
+    </select>
+
+    <update id="updateGatedMemberRelation.update" parameterClass="java.util.HashMap">
+        update vm_cap_gatedMemberRelation
+        set useable = #useable#
+        where gatedPlace = #gatedPlace#
+        and memberId = #memberId#
+    </update>
+
+    <select id="getAttendSpecialRule.select" resultClass="java.util.HashMap">
+        select
+        ID,
+        STATE,
+        START_MEMBER_ID,
+        START_DATE,
+        APPROVE_MEMBER_ID,
+        APPROVE_DATE,
+        FINISHEDFLAG,
+        RATIFYFLAG,
+        RATIFY_MEMBER_ID,
+        RATIFY_DATE,
+        SORT,
+        MODIFY_MEMBER_ID,
+        MODIFY_DATE,
+        memberId as "memberId",
+        memberKMCode as "memberKMCode",
+        memberDept as "memberDept",
+        checkable as "checkable",
+        checkInTime as "checkInTime",
+        checkOutTime as "checkOutTime"
+        from vm_cap_attendSpecialRule
+    </select>
+
+    <select id="getOrgMemberInfoByChnName.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        name as "name",
+        code as "code"
+        from org_member
+        where
+        is_internal = 1
+        and is_loginable = 1
+        and is_virtual = 0
+        and is_admin = 0
+        and is_assigned = 1
+        and state = 1
+        and is_enable =1
+        and is_deleted = 0
+        and status = 1
+        and name = #memberName#
+    </select>
+
+    <insert id="insertGatedMemberRelation.insert" parameterClass="java.util.HashMap">
+        merge into vm_cap_gatedMemberRelation a
+        using
+        (select
+        #gatedPlace# as gatedPlace,
+        #memberId# as memberId
+        from dual) c
+        on ( a.gatedPlace = c.gatedPlace and a.memberId=c.memberId)
+        when not matched then
+        insert (
+        ID,
+        STATE,
+        START_MEMBER_ID,
+        START_DATE,
+        APPROVE_MEMBER_ID,
+        APPROVE_DATE,
+        FINISHEDFLAG,
+        RATIFYFLAG,
+        RATIFY_MEMBER_ID,
+        RATIFY_DATE,
+        SORT,
+        MODIFY_MEMBER_ID,
+        MODIFY_DATE,
+        useable,
+        gatedPlace,
+        memberId,
+        memberKMCode,
+        gatedRecordKey,
+        gatedRecordValue
+        ) VALUES(
+        #id#,
+        1,
+        -6760911671874597139,
+        sysdate,
+        0,
+        null,
+        1,
+        0,
+        0,
+        null,
+        0,
+        null,
+        null,
+        #useable#,
+        #gatedPlace#,
+        #memberId#,
+        #memberKMCode#,
+        #gatedRecordKey#,
+        #gatedRecordValue#
+        )
+        when matched then
+        update set gatedRecordValue = #gatedRecordValue#
+    </insert>
+
+
+
+    <select id="getAttendanceCommonRule.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        org_account_id as "orgAccountId",
+        am_work_begintime as "amWorkBeginTime",
+        am_work_endtime as "amWorkEndTime",
+        pm_work_begintime as "pmWorkBeginTime",
+        pm_work_endtime as "pmWorkEndTime",
+        week_day_name as "weekDayName",
+        is_work as "isWork",
+        year as "year",
+        update_time as "updateTime"
+        from WORKTIME_CURRENCY where year = #year# and org_account_id = #orgAccountId# and week_day_name = #weekDayName#
+    </select>
+
+
+
+    <insert id="insertGatedRecord.insert" parameterClass="java.util.HashMap">
+        insert into vm_cap_gatedRecord(
+        ID,
+        STATE,
+        START_MEMBER_ID,
+        START_DATE,
+        APPROVE_MEMBER_ID,
+        APPROVE_DATE,
+        FINISHEDFLAG,
+        RATIFYFLAG,
+        RATIFY_MEMBER_ID,
+        RATIFY_DATE,
+        SORT,
+        MODIFY_MEMBER_ID,
+        MODIFY_DATE,
+        memberId,
+        gatedPlace,
+        gatedDate,
+        memberKMCode,
+        gatedInSignType,
+        gatedOutSignType,
+        gatedInDate,
+        gatedOutDate,
+        gatedInResult,
+        gatedOutResult
+        ) VALUES(
+        #id#,
+        1,
+        -6760911671874597139,
+        sysdate,
+        0,
+        null,
+        1,
+        0,
+        0,
+        null,
+        0,
+        null,
+        null,
+        #memberId#,
+        #gatedPlace#,
+        #gatedDate#,
+        #memberKMCode#,
+        #gatedInSignType#,
+        #gatedOutSignType#,
+        #gatedInDate#,
+        #gatedOutDate#,
+        #gatedInResult#,
+        #gatedOutResult#
+        )
+    </insert>
+
+
+
+    <select id="getGatedRecordByMemberAndDate.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        memberId as "memberId",
+        gatedPlace as "gatedPlace",
+        cast(gatedDate as Date) as "gatedDate",
+        memberKMCode as "memberKMCode",
+        gatedInSignType as "gatedInSignType",
+        gatedOutSignType as "gatedOutSignType",
+        to_char(gatedInDate,'yyyy-mm-dd HH24:mi:ss') as "gatedInDate",
+        to_char(gatedOutDate,'yyyy-mm-dd HH24:mi:ss') as "gatedOutDate",
+        gatedInResult as "gatedInResult",
+        gatedOutResult as "gatedOutResult"
+        from vm_cap_gatedRecord where memberId = #memberId# and to_char(gatedDate,'yyyy-mm-dd') = to_char(#gatedDate#,'yyyy-mm-dd')
+    </select>
+
+    <select id="getGatedRecordByDate.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        memberId as "memberId",
+        gatedPlace as "gatedPlace",
+        cast(gatedDate as Date) as "gatedDate",
+        memberKMCode as "memberKMCode",
+        gatedInSignType as "gatedInSignType",
+        gatedOutSignType as "gatedOutSignType",
+        to_char(gatedInDate,'yyyy-mm-dd hh24:mi:ss') as "gatedInDate",
+        to_char(gatedOutDate,'yyyy-mm-dd hh24:mi:ss') as "gatedOutDate",
+        gatedInResult as "gatedInResult",
+        gatedOutResult as "gatedOutResult"
+        from vm_cap_gatedRecord where to_char(gatedDate,'yyyy-mm-dd') = to_char(#gateDate#,'yyyy-mm-dd')
+    </select>
+
+    <update id="updateGatedRecord.update" parameterClass="java.util.HashMap">
+        update vm_cap_gatedRecord
+        set id = id
+        <isNotEmpty property="gatedInSignType">
+            ,gatedInSignType = #gatedInSignType#
+        </isNotEmpty>
+        <isNotEmpty property="gatedOutSignType">
+            ,gatedOutSignType = #gatedOutSignType#
+        </isNotEmpty>
+        <isNotEmpty property="gatedInDate">
+            ,gatedInDate = #gatedInDate#
+        </isNotEmpty>
+        <isNotEmpty property="gatedOutDate">
+            ,gatedOutDate = #gatedOutDate#
+        </isNotEmpty>
+        <isNotEmpty property="gatedInResult">
+            ,gatedInResult = #gatedInResult#
+        </isNotEmpty>
+        <isNotEmpty property="gatedOutResult">
+            ,gatedOutResult = #gatedOutResult#
+        </isNotEmpty>
+        where id = #id#
+    </update>
+
+
+    <select id="getAttendRecordByDate.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        memberId as "memberId",
+        memberKMCode as "memberKMCode",
+        cast(gatedDate as Date) as "gatedDate",
+        createTime as "createTime",
+        attendInDate as "gatedInDate",
+        attendOutDate as "gatedOutDate",
+        attendInResult as "attendInResult",
+        attendOutResult as "attendOutResult"
+        from vm_cap_attendRecord where to_char(gatedDate,'yyyy-mm-dd') = to_char(#gateDate#,'yyyy-mm-dd')
+    </select>
+    <update id="updateAttendRecordByDate.update" parameterClass="java.util.HashMap">
+        update vm_cap_attendRecord
+        set id = id
+        <isNotEmpty property="attendInDate">
+            ,attendInDate = #attendInDate#
+        </isNotEmpty>
+        <isNotEmpty property="attendOutDate">
+            ,attendOutDate = #attendOutDate#
+        </isNotEmpty>
+        <isNotEmpty property="attendInResult">
+            ,attendInResult = #attendInResult#
+        </isNotEmpty>
+        <isNotEmpty property="attendOutResult">
+            ,attendOutResult = #attendOutResult#
+        </isNotEmpty>
+        where id = #id#
+    </update>
+
+    <insert id="generateTodayAttendRecord.insert" parameterClass="java.util.HashMap">
+        insert into vm_cap_attendRecord(
+        ID,
+        STATE,
+        START_MEMBER_ID,
+        START_DATE,
+        APPROVE_MEMBER_ID,
+        APPROVE_DATE,
+        FINISHEDFLAG,
+        RATIFYFLAG,
+        RATIFY_MEMBER_ID,
+        RATIFY_DATE,
+        SORT,
+        MODIFY_MEMBER_ID,
+        MODIFY_DATE,
+        memberId,
+        memberKMCode,
+        gatedDate,
+        createTime,
+        attendInDate,
+        attendOutDate,
+        attendInResult,
+        attendOutResult
+        ) select
+        util_common.getAbsID(),
+        1,
+        -6760911671874597139,
+        sysdate,
+        0,
+        null,
+        1,
+        0,
+        0,
+        null,
+        0,
+        null,
+        null,
+        member_Id,
+        util_user.getMemCodeByMemId(member_id),
+        to_date(to_char(#date#,'yyyy-mm-dd'),'yyyy-mm-dd'),
+        sysdate,
+        null,
+        null,
+        -2560390805576728489,
+        -2560390805576728489
+        from addressbook where ext_attr_4 != '离职'
+    </insert>
+
+    <select id="getTodayAttendIds.select" resultClass="java.lang.String" parameterClass="java.util.HashMap">
+        select
+        id as "id"
+        from vm_cap_attendRecord where to_char(gatedDate,'yyyy-mm-dd') = to_char(#date#,'yyyy-mm-dd')
+    </select>
+
+    <!-- 更新个人基本信息主数据中的字段(来自人员信息表) -->
+    <update id="updateUserBasicInfoByOrgMember.update" >
+        MERGE INTO formmain_2153 f
+        USING (
+        SELECT o.id AS org_member_id,
+        a.ext_attr_3 AS work_location,
+        TO_CHAR(o.org_department_id) AS dept,
+        a.ext_attr_4 AS status,
+        o.code AS km_emp_no,
+        a.ext_attr_6 AS hr_emp_no,
+        o.ext_attr_1 AS phone,
+        TO_CHAR(o.org_account_id) AS unit
+        FROM org_member o
+        JOIN addressbook a
+        ON o.id = a.member_id
+        WHERE a.ext_attr_3 IS NOT NULL
+        OR o.org_department_id IS NOT NULL
+        OR a.ext_attr_4 IS NOT NULL
+        OR o.code IS NOT NULL
+        OR a.ext_attr_6 IS NOT NULL
+        OR o.ext_attr_1 IS NOT NULL
+        OR o.org_account_id IS NOT NULL) src
+        ON (f.field0001 = src.org_member_id)
+        WHEN MATCHED THEN
+        UPDATE
+        SET f.field0002 = CASE
+        WHEN f.field0002 IS NULL OR f.field0002 = 'null' THEN
+        src.work_location
+        ELSE
+        f.field0002
+        END,
+        f.field0014 = CASE
+        WHEN f.field0014 IS NULL OR f.field0014 = 'null' THEN
+        src.dept
+        ELSE
+        f.field0014
+        END,
+        f.field0007 = CASE
+        WHEN f.field0007 IS NULL OR f.field0007 = 'null' THEN
+        src.status
+        ELSE
+        f.field0007
+        END,
+        f.field0015 = CASE
+        WHEN f.field0015 IS NULL OR f.field0015 = 'null' THEN
+        src.km_emp_no
+        ELSE
+        f.field0015
+        END,
+        f.field0016 = CASE
+        WHEN f.field0016 IS NULL OR f.field0016 = 'null' THEN
+        src.hr_emp_no
+        ELSE
+        f.field0016
+        END,
+        f.field0034 = CASE
+        WHEN f.field0034 IS NULL OR f.field0034 = 'null' THEN
+        src.phone
+        ELSE
+        f.field0034
+        END,
+        f.field0051 = CASE
+        WHEN f.field0051 IS NULL OR f.field0051 = 'null' THEN
+        src.unit
+        ELSE
+        f.field0051
+        END
+        WHERE (f.field0002 IS NULL OR f.field0002 = 'null' OR
+        f.field0014 IS NULL OR f.field0014 = 'null' OR
+        f.field0007 IS NULL OR f.field0007 = 'null' OR
+        f.field0015 IS NULL OR f.field0015 = 'null' OR
+        f.field0016 IS NULL OR f.field0016 = 'null' OR
+        f.field0034 IS NULL OR f.field0034 = 'null' OR
+        f.field0051 IS NULL OR f.field0051 = 'null')
+    </update>
+
+    <select id="getHKMemberLeavePeriodInfo.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select annualLeaveStart as "annualLeaveStart",annualLeaveEnd as "annualLeaveEnd" from vm_cap_hkMemberLeaveInfo_son where formmain_id = (select id from vm_cap_hkMemberLeaveInfo where memberId = #memberId#) and year = #year#
+    </select>
+
+    <select id="queryColSummaryMap.select" parameterClass="String"  resultClass="java.util.HashMap">
+        select
+        c.member_id as "memberId"
+        from ctp_affair c
+        where  c.state = 3 and IS_DELETE = 0 and c.object_id = #id#
+    </select>
+
+    <update id="updateInvestPlanSealStatus.update" parameterClass="java.util.HashMap">
+        update vm_cap_investPlanInfo_son t set t.sealStatus = #sealStatus# where formmain_id in (select id from vm_cap_investPlanInfo where planYear = #year#)
+        and memberName = (select id from org_member where code = #memberCode#)
+    </update>
+
+    <select id="getInvestMemberSealStatus.select" parameterClass="java.util.HashMap" resultClass="java.lang.String">
+        select sealStatus from vm_cap_investPlanInfo_son t where t.formmain_id = (select id from vm_cap_investPlanInfo where planNo = #planNo#) and t.memberName = #memberId#
+    </select>
+
+    <!-- 获取OA系统中所有在任董监事数据及最近X年（365个自然日）离任的董事、监事、高管数据 -->
+    <select id="directorPushMqSelect.select" resultClass="java.util.HashMap" parameterClass="map">
+        select
+        idNumber as "idNumber",
+        education as "education",
+        degree as "degree",
+        position as "position",
+        presentPostDesc as "presentPostDesc",
+        util_common.getEnumValueById(gender) as "gender",
+        util_common.getEnumValueById(post) as "post",
+        util_common.getEnumValueById(orgId) as "orgId",
+        name as "name",
+        util_common.getEnumValueById(idType) as "idType",
+        presviousPostDesc as "presviousPostDesc",
+        to_char(dateOfAppoint, 'yyyy-MM-dd') as "dateOfAppoint",
+        to_char(dateOfDepart, 'yyyy-MM-dd') as "dateOfDepart",
+        curriculumVitae as "curriculumVitae",
+        util_common.getEnumValueById(status) as "status",
+        sortIndex as "sortIndex",
+        nationality as "nationality",
+        dispatchUnit as "dispatchUnit",
+        specialty as "specialty",
+        contactPhone as "contactPhone",
+        to_char(createTime, 'yyyy-MM-dd HH:mm:ss') as "createTime",
+        to_char(updateTime, 'yyyy-MM-dd HH:mm:ss') as "updateTime"
+        from  VM_DIRECTORS_PUSH_MQ
+        where status = '-2214726931032093630' or
+        status = '1714373041428644393' and ADD_MONTHS(dateOfDepart, #tenure#) <![CDATA[>=]]> SYSDATE
+        order by util_common.getEnumValueById(status) asc,sortIndex asc,util_common.getEnumValueById(post) asc
+    </select>
+
+    <!-- fuzhiyuan.do 2024/04/01 行权sql开始 -->
+    <!-- 查询人员行权信息 -->
+    <select id="findExercisePlanInfo.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        batchNo as "batchNo"
+        from vm_cap_exercisePlan
+        where 1 = 1
+        <isNotEmpty prepend="AND" property="batchNo">
+            batchNo = #batchNo#
+        </isNotEmpty>
+    </select>
+    <!-- 查询行权归属信息 -->
+    <select id="selectExercisePlanInfo.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select id from vm_cap_exercisePlan_son
+        where 1=1
+        <isNotEmpty prepend="AND" property="batchNo">
+            formmain_id = (select id from vm_cap_exercisePlan where batchNo = #batchNo#)
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="memberName">
+            memberName = #memberName#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="exerciseName">
+            exerciseName = #exerciseName#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="attrNum">
+            attrNum = #attrNum#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="attrProportion">
+            attrProportion = #attrProportion#
+        </isNotEmpty>
+    </select>
+    <!-- 插入行权归属信息 -->
+    <insert id="insertExercisePlanSon.insert" parameterClass="java.util.HashMap">
+        insert into vm_cap_exercisePlan_son(
+        id,
+        formmain_id,
+        memberName,
+        exerciseName,
+        attrNum,
+        attrProportion)
+        values(
+        util_common.getAbsID,
+        (select id from vm_cap_exercisePlan where batchNo = #batchNo#),
+        #memberName#,
+        #exerciseName#,
+        #attrNum#,
+        #attrProportion#
+        )
+    </insert>
+    <!-- 查询行权信息推送表 -->
+    <select id="getExerciseCollectInfo.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        main.id as "id",
+        main.batchNo as "batchNo",
+        main.batchName as "batchName",
+        main.sendDate as "sendDate",
+        son.formmain_id as "formmain_id",
+        son.memberName as "memberName",
+        son.memberHrNo as "memberHrNo",
+        son.exerciseResult  as "exerciseResult"
+        from vm_cap_exercisePlanResult main left join vm_cap_exercisePlanResult_son son on main.id = son.formmain_id
+        where 1 = 1
+        <isNotEmpty prepend="AND" property="batchNo">
+            batchNo = #batchNo#
+        </isNotEmpty>
+    </select>
+    <!-- 根据计划编号查询是否所有流程已结束 -->
+    <select id="getUnfinishedExerciseFlowByBatchNo.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        memberName as "memberName"
+        from vm_cap_wf_exercisePlanCollect wf
+        where batchNo = #batchNo# and 0 = (select state from col_summary where form_recordId = wf.id)
+    </select>
+
+    <!--查询组合选择推送配置信息-->
+    <select id="getExercisePlanSendInfoById.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        serialNo as "serialNo",
+        writer as "writer",
+        writeDept as "writeDept",
+        writeDate as "writeDate",
+        batchName as "batchName",
+        taskDeclaration as "taskDeclaration",
+        batchNo as "batchNo"
+        from vm_cap_exercisePlanSend  where id = #id#
+    </select>
+    <!-- 行权支付计划中的人员名单 -->
+    <select id="getExerciseSendMemberByBatchNo.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        main.id as "id",
+        main.batchName as "batchName",
+        main.batchNo as "batchNo",
+        main.synDate as "synDate",
+        main.serialNo as "serialNo",
+        (select EXT_ATTR_6 from addressbook where member_id = son.memberName) as "hrNo",
+        son.memberName as "memberName",
+        son.exerciseName as "exerciseName",
+        son.attrNum as "attrNum",
+        son.attrProportion  as "attrProportion"
+        from vm_cap_exercisePlan main left join vm_cap_exercisePlan_son son on main.id = son.formmain_id where batchNo = #batchNo#
+    </select>
+    <!-- 查询行权支付计划中的人员归属详请 -->
+    <select id="getExercisePlanSonList.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        a.exerciseName as "exerciseName",
+        a.attrNum as "attrNum",
+        a.attrProportion as "attrProportion"
+        from
+        vm_cap_exercisePlan_son a
+        left join vm_cap_exercisePlan b on b.id = a.formmain_id
+        where 1 = 1
+        <isNotEmpty prepend="AND" property="memberName">
+            a.memberName = #memberName#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="batchNo">
+            b.batchNo = #batchNo#
+        </isNotEmpty>
+    </select>
+    <!-- 根据计划标识查找已完成的行权支付收集流程 -->
+    <select id="getDoneExerciseCollectByBatchNo.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select
+        memberName as "memberName"
+        from vm_cap_wf_exercisePlanCollect wf
+        where batchNo = #batchNo# and 3 = (select state from col_summary where form_recordId = wf.id)
+    </select>
+    <!-- 清除推送行权支付子表 -->
+    <delete id="deleteExercisePlanSendSon.delete" parameterClass="java.lang.String">
+        delete from vm_cap_exercisePlanSend_son where formmain_id = (select id from vm_cap_exercisePlanSend where batchNo = #sendBatchNo#)
+    </delete>
+    <!-- 插入推送行权支付子表 -->
+    <insert id="insertExercisePlanSendSon.insert" parameterClass="java.util.HashMap">
+        insert into vm_cap_exercisePlanSend_son(
+        id,
+        formmain_id,
+        memberDept,
+        unReplyMembers,
+        replyMembers)
+        values(
+        util_common.getAbsID,
+        (select id from vm_cap_exercisePlanSend where batchNo = #batchNo#),
+        #deptId#,
+        #unReplyMembers#,
+        #replyMembers#
+        )
+    </insert>
+    <!-- 根据推送批次号查找已发送的行权支付收集流程 -->
+    <select id="getSendExercisePlanMemberIdByBatchNo.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select memberName from vm_cap_wf_exercisePlanCollect t where t.batchNo = #batchNo#
+    </select>
+    <!-- 根据计划标识查找计划结果主表 -->
+    <select id="getExercisePlanResultByBatchNo.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        serialNo as "serialNo",
+        batchName as "batchName",
+        batchNo as "batchNo",
+        sendDate as "sendDate"
+        from vm_cap_exercisePlanResult wf
+        where batchNo = #batchNo#
+    </select>
+    <!-- 根据批次号更新行权激励计划推送状态 -->
+    <update id="updateExerciseInfoPushStatus.update" parameterClass="java.lang.String" >
+        update vm_cap_exercisePlan set pushStatus = '-3841538853571705149' where batchNo = #batchNo#
+    </update>
+    <!-- 删除批次号信息 -->
+    <delete id="delExercisePlanInfo.delete" parameterClass="java.lang.String">
+        delete from vm_cap_exercisePlan where batchNo = #sendBatchNo#
+    </delete>
+    <!-- 删除行权归属信息-->
+    <delete id="delExercisePlanSonInfo.delete" parameterClass="java.lang.String">
+        delete from vm_cap_exercisePlan_son where formmain_id = (select id from vm_cap_exercisePlan where batchNo = #sendBatchNo#)
+    </delete>
+    <!-- fuzhiyuan.do  行权sql结束-->
+
+    <!-- 向每日请假表中插入请假的数据信息 根据人+天作为主键，如果没有记录则插入，有记录则更新 -->
+    <insert id="insertLeaveInfoToEveryDay"  parameterClass="java.util.HashMap">
+        MERGE INTO vm_DailyLeaveTravelRecord a
+        USING (
+        SELECT
+        t.applyUser,
+        t.applyDept,
+        t.leaveStartDate,
+        t.leaveStartDateMA,
+        t.leaveEndDate,
+        t.leaveEndDateMA,
+        t.leaveReason,
+        t.leaveFlow,
+        TO_DATE(TO_CHAR(t.toDate, 'YYYY-MM-DD'), 'YYYY-MM-DD') AS toDate,
+        t.leaveSerialNum,
+        -3841538853571705149 AS askForLeave
+        FROM
+        (
+        SELECT
+        f.applyUser,
+        f.applyDept,
+        f.beginDate AS leaveStartDate,
+        f.startTime AS leaveStartDateMA,
+        f.endDate AS leaveEndDate,
+        f.endTime AS leaveEndDateMA,
+        f.reason AS leaveReason,
+        f.flowName AS leaveFlow,
+        f.beginDate + LEVEL - 1 AS toDate,
+        f.serialNum AS leaveSerialNum
+        FROM
+        vm_userapplyforleave f
+        WHERE
+        f.recordStatus = 8705337157000773743
+        AND TO_CHAR(modify_date, 'YYYY-MM-DD') BETWEEN #startDate# AND #endDate#
+        CONNECT BY
+        id = PRIOR id
+        AND LEVEL <![CDATA[<=]]> endDate - beginDate + 1
+        AND PRIOR sys_guid() IS NOT NULL
+        ) t
+        ) c
+        ON (a.applyUser = c.applyUser AND a.toDate = c.toDate)
+        WHEN NOT MATCHED THEN
+        INSERT (
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        applyUser,
+        applyDept,
+        toDate,
+        askForLeave,
+        leaveStartDate,
+        leaveEndDate,
+        leaveFlow,
+        leaveReason,
+        leaveStartDateMA,
+        leaveEndDateMA,
+        leaveSerialNum
+        )
+        VALUES (
+        util_common.getAbsID,
+        1,
+        -6760911671874597139,
+        sysdate,
+        -6760911671874597139,
+        sysdate,
+        0,
+        0,
+        -6760911671874597139,
+        c.applyUser,
+        c.applyDept,
+        c.toDate,
+        c.askForLeave,
+        c.leaveStartDate,
+        c.leaveEndDate,
+        c.leaveFlow,
+        c.leaveReason,
+        c.leaveStartDateMA,
+        c.leaveEndDateMA,
+        c.leaveSerialNum
+        )
+        WHEN  MATCHED THEN
+        update set
+        a.askForLeave  =   c.askForLeave,
+        a.leaveStartDate =    c.leaveStartDate,
+        a.leaveEndDate =  c.leaveEndDate,
+        a.leaveFlow =    c.leaveFlow,
+        a.leaveReason =   c.leaveReason,
+        a.leaveStartDateMA =   c.leaveStartDateMA,
+        a.leaveEndDateMA =   c.leaveEndDateMA,
+        a.leaveSerialNum =   c.leaveSerialNum
+        where a.askForLeave is null
+    </insert>
+    <!-- 插入销假之后又重新请假的数据 -->
+    <insert id="insertCancelToNewLeaveInfoToEveryDay" parameterClass="java.util.HashMap">
+        MERGE INTO vm_DailyLeaveTravelRecord a
+        USING (
+        select
+        to_date(to_char(toDate, 'yyyy-mm-dd'), 'yyyy-mm-dd') toDate,
+        applyUser,
+        formmain_id,
+        leaveStartDate,
+        leaveStartDateMA,
+        leaveEndDate,
+        leaveEndDateMA ,
+        leaveReason,
+        leaveFlow,
+        leaveSerialNum,
+        util_user.getDeptIdByMemId(applyUser) applyDept,
+        '-3841538853571705149' askForLeave
+        from
+        (select
+        distinct
+        leaveStartDate+level-1 toDate,
+        applyUser,
+        formmain_id,
+        leaveStartDate,
+        leaveStartDateMA,
+        leaveEndDate,
+        leaveEndDateMA ,
+        leaveReason,
+        leaveFlow,
+        leaveSerialNum
+        from
+        (select
+        distinct
+        vm2.id,
+        vm2.applyUser,
+        vm1.formmain_id,
+        vm1.leaveStartDate,
+        vm1.leaveStartDateMA,
+        vm1.leaveEndDate,
+        vm1.leaveEndDateMA ,
+        vm1.leaveReason,
+        vm1.leaveFlow,
+        vm1.leaveSerialNum
+        from vm_CancelLeaveDaySon vm1
+        left join VM_USERAPPLYFORLEAVE vm2
+        on vm1.formmain_id = vm2.id
+        where vm1.leaveStartDate is not null and to_char(modify_date, 'yyyy-mm-dd') between #startDate# and #endDate#
+        ) t
+        connect by formmain_id=prior formmain_id and level <![CDATA[<=]]> leaveEndDate-leaveStartDate+1 and prior
+        sys_guid() is not null) t
+        ) c
+        ON (a.applyUser = c.applyUser AND a.toDate = c.toDate)
+        WHEN NOT MATCHED THEN
+        INSERT (
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        applyUser,
+        applyDept,
+        toDate,
+        leaveStartDate,
+        leaveStartDateMA,
+        leaveEndDate,
+        leaveEndDateMA ,
+        leaveReason,
+        leaveFlow,
+        leaveSerialNum,
+        askForLeave
+
+        )
+        VALUES (
+        util_common.getAbsID,
+        1,
+        -6760911671874597139,
+        sysdate,
+        -6760911671874597139,
+        sysdate,
+        0,
+        0,
+        -6760911671874597139,
+        c.applyUser,
+        c.applyDept,
+        c.toDate,
+        c.leaveStartDate,
+        c.leaveStartDateMA,
+        c.leaveEndDate,
+        c.leaveEndDateMA ,
+        c.leaveReason,
+        c.leaveFlow,
+        c.leaveSerialNum,
+        c.askForLeave
+        )
+        WHEN  MATCHED THEN
+        update set
+        leaveStartDate  =  c.leaveStartDate,
+        leaveStartDateMA =  c.leaveStartDateMA,
+        leaveEndDate  =  c.leaveEndDate,
+        leaveEndDateMA =   c.leaveEndDateMA ,
+        leaveReason   = c.leaveReason,
+        leaveFlow  =  c.leaveFlow,
+        leaveSerialNum =   c.leaveSerialNum,
+        askForLeave  =  c.askForLeave
+        where a.askForLeave is null
+    </insert>
+
+    <insert id="insertCancelToNewLeaveInfoToEveryDayTableBindRelation" parameterClass="java.util.HashMap">
+        insert into form_relation_record
+        (ID,
+        FROM_MASTERDATA_ID,
+        TO_MASTERDATA_ID,
+        STATE,
+        FIELD_NAME,
+        FORM_TYPE,
+        TYPE,
+        MEMBER_ID,
+        FROM_SUBDATA_ID,
+        TO_SUBDATA_ID,
+        FROM_FORM_ID,
+        TO_FORM_ID
+        )
+        select
+        util_common.getAbsID,
+        f.id,
+        csy.id,
+        '1',
+        'field0007',
+        '1',
+        '1',
+        '-6760911671874597139',
+        '0',
+        '0',
+        '6050223712139953374',
+        '5474893650126653153'
+        from vm_DailyLeaveTravelRecord f
+        left join formmain_2163 f1
+        on f.leaveSerialNum = f1.field0001
+        left join col_summary csy
+        on f1.id = csy.form_recordid
+        where f1.id is not null and f.id is not null and csy.id is not null and to_char(f.start_date, 'yyyy-mm-dd') between #startDate# and #endDate#  and not exists (
+        select 1 from
+        form_relation_record fr where
+        fr.field_name = 'field0007'
+        and fr.to_masterdata_id = csy.id
+        and fr.from_form_id = '6050223712139953374'
+        and fr.from_masterdata_id = f.id
+        and fr.to_form_id = '5474893650126653153'
+        )
+    </insert>
+
+    <insert id="insertLeaveInfoToEveryDayTableBindRelation" parameterClass="java.util.HashMap">
+        insert into form_relation_record
+        (ID,
+        FROM_MASTERDATA_ID,
+        TO_MASTERDATA_ID,
+        STATE,
+        FIELD_NAME,
+        FORM_TYPE,
+        TYPE,
+        MEMBER_ID,
+        FROM_SUBDATA_ID,
+        TO_SUBDATA_ID,
+        FROM_FORM_ID,
+        TO_FORM_ID
+        )
+        select
+        util_common.getAbsID,
+        f.id,
+        csy.id,
+        '1',
+        'field0007',
+        '1',
+        '1',
+        '-6760911671874597139',
+        '0',
+        '0',
+        '6050223712139953374',
+        '6734388298582673815'
+        from vm_DailyLeaveTravelRecord f
+        left join formmain_2161 f1
+        on f.leaveSerialNum = f1.field0001
+        left join col_summary csy
+        on f1.id = csy.form_recordid
+        where f1.id is not null and f.id is not null and csy.id is not null and to_char(f.start_date, 'yyyy-mm-dd') between #startDate# and #endDate#  and not exists (
+        select 1 from
+        form_relation_record fr where
+        fr.field_name = 'field0007'
+        and fr.to_masterdata_id = csy.id
+        and fr.from_form_id = '6050223712139953374'
+        and fr.from_masterdata_id = f.id
+        and fr.to_form_id = '6734388298582673815'
+        )
+    </insert>
+    <!-- 向表中插入出差数据 -->
+    <insert id="insertTravelRecordToEveryDay" parameterClass="java.util.HashMap">
+        MERGE INTO vm_DailyLeaveTravelRecord a
+        USING (
+        SELECT DISTINCT
+        to_date(to_char(f.travelBeginDate + level - 1, 'yyyy-mm-dd'), 'yyyy-mm-dd') AS toDate,
+        travelMember AS applyUser,
+        travelEndDate,
+        travelBeginDate AS travelStartDate,
+        flowName AS travelFlow,
+        serialNum AS travelSerialNum,
+        travelReason,
+        util_user.getDeptIdByMemId(applyUser) AS applyDept,
+        '-3841538853571705149' AS whetherToTravel
+        FROM (
+        SELECT DISTINCT
+        f.id,
+        travelType,
+        column_value travelMember,
+        isHK,
+        applyStatus,
+        travelEndDate,
+        travelBeginDate,
+        applyUser,
+        flowName,
+        serialNum,
+        travelReason
+        FROM (
+        SELECT DISTINCT
+        id,
+        travelType,
+        travelMember,
+        isHK,
+        applyStatus,
+        travelEndDate,
+        travelBeginDate,
+        applyUser,
+        flowName,
+        serialNum,
+        travelReason,
+        ctravelMember
+        FROM vm_evectionRecord
+        WHERE
+        (travelType = 1540751696090383749 OR travelType = 1786076025637390084)
+        AND (applyStatus IS NULL OR applyStatus = #applyStatus#)
+        AND to_char(modify_date, 'yyyy-mm-dd') BETWEEN #startDate# AND #endDate#
+        ) f,
+        TABLE(
+        SELECT
+        util_common.split(f.travelMember || ',' || f.ctravelMember, ',')
+        FROM dual
+        )
+        ) f
+        CONNECT BY PRIOR (id || travelMember) = (id || travelMember)
+        AND PRIOR sys_guid() IS NOT NULL
+        AND LEVEL <![CDATA[<=]]> travelEndDate - travelBeginDate + 1
+        ) c
+        ON (a.applyUser = c.applyUser AND a.todate = c.todate )
+        WHEN NOT MATCHED THEN
+        INSERT (
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        applyUser,
+        applyDept,
+        toDate,
+        whetherToTravel,
+        travelStartDate,
+        travelEndDate,
+        travelFlow,
+        travelReason,
+        travelSerialNum
+        )
+        VALUES (
+        util_common.getAbsID,
+        1,
+        -6760911671874597139,
+        sysdate,
+        -6760911671874597139,
+        sysdate,
+        0,
+        0,
+        -6760911671874597139,
+        c.applyUser,
+        c.applyDept,
+        c.todate,
+        c.whetherToTravel,
+        c.travelStartDate,
+        c.travelEndDate,
+        c.travelFlow,
+        c.travelReason,
+        c.travelSerialNum
+        )
+        when matched then
+        update set
+        a.whetherToTravel =     c.whetherToTravel,
+        a.travelStartDate =     c.travelStartDate,
+        a.travelEndDate   =     c.travelEndDate,
+        a.travelFlow      =     c.travelFlow,
+        a.travelReason    =     c.travelReason,
+        a.travelSerialNum =     c.travelSerialNum
+        where a.whetherToTravel is null
+    </insert>
+
+    <insert id="insertTravelRecordToEveryDayTableBindRelation" parameterClass="java.util.HashMap">
+        insert into form_relation_record
+        (ID,
+        FROM_MASTERDATA_ID,
+        TO_MASTERDATA_ID,
+        STATE,
+        FIELD_NAME,
+        FORM_TYPE,
+        TYPE,
+        MEMBER_ID,
+        FROM_SUBDATA_ID,
+        TO_SUBDATA_ID,
+        FROM_FORM_ID,
+        TO_FORM_ID
+        )
+        select
+        util_common.getAbsID,
+        f.id,
+        csy.id,
+        '1',
+        'field0012',
+        '1',
+        '1',
+        '-6760911671874597139',
+        '0',
+        '0',
+        '6050223712139953374',
+        '3803557390838549231'
+        from vm_DailyLeaveTravelRecord f
+        left join formmain_3376 f1
+        on f.travelSerialNum = f1.field0001
+        left join col_summary csy
+        on f1.id = csy.form_recordid
+        where f1.id is not null and f.id is not null and csy.id is not null and to_char(f.start_date, 'yyyy-mm-dd')  between #startDate# and #endDate#  and not exists (
+        select 1 from
+        form_relation_record fr where
+        fr.field_name = 'field0012'
+        and fr.to_masterdata_id = csy.id
+        and fr.from_form_id = '6050223712139953374'
+        and fr.from_masterdata_id = f.id
+        and fr.to_form_id = '3803557390838549231'
+        )
+    </insert>
+    <!-- 插入调研的数据 -->
+    <insert id="insertSurveyRecordToEveryday" parameterClass="java.util.HashMap">
+        MERGE INTO vm_DailyLeaveTravelRecord a
+        USING (
+        select
+        to_date(to_char(toDate, 'yyyy-mm-dd'), 'yyyy-mm-dd') toDate,
+        travelMember applyUser,
+        travelEndDate surveyEndDate,
+        travelBeginDate surveyStartDate,
+        surveyReason,
+        util_user.getDeptIdByMemId(applyUser) applyDept,
+        '-3841538853571705149' whetherToSurvey,
+        kmflg surveySerialNum
+        from
+        (select
+        f.travelBeginDate+level-1 toDate,
+        travelMember,
+        travelEndDate,
+        travelBeginDate,
+        applyUser,
+        travelReason surveyReason,
+        kmflg
+        from vm_evectionRecord f
+        where f.travelType = -1018115749788758189 and  to_char(modify_date, 'yyyy-mm-dd') between #startDate# and #endDate#
+        connect by id=prior id and level <![CDATA[<=]]> travelEndDate-travelBeginDate+1 and prior sys_guid() is not
+        null) t
+        ) c
+        ON (a.applyUser = c.applyUser AND a.toDate = c.toDate)
+        WHEN NOT MATCHED THEN
+        INSERT (
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        applyUser,
+        applyDept,
+        toDate,
+        surveyEndDate,
+        surveyStartDate,
+        surveyReason,
+        whetherToSurvey,
+        surveySerialNum
+
+        )
+        VALUES (
+        util_common.getAbsID,
+        1,
+        -6760911671874597139,
+        sysdate,
+        -6760911671874597139,
+        sysdate,
+        0,
+        0,
+        -6760911671874597139,
+        c.applyUser,
+        c.applyDept,
+        c.toDate,
+        c.surveyEndDate,
+        c.surveyStartDate,
+        c.surveyReason,
+        c.whetherToSurvey,
+        c.surveySerialNum
+        )
+        WHEN  MATCHED THEN
+        update set
+        surveyEndDate =  c.surveyEndDate,
+        surveyStartDate =  c.surveyStartDate,
+        surveyReason =  c.surveyReason,
+        whetherToSurvey =  c.whetherToSurvey,
+        surveySerialNum =  c.surveySerialNum
+        where a.whetherToSurvey is null
+    </insert>
+<insert id="eveyDayInfoCtpContent.insert" parameterClass="java.util.HashMap">
+    insert into ctp_content_all
+    (ID,
+    CREATE_ID,
+    CREATE_DATE,
+    MODIFY_ID,
+    MODIFY_DATE,
+    MODULE_TYPE,
+    MODULE_ID,
+    MODULE_TEMPLATE_ID,
+    CONTENT_TYPE,
+    CONTENT,
+    CONTENT_DATA_ID,
+    CONTENT_TEMPLATE_ID,
+    TITLE,
+    SORT)
+    select util_common.getAbsID,
+    '-6760911671874597139',
+    sysdate,
+    '-6760911671874597139',
+    sysdate,
+    37,
+    id,
+    -9154120848050929403,
+    '20',
+    '',
+    id,
+    6050223712139953374,
+    '每日请假记录表',
+    '0'
+    from vm_DailyLeaveTravelRecord f
+    where to_char(f.start_date, 'yyyy-mm-dd') between #startDate# and #endDate#
+    and not exists
+    (select 1
+    from ctp_content_all f1
+    where f1.CONTENT_TEMPLATE_ID = 6050223712139953374
+    and f1.module_template_id = -9154120848050929403
+    and f1.CONTENT_DATA_ID = f.id
+    )
+
+</insert>
+<select id="allDirectorInfo.select" resultClass="java.util.HashMap">
+    select
+    to_char(org_id) "org_id",
+    to_char(f.sortNumber) "sortNumber",
+    f.record "record"
+    from
+    vm_company_directors_info f where f.status = -2214726931032093630
+</select>
+
+<delete id="stopHREntry.delete" parameterClass="java.lang.String">
+    delete from vm_basememberinfo f
+    where f.memberId = (select field0053 from formmain_1660 where field0044 = #flowId#)
+</delete>
+
+    <!-- 根据人员的组织代码·查询人员的职级信息 -->
+<select id="codeLevelByMemberIdAndOrgId.select" resultClass="java.lang.String" parameterClass="java.util.HashMap">
+    select l.code
+    from org_relationship os
+    left join org_level l
+    on l.id = os.objective2_id
+    where
+    os.type = 'Member_Post'
+    and l.is_deleted = 0
+    and l.is_enable = 1 and os.source_id = #memberId# and os.org_account_id = #orgId# order by l.level_id
+</select>
+<!-- 根据人员code获取人员信息 -->
+<select id="memberIdByMemberCode" resultClass="java.lang.Long" parameterClass="java.util.HashMap">
+    select distinct rs.source_id
+    from org_relationship rs
+    where rs.objective0_id = #departId#
+    and rs.objective1_id in
+    (select id from org_role r where r.code =  #roleCode#)
+</select>
+ <!-- 获取母公司人员的职级信息 -->
+<select id="findAllFGMemberLevels.select" resultClass="mapBean">
+    select code, level_id from org_level f where f.is_deleted = 0 and status = 1 and is_enable = 1 and org_account_id = 97839079791739420
+</select>
+<!-- 母公司CEO -->
+<select id="findFGCEO.select" resultClass="java.lang.Long">
+    select source_id
+    from org_relationship os
+    left join org_level l
+    on l.id = os.objective2_id
+    where
+    os.type = 'Member_Post'
+    and l.is_deleted = 0
+    and l.is_enable = 1  and os.org_account_id = 97839079791739420 and code = 'CEO'
+</select>
+    <!-- 母公司董事长 -->
+<select id="findFGChairman.select" resultClass="java.lang.Long">
+    select source_id
+    from org_relationship os
+    left join org_level l
+    on l.id = os.objective2_id
+    where
+    os.type = 'Member_Post'
+    and l.is_deleted = 0
+    and l.is_enable = 1  and os.org_account_id = 97839079791739420 and code = 'Chairman'
+</select>
+
+    <!--  通过表单Id查询流程表Id -->
+    <select id = "getColSummaryIdByFlowId.select" parameterClass="string" resultClass="java.lang.String">
+        select id from col_summary where form_recordid = #flowId# and case_id is not null
+    </select>
+    <!--  根据表单信息中表单名称和查询视图名称去查询表单权限operationId -->
+    <select id="getOperationIdByOperationName.select" resultClass="java.lang.String" parameterClass="map">
+        SELECT  to_char(replace(wm_concat(t.name || '.' || t.value),',','_'))  as id
+        FROM (select '/QueryList/Query[@name="' || #viewName# ||
+        '"]/ShowsThrough/Colum' XPATH,
+        f.*
+        from form_definition f
+        where f.name = #tableName#) f,
+        xmltable(f.XPATH passing xmltype(nvl(f.query_info, <![CDATA['<root/>']]>))
+        columns "NAME" path '@name',
+        "VALUE" path '@value') t
+    </select>
+
+    <!-- 查询员工具体时间段内出差申请情况 -->
+    <select id="queryApplyEvectionByDateRange.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        t."flowId",
+        t."userId",
+        t."travelerId",
+        t."evectionStartDate",
+        t."evectionEndDate",
+        t."flowSerialNum",
+        t."flowState",
+        t."flowUrl"
+        from (
+        select
+        id as "flowId",
+        field0008 as "userId",
+        field0009 as "travelerId",
+        field0010 as "evectionStartDate",
+        field0011 as "evectionEndDate",
+        field0001 as "flowSerialNum",
+        finishedflag as "flowState",
+        '' as "flowUrl"
+        from FORMMAIN_3376
+        where state = 1 and finishedflag in (0,1) and field0041 = '1540751696090383749'
+        union all
+        select
+        id as "flowId",
+        userId as "userId",
+        travelerId as "travelerId",
+        evectionStartDate as "evectionStartDate",
+        evectionEndDate as "evectionEndDate",
+        flowSerialNum as "flowSerialNum",
+        finishedflag as "flowState",
+        flowUrl as "flowUrl"
+        from VM_CAP4_EVATIONS
+        where state = 1 and finishedflag in (0,1)
+        union all
+        select
+        id as "flowId",
+        evectionMember as "userId",
+        evectionRetinues as "travelerId",
+        startDate as "evectionStartDate",
+        endDate as "evectionEndDate",
+        serialNo as "flowSerialNum",
+        finishedflag as "flowState",
+        flowUrl as "flowUrl"
+        from VM_CAP_WF_EVECTIONHK
+        where state = 1  and finishedflag in (0,1)
+        ) t where 1 =1
+        AND (
+        t."userId" = #userId#
+        OR ',' ||
+        REPLACE(
+        COALESCE(
+        t."travelerId",
+        ''
+        ),
+        ' ',
+        ''
+        ) || ',' LIKE '%,' || #userId# || ',%'
+        )
+        AND t."evectionStartDate" <![CDATA[<=]]> to_date(#evectionStartDate#,'YYYY-MM-DD')
+        AND t."evectionEndDate" <![CDATA[>=]]> to_date(#evectionEndDate#,'YYYY-MM-DD')
+    </select>
+    <!-- 查询员工具体时间段内出差变更情况 -->
+    <select id="queryApplyChangeEvectionByDateRange.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        t."flowId",
+        t."userId",
+        t."travelerId",
+        t."evectionStartDate",
+        t."evectionEndDate",
+        t."flowSerialNum",
+        t."flowState",
+        t."flowUrl"
+        from (
+        select
+        id as "flowId",
+        userId as "userId",
+        travelerId as "travelerId",
+        evectionStartDate as "evectionStartDate",
+        evectionEndDate as "evectionEndDate",
+        flowSerialNum as "flowSerialNum",
+        finishedflag as "flowState",
+        flowUrl as "flowUrl"
+        from VM_CAP4_EVATIONS_CHANGE
+        where state = 1 and finishedflag in (0,1) and evectionType = util_common.getEnumIdByRefName('出差变更类别', '变更')
+        ) t where 1 =1
+        AND (
+        t."userId" = #userId#
+        OR ',' ||
+        REPLACE(
+        COALESCE(
+        t."travelerId",
+        ''
+        ),
+        ' ',
+        ''
+        ) || ',' LIKE '%,' || #userId# || ',%'
+        )
+        AND t."evectionStartDate" <![CDATA[<=]]> to_date(#evectionStartDate#,'YYYY-MM-DD')
+        AND t."evectionEndDate" <![CDATA[>=]]> to_date(#evectionEndDate#,'YYYY-MM-DD')
+    </select>
+
+    <!-- 查询存在过出差变更或出差取消记录的出差申请记录 -->
+    <select id="cancelEvectionBySerialNum.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        t."flowId",
+        t."evectionSerialNum"
+        from (
+        select
+        id as "flowId",
+        state as "state",
+        businessFlowId as "evectionSerialNum"
+        from vm_hk_bussiness_cancel
+        union all
+        select
+        id as "flowId",
+        state as "state",
+        businessFlowId as "evectionSerialNum"
+        from VM_CAP4_EVATIONS_CHANGE
+        ) t where 1 =1 and t."state" = 1
+        and t."evectionSerialNum" in ($evectionSerialNum$)
+    </select>
+
+    <!-- 查询出所有满足条件的cap3请假申请、cap4香港请假申请流程数据 -->
+    <select id="queryApplyLeaveByDateRange.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        t."flowId",
+        t."userId",
+        t."leaveStartDate",
+        t."leaveStartDateAMorPM",
+        t."leaveEndDate",
+        t."leaveEndDateAMorPM",
+        t."flowSerialNum",
+        t."flowState",
+        t."flowUrl"
+        from (
+        select
+        id as "flowId",
+        writer as "userId",
+        startDate as "leaveStartDate",
+        startHalfDay as "leaveStartDateAMorPM",
+        endDate as "leaveEndDate",
+        endHalfDay as "leaveEndDateAMorPM",
+        flowSerialNum as "flowSerialNum",
+        finishedflag as "flowState",
+        '' as "flowUrl"
+        from VM_WF_PARENTALLEAVE
+        where state = 1 and finishedflag in (0,1)
+        UNION ALL
+        SELECT
+        id AS "flowId",
+        writer AS "userId",
+        startDate AS "leaveStartDate",
+        startHalfDay AS "leaveStartDateAMorPM",
+        endDate AS "leaveEndDate",
+        endHalfDay AS "leaveEndDateAMorPM",
+        flowSerialNum AS "flowSerialNum",
+        finishedflag AS "flowState",
+        flowUrl AS "flowUrl"
+        FROM vm_wf_cap4_parentalleave
+        union all
+        select
+        id as "flowId",
+        applyUser as "userId",
+        leaveStartDate as "leaveStartDate",
+        to_char(leaveStartHalfDay) as "leaveStartDateAMorPM",
+        leaveEndDate as "leaveEndDate",
+        to_char(leaveEndHalfDay) as "leaveEndDateAMorPM",
+        serialNo as "flowSerialNum",
+        finishedflag as "flowState",
+        flowUrl as "flowUrl"
+        from VM_WF_HKLEAVEAPPLY
+        where state = 1 and finishedflag in (0,1)
+        ) t where 1 =1
+        AND t."userId" = #userId#
+        AND
+            (
+                CASE
+                WHEN t."leaveStartDateAMorPM" = '770469099444389055'
+                THEN TO_TIMESTAMP(to_char(t."leaveStartDate", 'yyyy-mm-dd') || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS')
+                WHEN t."leaveStartDateAMorPM" = '3338464713283357441'
+                THEN TO_TIMESTAMP(to_char(t."leaveStartDate", 'yyyy-mm-dd') || ' 12:00:00', 'YYYY-MM-DD HH24:MI:SS')
+                ELSE NULL
+                END
+            ) <![CDATA[<=]]>
+            (
+                CASE
+                WHEN #startDateAMorPM# = '770469099444389055'
+                THEN TO_TIMESTAMP(#leaveStartDate# || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS')
+                WHEN #startDateAMorPM# = '3338464713283357441'
+                THEN TO_TIMESTAMP(#leaveStartDate# || ' 12:00:00', 'YYYY-MM-DD HH24:MI:SS')
+                ELSE NULL
+                END
+            )
+        AND
+            (
+                CASE
+                WHEN t."leaveEndDateAMorPM" = '770469099444389055'
+                THEN TO_TIMESTAMP(to_char(t."leaveEndDate", 'yyyy-mm-dd') || ' 11:59:59', 'YYYY-MM-DD HH24:MI:SS')
+                WHEN t."leaveEndDateAMorPM" = '3338464713283357441'
+                THEN TO_TIMESTAMP(to_char(t."leaveEndDate", 'yyyy-mm-dd') || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+                ELSE NULL
+                END
+            ) <![CDATA[>=]]>
+            (
+                CASE
+                WHEN #endDateAMorPM# = '770469099444389055'
+                THEN TO_TIMESTAMP(#leaveEndDate# || ' 11:59:59', 'YYYY-MM-DD HH24:MI:SS')
+                WHEN #endDateAMorPM# = '3338464713283357441'
+                THEN TO_TIMESTAMP(#leaveEndDate# || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+                ELSE NULL
+                END
+            )
+    </select>
+
+    <!-- 查询出所有满足条件的cap3销假申请、cap4香港销假申请流程数据 -->
+    <select id="queryApplyChangeLeaveByDateRange.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        t."flowId",
+        t."userId",
+        t."leaveStartDate",
+        t."leaveStartDateAMorPM",
+        t."leaveEndDate",
+        t."leaveEndDateAMorPM",
+        t."flowSerialNum",
+        t."flowState",
+        t."flowUrl"
+        from (
+        select
+        id as "flowId",
+        writer as "userId",
+        newstartDate as "leaveStartDate",
+        newstartHalfDay as "leaveStartDateAMorPM",
+        newendDate as "leaveEndDate",
+        newendHalfDay as "leaveEndDateAMorPM",
+        flowSerialNum as "flowSerialNum",
+        finishedflag as "flowState",
+        '' as "flowUrl"
+        from vm_wf_parentalleavecancel
+        where state = 1 and finishedflag in (0,1) and cancelType = util_common.getEnumIdByRefName('销假类型', '部分销假')
+        UNION ALL
+        select
+        id as "flowId",
+        writer as "userId",
+        newstartDate as "leaveStartDate",
+        newstartHalfDay as "leaveStartDateAMorPM",
+        newendDate as "leaveEndDate",
+        newendHalfDay as "leaveEndDateAMorPM",
+        flowSerialNum as "flowSerialNum",
+        finishedflag as "flowState",
+        flowUrl as "flowUrl"
+        from vm_wf_cap4_parentalleavecancel
+        where state = 1 and finishedflag in (0,1) and cancelType = util_common.getEnumIdByRefName('销假类型', '部分销假')
+        union all
+        select
+        id as "flowId",
+        applyUser as "userId",
+        newLeaveStartDate as "leaveStartDate",
+        to_char(newLeaveStartHalfDay) as "leaveStartDateAMorPM",
+        newLeaveEndDate as "leaveEndDate",
+        to_char(newLeaveEndHalfDay) as "leaveEndDateAMorPM",
+        serialNo as "flowSerialNum",
+        finishedflag as "flowState",
+        flowUrl as "flowUrl"
+        from vm_wf_hkleavebackapply
+        where state = 1 and finishedflag in (0,1) and leaveBackType = util_common.getEnumIdByRefName('销假类型', '部分销假')
+        ) t where 1 =1
+        AND t."userId" = #userId#
+        AND
+        (
+        CASE
+        WHEN t."leaveStartDateAMorPM" = '770469099444389055'
+        THEN TO_TIMESTAMP(to_char(t."leaveStartDate", 'yyyy-mm-dd') || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS')
+        WHEN t."leaveStartDateAMorPM" = '3338464713283357441'
+        THEN TO_TIMESTAMP(to_char(t."leaveStartDate", 'yyyy-mm-dd') || ' 12:00:00', 'YYYY-MM-DD HH24:MI:SS')
+        ELSE NULL
+        END
+        ) <![CDATA[<=]]>
+        (
+        CASE
+        WHEN #startDateAMorPM# = '770469099444389055'
+        THEN TO_TIMESTAMP(#leaveStartDate# || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS')
+        WHEN #startDateAMorPM# = '3338464713283357441'
+        THEN TO_TIMESTAMP(#leaveStartDate# || ' 12:00:00', 'YYYY-MM-DD HH24:MI:SS')
+        ELSE NULL
+        END
+        )
+        AND
+        (
+        CASE
+        WHEN t."leaveEndDateAMorPM" = '770469099444389055'
+        THEN TO_TIMESTAMP(to_char(t."leaveEndDate", 'yyyy-mm-dd') || ' 11:59:59', 'YYYY-MM-DD HH24:MI:SS')
+        WHEN t."leaveEndDateAMorPM" = '3338464713283357441'
+        THEN TO_TIMESTAMP(to_char(t."leaveEndDate", 'yyyy-mm-dd') || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+        ELSE NULL
+        END
+        ) <![CDATA[>=]]>
+        (
+        CASE
+        WHEN #endDateAMorPM# = '770469099444389055'
+        THEN TO_TIMESTAMP(#leaveEndDate# || ' 11:59:59', 'YYYY-MM-DD HH24:MI:SS')
+        WHEN #endDateAMorPM# = '3338464713283357441'
+        THEN TO_TIMESTAMP(#leaveEndDate# || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+        ELSE NULL
+        END
+        )
+    </select>
+
+    <!-- 查询存在过销假申请记录的请假申请记录 -->
+    <select id="cancelLeaveBySerialNum.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        t."flowId",
+        t."leaveSerialNum"
+        from (
+        select
+        id as "flowId",
+        state as "state",
+        businessFlowId as "leaveSerialNum"
+        from vm_wf_parentalleavecancel
+        union all
+        select
+        id as "flowId",
+        state as "state",
+        leaveFlowSerialNo as "leaveSerialNum"
+        from vm_wf_hkleavebackapply
+        ) t where 1 =1 and t."state" = 1
+        and t."leaveSerialNum" in ($leaveSerialNum$)
+    </select>
+
+    <!-- 查询个人基本信息主数据中所有请过婚假、无在途婚假的未婚员工 -->
+    <select id="getMarriageBySingleMember.select"  resultClass="java.util.HashMap">
+        select
+        id as "id",
+        userId as "userId",
+        firstMarriageDate as "firstMarriageDate",
+        approvedMarriageDays as "approvedMarriageDays"
+        from VM_MEMBER_MARRIAGE a
+        where approvedMarriageDays > 0
+        and (pendingMarriageDays = 0 or pendingMarriageDays is null)
+        and marriageStatus != util_common.getEnumIdByRefName('婚姻状况', '已婚')
+    </select>
+
+    <!-- 删除婚假明细表中的空白行 -->
+    <delete id="deleteMarriageSonNullRecord.delete" parameterClass="java.util.HashMap">
+        delete from vm_memberMarriage_son where formmain_id = #formmain_id# and (firstMarriageDate is null or approvedMarriageDays is null)
+    </delete>
+
+    <!-- 新增记录到婚假明细表中 -->
+    <insert id="addMarriageSonRecord.insert" parameterClass="java.util.HashMap">
+        insert into vm_memberMarriage_son(
+        id,
+        formmain_id,
+        firstMarriageDate,
+        approvedMarriageDays,
+        updateTime)
+        values(
+        util_common.getAbsID,
+        #formmain_id#,
+        to_date(#firstMarriageDate#, 'YYYY-MM-DD'),
+        #approvedMarriageDays#,
+        to_date(#updateTime#, 'YYYY-MM-DD hh24:mi:ss')
+        )
+    </insert>
+
+    <!-- 清空个人基本信息表中的首次婚假信息 -->
+    <update id="updateMarriageData.update" parameterClass="java.util.HashMap">
+        update VM_MEMBER_MARRIAGE set
+        firstMarriageDate = null,
+        approvedMarriageDays = 0
+        where id = #id#
+    </update>
+
+    <!-- 查询满足条件的请假申请数据 -->
+    <select id="queryLeaveApplyByDate.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        WITH converted_dates AS (
+        SELECT
+        t."flowId",
+        t."userId",
+        t."leaveStartDate",
+        t."leaveStartDateAMorPM",
+        t."leaveEndDate",
+        t."leaveEndDateAMorPM",
+        t."flowSerialNum",
+        t."flowState",
+        t."leaveType",
+        t."leaveSonType",
+        t."flowUrl",
+
+        CASE
+        WHEN t."leaveStartDateAMorPM" = '770469099444389055'
+        THEN TO_TIMESTAMP(TO_CHAR(t."leaveStartDate", 'yyyy-mm-dd') || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS')
+        WHEN t."leaveStartDateAMorPM" = '3338464713283357441'
+        THEN TO_TIMESTAMP(TO_CHAR(t."leaveStartDate", 'yyyy-mm-dd') || ' 12:00:00', 'YYYY-MM-DD HH24:MI:SS')
+        ELSE NULL
+        END AS leave_start_ts,
+
+        CASE
+        WHEN t."leaveEndDateAMorPM" = '770469099444389055'
+        THEN TO_TIMESTAMP(TO_CHAR(t."leaveEndDate", 'yyyy-mm-dd') || ' 11:59:59', 'YYYY-MM-DD HH24:MI:SS')
+        WHEN t."leaveEndDateAMorPM" = '3338464713283357441'
+        THEN TO_TIMESTAMP(TO_CHAR(t."leaveEndDate", 'yyyy-mm-dd') || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+        ELSE NULL
+        END AS leave_end_ts,
+
+        CASE
+        WHEN #startDateAMorPM# = '770469099444389055'
+        THEN TO_TIMESTAMP(#leaveStartDate# || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS')
+        WHEN #startDateAMorPM# = '3338464713283357441'
+        THEN TO_TIMESTAMP(#leaveStartDate# || ' 12:00:00', 'YYYY-MM-DD HH24:MI:SS')
+        ELSE NULL
+        END AS request_start_ts,
+
+        CASE
+        WHEN #endDateAMorPM# = '770469099444389055'
+        THEN TO_TIMESTAMP(#leaveEndDate# || ' 11:59:59', 'YYYY-MM-DD HH24:MI:SS')
+        WHEN #endDateAMorPM# = '3338464713283357441'
+        THEN TO_TIMESTAMP(#leaveEndDate# || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+        ELSE NULL
+        END AS request_end_ts
+        FROM (
+
+        SELECT
+        id AS "flowId",
+        writer AS "userId",
+        startDate AS "leaveStartDate",
+        startHalfDay AS "leaveStartDateAMorPM",
+        endDate AS "leaveEndDate",
+        endHalfDay AS "leaveEndDateAMorPM",
+        flowSerialNum AS "flowSerialNum",
+        finishedflag AS "flowState",
+        util_common.getEnumValueById(to_char(leaveType)) AS "leaveType",
+        util_common.getEnumValueById(to_char(leaveSonType)) AS "leaveSonType",
+        '' AS "flowUrl"
+        FROM VM_WF_PARENTALLEAVE
+        WHERE state = 1 AND finishedflag IN (0, 1)
+        UNION ALL
+        SELECT
+        id AS "flowId",
+        writer AS "userId",
+        startDate AS "leaveStartDate",
+        startHalfDay AS "leaveStartDateAMorPM",
+        endDate AS "leaveEndDate",
+        endHalfDay AS "leaveEndDateAMorPM",
+        flowSerialNum AS "flowSerialNum",
+        finishedflag AS "flowState",
+        util_common.getEnumValueById(to_char(leaveType)) AS "leaveType",
+        util_common.getEnumValueById(to_char(leaveSonType)) AS "leaveSonType",
+        flowUrl AS "flowUrl"
+        FROM vm_wf_cap4_parentalleave
+        UNION ALL
+        SELECT
+        id AS "flowId",
+        applyUser AS "userId",
+        leaveStartDate AS "leaveStartDate",
+        TO_CHAR(leaveStartHalfDay) AS "leaveStartDateAMorPM",
+        leaveEndDate AS "leaveEndDate",
+        TO_CHAR(leaveEndHalfDay) AS "leaveEndDateAMorPM",
+        serialNo AS "flowSerialNum",
+        finishedflag AS "flowState",
+        util_common.getEnumValueById(to_char(leaveType)) AS "leaveType",
+        '' AS "leaveSonType",
+        flowUrl AS "flowUrl"
+        FROM VM_WF_HKLEAVEAPPLY
+        WHERE state = 1 AND finishedflag IN (0, 1)
+        ) t
+        )
+        SELECT
+        "flowId",
+        "userId",
+        "leaveStartDate",
+        "leaveStartDateAMorPM",
+        "leaveEndDate",
+        "leaveEndDateAMorPM",
+        "flowSerialNum",
+        "flowState",
+        "leaveType",
+        "leaveSonType",
+        "flowUrl"
+        FROM converted_dates
+        LEFT JOIN org_member m ON "userId" = m.id
+        LEFT JOIN org_unit u ON u.id = m.org_department_id
+        WHERE 1 = 1
+        <isNotEmpty prepend="AND" property="userId">
+            "userId" = #userId#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="deptCode">
+            u.code = #deptCode# AND u.is_internal=1 AND u.is_enable=1 AND u.is_deleted=0
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="lineCode">
+            u.path LIKE (SELECT path FROM org_unit WHERE code = #lineCode# AND is_internal=1 AND is_enable=1 AND is_deleted=0 AND ROWNUM = 1) || '%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="companyCode">
+            u.org_account_id = (SELECT id FROM org_unit WHERE code = #companyCode# AND is_internal=1 AND is_enable=1 AND is_deleted=0 AND ROWNUM = 1)
+        </isNotEmpty>
+
+        AND (
+        (leave_start_ts <![CDATA[>=]]> request_start_ts AND leave_end_ts <![CDATA[<=]]> request_end_ts)
+        OR
+        (request_start_ts BETWEEN leave_start_ts AND leave_end_ts)
+        OR
+        (request_end_ts BETWEEN leave_start_ts AND leave_end_ts)
+        )
+        order by "leaveStartDate"
+    </select>
+
+    <!-- 查询满足条件的部分销假数据 -->
+    <select id="queryLeaveApplyChangeByDate.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        WITH converted_dates AS (
+        SELECT
+        t."flowId",
+        t."userId",
+        t."leaveStartDate",
+        t."leaveStartDateAMorPM",
+        t."leaveEndDate",
+        t."leaveEndDateAMorPM",
+        t."flowSerialNum",
+        t."flowState",
+        t."leaveType",
+        t."leaveSonType",
+        t."flowUrl",
+
+        CASE
+        WHEN t."leaveStartDateAMorPM" = '770469099444389055'
+        THEN TO_TIMESTAMP(TO_CHAR(t."leaveStartDate", 'yyyy-mm-dd') || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS')
+        WHEN t."leaveStartDateAMorPM" = '3338464713283357441'
+        THEN TO_TIMESTAMP(TO_CHAR(t."leaveStartDate", 'yyyy-mm-dd') || ' 12:00:00', 'YYYY-MM-DD HH24:MI:SS')
+        ELSE NULL
+        END AS leave_start_ts,
+
+        CASE
+        WHEN t."leaveEndDateAMorPM" = '770469099444389055'
+        THEN TO_TIMESTAMP(TO_CHAR(t."leaveEndDate", 'yyyy-mm-dd') || ' 11:59:59', 'YYYY-MM-DD HH24:MI:SS')
+        WHEN t."leaveEndDateAMorPM" = '3338464713283357441'
+        THEN TO_TIMESTAMP(TO_CHAR(t."leaveEndDate", 'yyyy-mm-dd') || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+        ELSE NULL
+        END AS leave_end_ts,
+
+        CASE
+        WHEN #startDateAMorPM# = '770469099444389055'
+        THEN TO_TIMESTAMP(#leaveStartDate# || ' 00:00:00', 'YYYY-MM-DD HH24:MI:SS')
+        WHEN #startDateAMorPM# = '3338464713283357441'
+        THEN TO_TIMESTAMP(#leaveStartDate# || ' 12:00:00', 'YYYY-MM-DD HH24:MI:SS')
+        ELSE NULL
+        END AS request_start_ts,
+
+        CASE
+        WHEN #endDateAMorPM# = '770469099444389055'
+        THEN TO_TIMESTAMP(#leaveEndDate# || ' 11:59:59', 'YYYY-MM-DD HH24:MI:SS')
+        WHEN #endDateAMorPM# = '3338464713283357441'
+        THEN TO_TIMESTAMP(#leaveEndDate# || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+        ELSE NULL
+        END AS request_end_ts
+        FROM (
+
+        select
+        id as "flowId",
+        writer as "userId",
+        newstartDate as "leaveStartDate",
+        newstartHalfDay as "leaveStartDateAMorPM",
+        newendDate as "leaveEndDate",
+        newendHalfDay as "leaveEndDateAMorPM",
+        flowSerialNum as "flowSerialNum",
+        finishedflag as "flowState",
+        util_common.getEnumValueById(to_char(leaveType)) AS "leaveType",
+        '' AS "leaveSonType",
+        '' as "flowUrl"
+        from vm_wf_parentalleavecancel
+        where state = 1 and finishedflag in (0,1) and cancelType = util_common.getEnumIdByRefName('销假类型', '部分销假')
+        UNION ALL
+        select
+        id as "flowId",
+        writer as "userId",
+        newstartDate as "leaveStartDate",
+        newstartHalfDay as "leaveStartDateAMorPM",
+        newendDate as "leaveEndDate",
+        newendHalfDay as "leaveEndDateAMorPM",
+        flowSerialNum as "flowSerialNum",
+        finishedflag as "flowState",
+        util_common.getEnumValueById(to_char(leaveType)) AS "leaveType",
+        util_common.getEnumValueById(to_char(leaveSonType)) AS "leaveSonType",
+        flowUrl as "flowUrl"
+        from vm_wf_cap4_parentalleavecancel
+        where state = 1 and finishedflag in (0,1) and cancelType = util_common.getEnumIdByRefName('销假类型', '部分销假')
+        UNION ALL
+        select
+        id as "flowId",
+        applyUser as "userId",
+        newLeaveStartDate as "leaveStartDate",
+        to_char(newLeaveStartHalfDay) as "leaveStartDateAMorPM",
+        newLeaveEndDate as "leaveEndDate",
+        to_char(newLeaveEndHalfDay) as "leaveEndDateAMorPM",
+        serialNo as "flowSerialNum",
+        finishedflag as "flowState",
+        util_common.getEnumValueById(to_char(leaveType)) AS "leaveType",
+        '' AS "leaveSonType",
+        flowUrl as "flowUrl"
+        from vm_wf_hkleavebackapply
+        where state = 1 and finishedflag in (0,1) and leaveBackType = util_common.getEnumIdByRefName('销假类型', '部分销假')
+        ) t
+        )
+        SELECT
+        "flowId",
+        "userId",
+        "leaveStartDate",
+        "leaveStartDateAMorPM",
+        "leaveEndDate",
+        "leaveEndDateAMorPM",
+        "flowSerialNum",
+        "flowState",
+        "leaveType",
+        "leaveSonType",
+        "flowUrl"
+        FROM converted_dates
+        LEFT JOIN org_member m ON "userId" = m.id
+        LEFT JOIN org_unit u ON u.id = m.org_department_id
+        WHERE 1 = 1
+        <isNotEmpty prepend="AND" property="userId">
+            "userId" = #userId#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="deptCode">
+            u.code = #deptCode# AND u.is_internal=1 AND u.is_enable=1 AND u.is_deleted=0
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="lineCode">
+            u.path LIKE (SELECT path FROM org_unit WHERE code = #lineCode# AND is_internal=1 AND is_enable=1 AND is_deleted=0 AND ROWNUM = 1) || '%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="companyCode">
+            u.org_account_id = (SELECT id FROM org_unit WHERE code = #companyCode# AND is_internal=1 AND is_enable=1 AND is_deleted=0 AND ROWNUM = 1)
+        </isNotEmpty>
+
+        AND (
+        (leave_start_ts <![CDATA[>=]]> request_start_ts AND leave_end_ts <![CDATA[<=]]> request_end_ts)
+        OR
+        (request_start_ts BETWEEN leave_start_ts AND leave_end_ts)
+        OR
+        (request_end_ts BETWEEN leave_start_ts AND leave_end_ts)
+        )
+        order by "leaveStartDate"
+    </select>
+
+    <!-- 查询存在过销假申请记录的请假申请记录 -->
+    <select id="cancelLeaveApplyBySerialNum.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        t."flowId",
+        t."leaveSerialNum"
+        from (
+        select
+        id as "flowId",
+        state as "state",
+        businessFlowId as "leaveSerialNum"
+        from vm_wf_parentalleavecancel
+        union all
+        select
+        id as "flowId",
+        state as "state",
+        businessFlowId as "leaveSerialNum"
+        from vm_wf_cap4_parentalleavecancel
+        union all
+        select
+        id as "flowId",
+        state as "state",
+        leaveFlowSerialNo as "leaveSerialNum"
+        from vm_wf_hkleavebackapply
+        ) t where 1 =1 and t."state" = 1
+        and t."leaveSerialNum" in ($leaveSerialNum$)
+    </select>
+
+    <!-- 通过唯一值(申请人+当日日期)查询基本信息状态及请假信息、出差信息、调研信息状态 -->
+    <select id="queryAllStatusOfEvectionAndLeaveRec.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        leaveStatus as "leaveStatus",
+        isAmLeave as "isAmLeave",
+        flowStatus as "flowStatus",
+        isPmLeave as "isPmLeave",
+        pmFlowStatus as "pmFlowStatus",
+        evectionStatus as "evectionStatus",
+        evectionFlowStatus as "evectionFlowStatus",
+        surveyStatus as "surveyStatus",
+        surveyFlowStatus as "surveyFlowStatus"
+        from
+        vm_wf_cap4_everyDayLeaveAndEvection
+        where writer = #writer#
+        and currentDate = TO_DATE(#currentDate#, 'YYYY-MM-DD')
+    </select>
+
+    <!-- 根据请假流水号或者销假流水号查询请假出差表 -->
+    <select id="queryLeaveRecordIdByFlowSerialNum.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        leaveFlowSerialNum as "leaveFlowSerialNum",
+        cancelLeaveFlowSerialNum as "cancelLeaveFlowSerialNum",
+        pmLeaveFlowSerialNum as "pmLeaveFlowSerialNum",
+        pmCancelLeaveFlowSerialNum as "pmCancelLeaveFlowSerialNum"
+        from
+        vm_wf_cap4_everyDayLeaveAndEvection
+        where 1 = 1
+        <isNotEmpty prepend="AND" property="leaveFlowSerialNum">
+            ( leaveFlowSerialNum = #leaveFlowSerialNum# or pmLeaveFlowSerialNum = #leaveFlowSerialNum#)
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="cancelLeaveFlowSerialNum">
+            ( cancelLeaveFlowSerialNum = #cancelLeaveFlowSerialNum# or pmCancelLeaveFlowSerialNum = #cancelLeaveFlowSerialNum#)
+        </isNotEmpty>
+    </select>
+
+    <!-- 更新请假出差表内上午请假信息 -->
+    <update id="updateEveryDayAMLeaveRecord.update" parameterClass="java.util.HashMap">
+        update vm_wf_cap4_everyDayLeaveAndEvection
+        set flowStatus = #flowStatus#
+        <isNotEmpty property="isAmLeave">
+            ,isAmLeave = #isAmLeave#
+        </isNotEmpty>
+        <isNotEmpty property="startDate">
+            ,startDate = TO_DATE(#startDate#, 'YYYY-MM-DD')
+        </isNotEmpty>
+        <isNotEmpty property="startHalfDay">
+            ,startHalfDay = #startHalfDay#
+        </isNotEmpty>
+        <isNotEmpty property="endDate">
+            ,endDate = TO_DATE(#endDate#, 'YYYY-MM-DD')
+        </isNotEmpty>
+        <isNotEmpty property="endHalfDay">
+            ,endHalfDay = #endHalfDay#
+        </isNotEmpty>
+        <isNotEmpty property="leaveRecord">
+            ,leaveRecord = #leaveRecord#
+        </isNotEmpty>
+        <isNotEmpty property="flowUrl">
+            ,flowUrl = #flowUrl#
+        </isNotEmpty>
+        <isNotEmpty property="leaveReason">
+            ,leaveReason = #leaveReason#
+        </isNotEmpty>
+        <isNotEmpty property="leaveType">
+            ,leaveType = #leaveType#
+        </isNotEmpty>
+        <isNotEmpty property="leaveSonType">
+            ,leaveSonType = #leaveSonType#
+        </isNotEmpty>
+        <isNotEmpty property="leaveFlowSerialNum">
+            ,leaveFlowSerialNum = #leaveFlowSerialNum#
+        </isNotEmpty>
+        <isNotEmpty property="cancelLeaveFlowSerialNum">
+            ,cancelLeaveFlowSerialNum = #cancelLeaveFlowSerialNum#
+        </isNotEmpty>
+        where writer = #writer#
+        and currentDate = TO_DATE(#currentDate#, 'YYYY-MM-DD')
+    </update>
+
+    <!-- 更新请假出差表内下午请假信息 -->
+    <update id="updateEveryDayPMLeaveRecord.update" parameterClass="java.util.HashMap">
+        update vm_wf_cap4_everyDayLeaveAndEvection
+        set pmFlowStatus = #flowStatus#
+        <isNotEmpty property="isPmLeave">
+            ,isPmLeave = #isPmLeave#
+        </isNotEmpty>
+        <isNotEmpty property="startDate">
+            ,pmStartDate = TO_DATE(#startDate#, 'YYYY-MM-DD')
+        </isNotEmpty>
+        <isNotEmpty property="startHalfDay">
+            ,pmStartHalfDay = #startHalfDay#
+        </isNotEmpty>
+        <isNotEmpty property="endDate">
+            ,pmEndDate = TO_DATE(#endDate#, 'YYYY-MM-DD')
+        </isNotEmpty>
+        <isNotEmpty property="endHalfDay">
+            ,pmEndHalfDay = #endHalfDay#
+        </isNotEmpty>
+        <isNotEmpty property="leaveRecord">
+            ,pmLeaveRecord = #leaveRecord#
+        </isNotEmpty>
+        <isNotEmpty property="flowUrl">
+            ,pmFlowUrl = #flowUrl#
+        </isNotEmpty>
+        <isNotEmpty property="leaveReason">
+            ,pmLeaveReason = #leaveReason#
+        </isNotEmpty>
+        <isNotEmpty property="leaveType">
+            ,pmLeaveType = #leaveType#
+        </isNotEmpty>
+        <isNotEmpty property="leaveSonType">
+            ,pmLeaveSonType = #leaveSonType#
+        </isNotEmpty>
+        <isNotEmpty property="leaveFlowSerialNum">
+            ,pmLeaveFlowSerialNum = #leaveFlowSerialNum#
+        </isNotEmpty>
+        <isNotEmpty property="cancelLeaveFlowSerialNum">
+            ,pmCancelLeaveFlowSerialNum = #cancelLeaveFlowSerialNum#
+        </isNotEmpty>
+        where writer = #writer#
+        and currentDate = TO_DATE(#currentDate#, 'YYYY-MM-DD')
+    </update>
+
+    <!-- 更新请假出差表内下午请假信息 -->
+    <update id="updateEveryDayLeaveStatus.update" parameterClass="java.util.HashMap">
+        UPDATE vm_wf_cap4_everyDayLeaveAndEvection
+        SET leaveStatus =
+        CASE
+        WHEN (isAmLeave = '-3841538853571705149'
+        AND isPmLeave = '-3841538853571705149') THEN
+        util_common.getEnumIdByRefName('时段类型', '全天')
+        WHEN (isAmLeave = '-3841538853571705149'
+        AND (isPmLeave != '-3841538853571705149' OR isPmLeave IS NULL)) THEN
+        util_common.getEnumIdByRefName('时段类型', '上午')
+        WHEN (isPmLeave = '-3841538853571705149'
+        AND (isAmLeave != '-3841538853571705149' OR isAmLeave IS NULL)) THEN
+        util_common.getEnumIdByRefName('时段类型', '下午')
+        ELSE
+        util_common.getEnumIdByRefName('时段类型', '无')
+        END
+        WHERE id = #id#
+    </update>
+    <!-- 清空每日请假出差表内上午请假信息 -->
+    <update id="clearEveryDayLeaveRecordAM.update" parameterClass="java.util.HashMap">
+        update vm_wf_cap4_everyDayLeaveAndEvection
+        set
+        isAmLeave = null,
+        startDate = null,
+        startHalfDay = null,
+        endDate = null,
+        endHalfDay = null,
+        leaveRecord = null,
+        flowUrl = null,
+        leaveType = null,
+        leaveSonType = null,
+        flowStatus = null,
+        leaveReason = null,
+        leaveFlowSerialNum = null
+        where id = #id#
+    </update>
+
+    <!-- 清空每日请假出差表内下午请假信息 -->
+    <update id="clearEveryDayLeaveRecordPM.update" parameterClass="java.util.HashMap">
+        update vm_wf_cap4_everyDayLeaveAndEvection
+        set
+        isPmLeave = null,
+        pmStartDate = null,
+        pmStartHalfDay = null,
+        pmEndDate = null,
+        pmEndHalfDay = null,
+        pmLeaveRecord = null,
+        pmFlowUrl = null,
+        pmLeaveType = null,
+        pmLeaveSonType = null,
+        pmFlowStatus = null,
+        pmLeaveReason = null,
+        pmLeaveFlowSerialNum  = null
+        where id = #id#
+    </update>
+
+    <!-- 清空每日请假出差表内上午销假信息 -->
+    <update id="clearEveryDayCancelLeaveRecordAM.update" parameterClass="java.util.HashMap">
+        update vm_wf_cap4_everyDayLeaveAndEvection
+        set
+        isAmLeave = null,
+        startDate = null,
+        startHalfDay = null,
+        endDate = null,
+        endHalfDay = null,
+        leaveRecord = null,
+        flowUrl = null,
+        leaveType = null,
+        leaveSonType = null,
+        flowStatus = null,
+        leaveReason = null,
+        cancelLeaveFlowSerialNum  = null
+        where id = #id#
+    </update>
+
+    <!-- 清空每日请假出差表内下午销假信息 -->
+    <update id="clearEveryDayCancelLeaveRecordPM.update" parameterClass="java.util.HashMap">
+        update vm_wf_cap4_everyDayLeaveAndEvection
+        set
+        isPmLeave = null,
+        pmStartDate = null,
+        pmStartHalfDay = null,
+        pmEndDate = null,
+        pmEndHalfDay = null,
+        pmLeaveRecord = null,
+        pmFlowUrl = null,
+        pmLeaveType = null,
+        pmLeaveSonType = null,
+        pmFlowStatus = null,
+        pmLeaveReason = null,
+        pmCancelLeaveFlowSerialNum = null
+        where id = #id#
+    </update>
+
+    <!-- 新增cap4每日请假出差表 -->
+    <insert id="insertEveryDayLeaveRecord.insert" parameterClass="java.util.HashMap">
+        insert into vm_wf_cap4_everyDayLeaveAndEvection(
+        ID,
+        STATE,
+        START_MEMBER_ID,
+        START_DATE,
+        APPROVE_MEMBER_ID,
+        APPROVE_DATE,
+        FINISHEDFLAG,
+        RATIFYFLAG,
+        RATIFY_MEMBER_ID,
+        RATIFY_DATE,
+        SORT,
+        MODIFY_MEMBER_ID,
+        MODIFY_DATE,
+        writer,
+        writerDept,
+        currentDate,
+        isFestDay,
+        isRestDay
+        ) VALUES(
+        #id#,
+        1,
+        null,
+        sysdate,
+        null,
+        sysdate,
+        0,
+        0,
+        0,
+        sysdate,
+        0,
+        null,
+        sysdate,
+        #writer#,
+        #writerDept#,
+        to_date(#currentDate#,'yyyy-MM-dd'),
+        #isFestDay#,
+        #isRestDay#
+        )
+    </insert>
+
+    <!-- 插入请假出差表内调研信息 -->
+    <insert id="insertEveryDaySurveyRecord.insert" parameterClass="java.util.HashMap">
+        insert into vm_wf_cap4_everyDayLeaveAndEvection(
+        ID,
+        STATE,
+        START_MEMBER_ID,
+        START_DATE,
+        APPROVE_MEMBER_ID,
+        APPROVE_DATE,
+        FINISHEDFLAG,
+        RATIFYFLAG,
+        RATIFY_MEMBER_ID,
+        RATIFY_DATE,
+        SORT,
+        MODIFY_MEMBER_ID,
+        MODIFY_DATE,
+        writer,
+        writerDept,
+        currentDate,
+        isFestDay,
+        isRestDay,
+        surveyStatus,
+        surveyFlowStatus,
+        surveyStartDate,
+        surveyEndDate,
+        surveyRecord,
+        surveyReason,
+        surveyFlowSerialNum
+        ) VALUES(
+        #id#,
+        1,
+        null,
+        sysdate,
+        null,
+        sysdate,
+        0,
+        0,
+        0,
+        sysdate,
+        0,
+        null,
+        sysdate,
+        #writer#,
+        #writerDept#,
+        to_date(#currentDate#,'yyyy-MM-dd'),
+        #isFestDay#,
+        #isRestDay#,
+        #surveyStatus#,
+        #surveyFlowStatus#,
+        to_date(#surveyStartDate#,'yyyy-MM-dd'),
+        to_date(#surveyEndDate#,'yyyy-MM-dd'),
+        #surveyRecord#,
+        #surveyReason#,
+        #surveyFlowSerialNum#
+        )
+    </insert>
+
+    <!-- 查询每日请假出差信息表里当前日期是否存在病假 -->
+    <select id="isSickRecord.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        leaveStatus as "leaveStatus",
+        flowStatus as "flowStatus"
+        from
+        vm_wf_cap4_everyDayLeaveAndEvection
+        where writer = #writer#
+        and currentDate = TO_DATE(#currentDate#, 'YYYY-MM-DD')
+        and leaveType = #leaveType#
+        <isNotEmpty prepend="AND" property="isAmLeave">
+            isAmLeave = #isAmLeave#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="flowStatus">
+            flowStatus = #flowStatus#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="isPmLeave">
+            isPmLeave = #isPmLeave#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="pmFlowStatus">
+            pmFlowStatus = #pmFlowStatus#
+        </isNotEmpty>
+    </select>
+
+    <!-- 查询请销假扣缴标记表中结束日期大于目标结束日期 -->
+    <select id="queryNeedReimburseFlow.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        WITH calculation_cte AS (
+        select
+        id as "id",
+        mainMember as "mainMember",
+        leaveType as "leaveType",
+        cancelLeaveFlowSerialNum as "cancelLeaveFlowSerialNum",
+        startDate as "startDate",
+        maxOldDeductDays as "maxOldDeductDays",
+        beforeOldDeductDays as "beforeOldDeductDays",
+        afterOldDeductDays as "afterOldDeductDays",
+        beforeNewDeductDays as "beforeNewDeductDays",
+        afterNewDeductDays as "afterNewDeductDays",
+        calculationProcess as "calculationProcess",
+        CASE
+        WHEN endDateAMorPM = '770469099444389055'
+        THEN TO_TIMESTAMP(TO_CHAR(endDate, 'yyyy-mm-dd') || ' 11:59:59', 'YYYY-MM-DD HH24:MI:SS')
+        WHEN endDateAMorPM = '3338464713283357441'
+        THEN TO_TIMESTAMP(TO_CHAR(endDate, 'yyyy-mm-dd') || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+        ELSE NULL
+        END AS leave_end_ts,
+        CASE
+        WHEN #endDateAMorPM# = '770469099444389055'
+        THEN TO_TIMESTAMP(#endDate# || ' 11:59:59', 'YYYY-MM-DD HH24:MI:SS')
+        WHEN #endDateAMorPM# = '3338464713283357441'
+        THEN TO_TIMESTAMP(#endDate# || ' 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+        ELSE NULL
+        END AS request_end_ts
+        from
+        vm_wf_cap4_reimburseleave
+        )
+        SELECT
+        "id",
+        "mainMember",
+        "leaveType",
+        "cancelLeaveFlowSerialNum",
+        "startDate",
+        "maxOldDeductDays",
+        "beforeOldDeductDays",
+        "afterOldDeductDays",
+        "beforeNewDeductDays",
+        "afterNewDeductDays",
+        "calculationProcess",
+        leave_end_ts,
+        request_end_ts
+        FROM calculation_cte
+        where "mainMember" =  #mainMember#
+        and  leave_end_ts <![CDATA[>]]> request_end_ts
+        and "leaveType" = #leaveType#
+        <isNotEmpty prepend="AND" property="historyActiveDate">
+            "startDate" BETWEEN TO_DATE(#historyActiveDate#, 'YYYY-MM-DD') AND TO_DATE(#historyExpiryDate#, 'YYYY-MM-DD')
+        </isNotEmpty>
+        order by leave_end_ts
+    </select>
+
+    <!-- 更新请销假扣缴标记表 -->
+    <update id="updateLeaveDeductDays.update" parameterClass="java.util.HashMap">
+        update vm_wf_cap4_reimburseleave
+        set cancelLeaveFlowSerialNum = #cancelLeaveFlowSerialNum#
+        <isNotEmpty property="calculationProcess">
+            ,calculationProcess = #calculationProcess#
+        </isNotEmpty>
+        <isNotEmpty property="afterNewDeductDays">
+            ,afterNewDeductDays = #afterNewDeductDays#
+        </isNotEmpty>
+        <isNotEmpty property="afterOldDeductDays">
+            ,afterOldDeductDays = #afterOldDeductDays#
+        </isNotEmpty>
+        where id = #id#
+    </update>
+    <!-- 更新请假出差表内出差信息 -->
+    <update id="updateEveryDayEvectionRecord.update" parameterClass="java.util.HashMap">
+        update vm_wf_cap4_everyDayLeaveAndEvection
+        set evectionFlowStatus = #evectionFlowStatus#
+        <isNotEmpty property="evectionStatus">
+            ,evectionStatus = #evectionStatus#
+        </isNotEmpty>
+        <isNotEmpty property="evectionStartDate">
+            ,evectionStartDate = TO_DATE(#evectionStartDate#, 'YYYY-MM-DD')
+        </isNotEmpty>
+        <isNotEmpty property="evectionEndDate">
+            ,evectionEndDate = TO_DATE(#evectionEndDate#, 'YYYY-MM-DD')
+        </isNotEmpty>
+        <isNotEmpty property="evectionRecord">
+            ,evectionRecord = #evectionRecord#
+        </isNotEmpty>
+        <isNotEmpty property="evectionFlowUrl">
+            ,evectionFlowUrl = #evectionFlowUrl#
+        </isNotEmpty>
+        <isNotEmpty property="evectionReason">
+            ,evectionReason = #evectionReason#
+        </isNotEmpty>
+        <isNotEmpty property="isOverseas">
+            ,isOverseas = #isOverseas#
+        </isNotEmpty>
+        <isNotEmpty property="evectionFlowSerialNum">
+            ,evectionFlowSerialNum = #evectionFlowSerialNum#
+        </isNotEmpty>
+        <isNotEmpty property="evectionChangeFlowSerialNum">
+            ,evectionChangeFlowSerialNum = #evectionChangeFlowSerialNum#
+        </isNotEmpty>
+        where writer = #writer#
+        and currentDate = TO_DATE(#currentDate#, 'YYYY-MM-DD')
+    </update>
+
+    <!-- 清空每日请假出差表内出差信息 -->
+    <update id="clearEveryDayEvectionRecord.update" parameterClass="java.util.HashMap">
+        update vm_wf_cap4_everyDayLeaveAndEvection
+        set
+        evectionStatus = null,
+        evectionStartDate = null,
+        evectionEndDate = null,
+        evectionRecord = null,
+        evectionFlowUrl = null,
+        isOverseas = null,
+        evectionFlowStatus = null,
+        evectionReason = null
+        where evectionFlowSerialNum = #evectionFlowSerialNum#
+    </update>
+
+    <!-- 清空每日请假出差表内出差变更信息 -->
+    <update id="clearEveryDayCancelEvectionRecord.update" parameterClass="java.util.HashMap">
+        update vm_wf_cap4_everyDayLeaveAndEvection
+        set
+        evectionStatus = null,
+        evectionStartDate = null,
+        evectionEndDate = null,
+        evectionRecord = null,
+        evectionFlowUrl = null,
+        isOverseas = null,
+        evectionFlowStatus = null,
+        evectionReason = null
+        where evectionChangeFlowSerialNum = #evectionChangeFlowSerialNum#
+    </update>
+
+    <!-- 新增cap4每日请假出差表 -->
+    <insert id="insertEveryDayEvectionRecord.insert" parameterClass="java.util.HashMap">
+        insert into vm_wf_cap4_everyDayLeaveAndEvection(
+        ID,
+        STATE,
+        START_MEMBER_ID,
+        START_DATE,
+        APPROVE_MEMBER_ID,
+        APPROVE_DATE,
+        FINISHEDFLAG,
+        RATIFYFLAG,
+        RATIFY_MEMBER_ID,
+        RATIFY_DATE,
+        SORT,
+        MODIFY_MEMBER_ID,
+        MODIFY_DATE,
+        writer,
+        writerDept,
+        currentDate,
+        isFestDay,
+        isRestDay,
+        evectionStatus,
+        evectionStartDate,
+        evectionEndDate,
+        evectionRecord,
+        evectionFlowUrl,
+        evectionReason,
+        isOverseas,
+        evectionFlowSerialNum,
+        evectionChangeFlowSerialNum,
+        evectionFlowStatus
+        ) VALUES(
+        #id#,
+        1,
+        null,
+        sysdate,
+        null,
+        sysdate,
+        0,
+        0,
+        0,
+        sysdate,
+        0,
+        null,
+        sysdate,
+        #writer#,
+        #writerDept#,
+        to_date(#currentDate#,'yyyy-MM-dd'),
+        #isFestDay#,
+        #isRestDay#,
+        #evectionStatus#,
+        to_date(#evectionStartDate#,'yyyy-MM-dd'),
+        to_date(#evectionEndDate#,'yyyy-MM-dd'),
+        #evectionRecord#,
+        #evectionFlowUrl#,
+        #evectionReason#,
+        #isOverseas#,
+        #evectionFlowSerialNum#,
+        #evectionChangeFlowSerialNum#,
+        #evectionFlowStatus#
+        )
+    </insert>
+
+    <!-- 根据出差流水号查询原出差申请或出差变更信息 -->
+    <select id="queryHistoryEvectionRecord.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        t."id",
+        t."flowSerialNum",
+        t."writer",
+        t."singMember",
+        t."writerDept",
+        t."isOverseas",
+        t."evectionRecord",
+        t."startDateStr",
+        t."endDateStr",
+        t."evectionReason",
+        t."evectionFlowUrl"
+        from (
+        select
+        id as "id",
+        flowSerialNum as "flowSerialNum",
+        userId as "writer",
+        travelerId as "singMember",
+        writerDept as "writerDept",
+        isOverseas as "isOverseas",
+        evectionRecord as "evectionRecord",
+        to_char(evectionStartDate, 'yyyy-MM-dd') as "startDateStr",
+        to_char(evectionEndDate, 'yyyy-MM-dd') as "endDateStr",
+        evectionReason as "evectionReason",
+        flowUrl as "evectionFlowUrl"
+        from vm_cap4_evations
+        union all
+        select
+        id as "id",
+        flowSerialNum as "flowSerialNum",
+        userId as "writer",
+        travelerId as "singMember",
+        writerDept as "writerDept",
+        isOverseas as "isOverseas",
+        evectionRecord as "evectionRecord",
+        to_char(evectionStartDate, 'yyyy-MM-dd') as "startDateStr",
+        to_char(evectionEndDate, 'yyyy-MM-dd') as "endDateStr",
+        evectionReason as "evectionReason",
+        flowUrl as "evectionFlowUrl"
+        from vm_cap4_evations_change
+        union all
+        select
+        id as "id",
+        flowSerialNum as "flowSerialNum",
+        userId as "writer",
+        travelerId as "singMember",
+        writerDept as "writerDept",
+        isOverseas as "isOverseas",
+        evectionRecord as "evectionRecord",
+        to_char(evectionStartDate, 'yyyy-MM-dd') as "startDateStr",
+        to_char(evectionEndDate, 'yyyy-MM-dd') as "endDateStr",
+        evectionReason as "evectionReason",
+        flowUrl as "evectionFlowUrl"
+        from vm_cap4_hk_evations
+        ) t where 1 =1
+        and t."flowSerialNum" = #flowSerialNum#
+    </select>
+
+    <!-- 更新对应年份天数的数据信息 -->
+    <update id="updateEmployeeVacationDays"  parameterClass="com.seeyon.apps.kk.hr.model.EmployeeLeaveInfoModel">
+        update vm_employee_leave_info
+        set totalDays = #totalDays#
+        where leaveType = #leaveType#
+        and belongYear = #belongYear#
+        and employeeName = util_user.getMemIdByMemCode(#employeeName#)
+    </update>
+    <!-- 向假期信息表中插入员工假期信息 -->
+    <insert id="insertEmployeeVacationDays" parameterClass="com.seeyon.apps.kk.hr.model.EmployeeLeaveInfoModel">
+        INSERT INTO vm_employee_leave_info (
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        modify_member_id,
+        modify_date,
+        sort,
+        employeeName,
+        department,
+        idNumber,
+        childIdNumber,
+        employeeStatus,
+        belongYear,
+        leaveType,
+        leaveDetailType,
+        totalDays,
+        inTransitDays,
+        usedDays,
+        remainingDays,
+        effectiveDate,
+        expirationDate,
+        maternityMarriageFlag,
+        sysCurrentDate,
+        remarks,
+        cancellationInTransitDays,
+        preDeductDays,
+        uniqueFlag
+        ) VALUES (
+        #id#,
+        1,
+        '6105960157477424523',
+        sysdate,
+        '0',
+        sysdate,
+        0,
+        0,
+        '0',
+        sysdate,
+        '6105960157477424523',
+        sysdate,
+        0,
+        util_user.getMemIdByMemCode(#employeeName#),
+        util_user.getDeptIdByMemCode(#employeeName#),
+        #idNumber#,
+        #childIdNumber#,
+        #employeeStatus#,
+        #belongYear#,
+        #leaveType#,
+        #leaveDetailType#,
+        #totalDays#,
+        #inTransitDays#,
+        #usedDays#,
+        #remainingDays#,
+        #effectiveDate#,
+        #expirationDate#,
+        #maternityMarriageFlag#,
+        sysdate,
+        #remarks#,
+        #cancellationInTransitDays#,
+        #preDeductDays#,
+        #uniqueFlag#
+        )
+    </insert>
+
+    <!-- 查询育儿假信息 -->
+    <select id="findChildrenInfoByLimitYear" parameterClass="java.util.Date" resultClass="java.lang.String">
+        select
+        util_user.getMemCodeByMemId(employeeName) || f.childIdNumber
+        from
+        vm_employee_leave_info f where f.leaveType = 6922136425708142756 and f.expirationDate >= #startDate#
+    </select>
+    <!-- 查询所有有婚假的人员信息 -->
+    <select id="findAllMemberMarryInfo" resultClass="java.lang.String">
+        select util_user.getMemCodeByMemId(f.employeeName)
+        from vm_employee_leave_info f
+        where f.leaveType = -9128234600987606369
+    </select>
+
+    <!-- 根据年度以及假期类型查询员工的该类型以及所属年度的假期信息 -->
+    <select id="staffDaysByYearAndLeaveType.select"  parameterClass="java.util.HashMap" resultClass="com.seeyon.apps.kk.hr.model.EmployeeLeaveInfoModel">
+        select id,
+        uniqueFlag,
+        util_user.getMemCodeByMemId(employeeName) employeeName,
+        belongYear,
+        leaveType,
+        totalDays
+        from vm_employee_leave_info f
+        where f.leaveType = #leaveType# and belongYear in
+        <iterate conjunction="," open="(" close=")" property="belongYear">
+            #belongYear[]#
+        </iterate>
+    </select>
+    <!-- 根据假期类型，开始时间，结束时间，以及员工工号查询对应的数据记录唯一值 -->
+    <select id="findMemberEffectUniqueFlagByMemberInfo" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        f.uniqueFlag,
+        f.remainingDays,
+        effectiveDate
+        from
+        vm_employee_leave_info f
+        where
+        util_common.getEnumShowById(f.leaveType) = #leaveType#
+        and f.employeeName = util_user.getMemIdByLoginName(#employeeName#)
+        and #endDate# >= f.effectiveDate
+        and #startDate#  <![CDATA[<=]]> f.expirationDate
+        order by f.effectiveDate desc
+    </select>
+    <!-- 通过销假流水号查询档案假期返还表信息 -->
+    <select id="findReimburseLeaveRecord.select"  parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select id as "id"
+        from vm_wf_cap4_reimburseleave
+        where cancelLeaveFlowSerialNum = #cancelLeaveFlowSerialNum#
+    </select>
+    <!-- 删除档案假期返还明细表中的空白行 -->
+    <delete id="deleteLeaveArchiveReimburseInfo.delete" parameterClass="java.lang.String">
+        delete from vm_wf_cap4_reimburseleave_son where formmainId = #formmainId#
+    </delete>
+    <!-- 新增档案假期返还明细表信息 -->
+    <insert id="insertLeaveArchiveReimburseInfo.insert" parameterClass="java.util.HashMap">
+        insert into vm_wf_cap4_reimburseleave_son(
+        id,
+        formmainId,
+        uniqueFlag,
+        reimburseInterval,
+        effectiveDate,
+        expirationDate,
+        totalDays,
+        usedDays,
+        reimbursedUsedDays,
+        reimburseTime,
+        reimburseDays)
+        values(
+        util_common.getAbsID,
+        #formmainId#,
+        #uniqueFlag#,
+        #reimburseInterval#,
+        to_date(#effectiveDate#, 'YYYY-MM-DD'),
+        to_date(#expirationDate#, 'YYYY-MM-DD'),
+        #totalDays#,
+        #usedDays#,
+        #reimbursedUsedDays#,
+        to_date(#reimburseTime#, 'YYYY-MM-DD hh24:mi:ss'),
+        #reimburseDays#
+        )
+    </insert>
+    <!-- 根据返还的假期区间查询员工的假期信息 -->
+    <select id="findUserLeaveArchiveByReimburseInfo.select"  parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        SELECT
+        id as "id",
+        employeeName as "employeeName",
+        department as "department",
+        leaveType as "leaveType",
+        effectiveDate  as "effectiveDate",
+        expirationDate  as "expirationDate",
+        totalDays  as "totalDays",
+        usedDays  as "usedDays",
+        remainingDays  as "remainingDays",
+        uniqueFlag  as "uniqueFlag"
+        FROM VM_EMPLOYEE_LEAVE_INFO
+        WHERE 1 = 1
+        and uniqueFlag is not null
+        and effectiveDate is not null
+        and expirationDate is not null
+        and employeeName =  #employeeName#
+        and leaveType =  #leaveType#
+        and effectiveDate <![CDATA[<=]]> TO_DATE(#endDate#, 'YYYY-MM-DD')
+        and expirationDate <![CDATA[>=]]> TO_DATE(#startDate#, 'YYYY-MM-DD')
+        ORDER BY
+        expirationDate DESC,
+        remainingDays DESC
+    </select>
+    <!-- 更新员工档案假期已使用天数和剩余天数信息 -->
+    <update id="updateLeaveArchiveById.update"  parameterClass="java.util.HashMap">
+        update vm_employee_leave_info
+        set usedDays = #usedDays#,
+        remainingDays = #remainingDays#
+        where id = #id#
+    </update>
+    <!-- 查询所有有效的员工信息 -->
+    <select id="allEnableMemberId.select" resultClass="java.lang.String">
+        select code from org_member f where is_enable = 1 and is_deleted = 0 and f.is_internal = 1 and f.is_virtual = 0 and code is not null
+    </select>
+    <!-- 查询下属请假时间段内在途的或者已结束的请假流程不包含销假流程 -->
+    <select id="subordinateLeaveRecordByLoginId" parameterClass="map" resultClass="java.util.HashMap">
+        SELECT
+        CASE
+        WHEN vwp.finishedflag = 1 THEN l.id
+        ELSE vwp.id
+        END AS ID,
+        om.name,
+        'leave' AS leaveCancelType,
+        vwp.finishedflag AS ISFINISHED,
+        vwp.startDate,
+        vwp.endDate,
+        util_common.getEnumShowById(vwp.startHalfDay) AS STARTDATEMORN,
+        util_common.getEnumShowById(vwp.endHalfDay) AS ENDDATEMORN,
+        util_common.getEnumShowById(vwp.leaveType) AS TYPE
+        FROM
+        vm_wf_cap4_parentalleave vwp
+        LEFT JOIN org_member om
+        ON vwp.writer = om.id
+        LEFT JOIN vm_leaveInfo_doc_cap4 l
+        ON l.leaveSerialNum = vwp.flowSerialNum
+        AND l.leaveCancelType = 8705337157000773743
+        WHERE
+        vwp.state = 1 and
+        (l.leaveCancelType = 8705337157000773743 or l.leaveCancelType is null)
+        <isNotEmpty prepend="and" property="userId">
+        (
+        util_user.getDeptIdByMemId(#userId#) = '4685348575850154659'
+        OR om.id IN (
+        SELECT COLUMN_VALUE
+        FROM TABLE(util_org.getUnderlingMemId(#userId#))
+        UNION
+        SELECT TO_NUMBER(#userId#) FROM DUAL
+        )
+        )
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="userIds">
+            om.id in
+            <iterate open="(" close=")" conjunction="," property="userIds">
+                #userIds[]#
+            </iterate>
+        </isNotEmpty>
+        AND vwp.startDate <![CDATA[<=]]> to_date(#endDate#, 'yyyy-mm-dd')
+        AND vwp.endDate >= to_date(#startDate#, 'yyyy-mm-dd')
+        AND NOT EXISTS (
+        SELECT 1 FROM vm_wf_cap4_parentalleavecancel
+        WHERE businessFlowId = l.leaveSerialNum
+        ) and vwp.flowSerialNum  is not null
+    </select>
+    <!-- 查询下属请假时间段内在途的或者已结束的销假流程（销假流程就是新的开始结束时间） -->
+    <select id="subordinateNewLeaveRecordByLoginId" parameterClass="map" resultClass="java.util.HashMap">
+        SELECT
+        CASE
+        WHEN vwp.finishedflag = 1 THEN vdc.id
+        ELSE vwp.id
+        END AS ID,
+        om.name,
+        'cancel' as leaveCancelType,
+        vwp.finishedflag AS ISFINISHED,
+        vwp.newstartDate startDate,
+        vwp.newendDate   endDate,
+        util_common.getEnumShowById(vwp.newstartHalfDay) AS STARTDATEMORN,
+        util_common.getEnumShowById(vwp.newendHalfDay) AS ENDDATEMORN,
+        util_common.getEnumShowById(vwp.leaveType) AS TYPE
+        FROM
+        vm_wf_cap4_parentalleavecancel vwp
+        LEFT JOIN
+        org_member om
+        ON vwp.writer = om.id
+        left join vm_leaveInfo_doc_cap4 vdc
+        on vwp.businessFlowId=vdc.leaveSerialNum
+        WHERE
+        vwp.state = 1 and vwp.cancelType = 7806055738419137699
+        <isNotEmpty prepend="and" property="userId">
+            (
+            util_user.getDeptIdByMemId(#userId#) = '4685348575850154659'
+            OR om.id IN (
+            SELECT COLUMN_VALUE
+            FROM TABLE(util_org.getUnderlingMemId(#userId#))
+            UNION
+            SELECT TO_NUMBER(#userId#) FROM DUAL
+            )
+            )
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="userIds">
+            om.id in
+            <iterate open="(" close=")" conjunction="," property="userIds">
+                #userIds[]#
+            </iterate>
+        </isNotEmpty>
+        AND vwp.newstartDate  <![CDATA[<=]]> to_date(#endDate#, 'yyyy-mm-dd')
+        AND vwp.newendDate >= to_date(#startDate#, 'yyyy-mm-dd')
+    </select>
+    <!-- 查询出所有需要推送月度附件推送的记录 -->
+    <select id="findNeedPushLeaveAttachmentMonthly" resultClass="java.util.HashMap">
+        select f.id, f.leave_request_number
+        from vm_employee_leave_recordCAP4 f
+        left join vm_basememberinfo v
+        on f.applicant = v.memberId
+        where trigger_upload_process = -3841538853571705149
+        and proof_process_status = '审批中'
+        and v.memberState = '在职'
+    </select>
+    <!-- 查询需要终止的请假附件上传流程 -->
+    <select id = "stopLeaveAttachmentMonthly.select" resultClass="java.lang.String">
+        select f.id from
+        VM_LEAVE_PROOF_ATTACHMENT_UPLOAD f
+        left join vm_basememberinfo vbf
+        on f.applicant = vbf.memberId
+        where f.finishedflag = 0 and vbf.memberState = '离职'
+    </select>
+</sqlMap>
