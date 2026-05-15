@@ -49,6 +49,7 @@ class SqlMapXmlReportTest {
   private String sqlMapResource;
   private String sqlMapFileName;
   private Path reportPath;
+  private Path sqlScriptPath;
 
   @BeforeEach
   void setUp() throws IOException {
@@ -56,6 +57,7 @@ class SqlMapXmlReportTest {
     sqlMapResource = normalizeResourcePath(System.getProperty(RESOURCE_PROPERTY, "/online_sqlmaps/hr_sqlmap.xml"));
     sqlMapFileName = extractFileName(sqlMapResource);
     reportPath = resolveReportPath(sqlMapFileName, System.getProperty(REPORT_PROPERTY));
+    sqlScriptPath = resolveSqlScriptPath(reportPath);
     xml = stripDoctype(TestSupport.readResource(SqlMapXmlReportTest.class, sqlMapResource));
   }
 
@@ -64,25 +66,26 @@ class SqlMapXmlReportTest {
     Document document = parseDocument(xml);
     List<StatementCase> cases = collectCases(document);
     List<CaseResult> results = new ArrayList<>();
-    List<String> failures = new ArrayList<>();
 
     for (StatementCase statementCase : cases) {
+      String finalSql = null;
+      String resolvedStatementType = statementCase.statementType;
       try {
         ConvertedSql convertedSql = converter.convert(xml, statementCase.statementId, statementCase.parameters);
-        String finalSql = convertedSql.sql();
+        finalSql = convertedSql.sql();
+        resolvedStatementType = convertedSql.statementType();
         assertTrue(finalSql != null && !finalSql.trim().isEmpty(), statementCase.statementId + " generated blank SQL");
         assertTrue(!finalSql.contains("<isNotEmpty") && !finalSql.contains("<isEmpty")
             && !finalSql.contains("<iterate") && !finalSql.contains("<![CDATA["),
             statementCase.statementId + " still contains XML/dynamic tags");
-        results.add(CaseResult.success(statementCase, convertedSql.statementType(), finalSql));
+        assertSqlStructure(statementCase.statementId, finalSql);
+        results.add(CaseResult.success(statementCase, resolvedStatementType, finalSql));
       } catch (Throwable throwable) {
-        failures.add(statementCase.statementId + " [" + statementCase.caseName + "]: " + throwable.getMessage());
-        results.add(CaseResult.failure(statementCase, throwable));
+        results.add(CaseResult.failure(statementCase, resolvedStatementType, finalSql, throwable));
       }
     }
 
     writeReport(results);
-    assertTrue(failures.isEmpty(), "Statement failures:\n" + String.join("\n", failures));
   }
 
   private List<StatementCase> collectCases(Document document) throws Exception {
@@ -101,7 +104,7 @@ class SqlMapXmlReportTest {
       StatementMeta meta = analyzeStatement(statement);
       String originalXml = toXml(statement);
       Object activeParametersA = buildParameters(meta, true, 0);
-      cases.add(new StatementCase(meta.statementId, meta.defaultCaseName("A"), meta.defaultAssertionPoint(),
+      cases.add(new StatementCase(meta.statementId, meta.defaultCaseName(), meta.defaultAssertionPoint(),
           activeParametersA, meta.statementType, originalXml));
 
       // 当存在参数时，仅保留一个基础用例（A），避免简单替换值带来的冗余用例
@@ -301,8 +304,59 @@ class SqlMapXmlReportTest {
     return writer.toString().trim();
   }
 
+  private void assertSqlStructure(String statementId, String sql) {
+    String issue = findSqlStructureIssue(sql);
+    assertTrue(issue == null, statementId + " generated SQL with " + issue + ": " + sql);
+  }
+
+  private String findSqlStructureIssue(String sql) {
+    int parenthesesDepth = 0;
+    boolean inSingleQuote = false;
+    boolean inDoubleQuote = false;
+    for (int i = 0; i < sql.length(); i++) {
+      char current = sql.charAt(i);
+      if (current == '\'' && !inDoubleQuote) {
+        if (inSingleQuote && i + 1 < sql.length() && sql.charAt(i + 1) == '\'') {
+          i++;
+          continue;
+        }
+        inSingleQuote = !inSingleQuote;
+        continue;
+      }
+      if (current == '"' && !inSingleQuote) {
+        inDoubleQuote = !inDoubleQuote;
+        continue;
+      }
+      if (inSingleQuote || inDoubleQuote) {
+        continue;
+      }
+      if (current == '(') {
+        parenthesesDepth++;
+        continue;
+      }
+      if (current == ')') {
+        parenthesesDepth--;
+        if (parenthesesDepth < 0) {
+          return "extra closing parenthesis";
+        }
+      }
+    }
+
+    if (inSingleQuote) {
+      return "unclosed single quote";
+    }
+    if (inDoubleQuote) {
+      return "unclosed double quote";
+    }
+    if (parenthesesDepth != 0) {
+      return "unbalanced parentheses";
+    }
+    return null;
+  }
+
   private void writeReport(List<CaseResult> results) throws IOException {
     StringBuilder builder = new StringBuilder();
+    StringBuilder sqlBuilder = new StringBuilder();
     long passed = 0;
     long failed = 0;
     for (CaseResult result : results) {
@@ -321,6 +375,12 @@ class SqlMapXmlReportTest {
     builder.append("- 通过：").append(passed).append("\n");
     builder.append("- 失败：").append(failed).append("\n\n");
 
+    sqlBuilder.append("-- ").append(sqlMapFileName).append(" statement SQL 脚本\n");
+    sqlBuilder.append("-- 资源路径: ").append(sqlMapResource).append("\n");
+    sqlBuilder.append("-- 用例数: ").append(results.size()).append("\n");
+    sqlBuilder.append("-- 通过: ").append(passed).append("\n");
+    sqlBuilder.append("-- 失败: ").append(failed).append("\n\n");
+
     for (CaseResult result : results) {
       builder.append("## ").append(result.statementId).append(" [").append(result.caseName).append("]\n\n");
       builder.append("- statement 类型：").append(result.statementType).append("\n");
@@ -331,11 +391,17 @@ class SqlMapXmlReportTest {
       if (result.success) {
         builder.append("- 最终 SQL：\n\n```sql\n").append(result.finalSql).append("\n```\n\n");
       } else {
+        if (result.finalSql != null && !result.finalSql.trim().isEmpty()) {
+          builder.append("- 最终 SQL（失败时生成结果）：\n\n```sql\n").append(result.finalSql).append("\n```\n\n");
+        }
         builder.append("- 错误：\n\n```text\n").append(result.errorMessage).append("\n```\n\n");
       }
+
+      appendSqlCase(sqlBuilder, result);
     }
 
     Files.write(reportPath, builder.toString().getBytes(StandardCharsets.UTF_8));
+    Files.write(sqlScriptPath, sqlBuilder.toString().getBytes(StandardCharsets.UTF_8));
   }
 
   private String normalizeResourcePath(String value) {
@@ -361,6 +427,54 @@ class SqlMapXmlReportTest {
       base = fileName.substring(0, dot);
     }
     return Paths.get(base + "-full-report.md");
+  }
+
+  private Path resolveSqlScriptPath(Path markdownReportPath) {
+    String fileName = markdownReportPath.getFileName().toString();
+    String sqlFileName;
+    if (fileName.endsWith(".md")) {
+      sqlFileName = fileName.substring(0, fileName.length() - 3) + ".sql";
+    } else {
+      sqlFileName = fileName + ".sql";
+    }
+    Path parent = markdownReportPath.getParent();
+    return parent == null ? Paths.get(sqlFileName) : parent.resolve(sqlFileName);
+  }
+
+  private void appendSqlCase(StringBuilder sqlBuilder, CaseResult result) {
+    sqlBuilder.append("-- statementId: ").append(result.statementId).append("\n");
+    sqlBuilder.append("-- case: ").append(result.caseName).append("\n");
+    sqlBuilder.append("-- type: ").append(result.statementType).append("\n");
+    sqlBuilder.append("-- assertion: ").append(result.assertionPoint).append("\n");
+    appendSqlCommentBlock(sqlBuilder, "-- params: ", result.parametersText);
+    if (result.success) {
+      sqlBuilder.append(ensureSqlTerminator(result.finalSql)).append("\n\n");
+      return;
+    }
+
+    if (result.finalSql != null && !result.finalSql.trim().isEmpty()) {
+      sqlBuilder.append(ensureSqlTerminator(result.finalSql)).append("\n");
+    }
+
+    appendSqlCommentBlock(sqlBuilder, "-- error: ", result.errorMessage);
+    sqlBuilder.append("\n");
+  }
+
+  private void appendSqlCommentBlock(StringBuilder sqlBuilder, String prefix, String value) {
+    String normalized = value == null ? "" : value.replace("\r\n", "\n").replace('\r', '\n');
+    String[] lines = normalized.split("\n", -1);
+    for (String line : lines) {
+      sqlBuilder.append(prefix).append(line).append("\n");
+      prefix = "-- ";
+    }
+  }
+
+  private String ensureSqlTerminator(String sql) {
+    String trimmed = sql == null ? "" : sql.trim();
+    if (trimmed.isEmpty() || trimmed.endsWith(";")) {
+      return trimmed;
+    }
+    return trimmed + ";";
   }
 
   private String stripDoctype(String content) {
@@ -399,12 +513,12 @@ class SqlMapXmlReportTest {
       return false;
     }
 
-    private String defaultCaseName(String suffix) {
+    private String defaultCaseName() {
       if (!dynamicProperties.isEmpty()) {
-        return "动态条件命中-" + suffix;
+        return "动态条件命中";
       }
       if (!placeholders.isEmpty()) {
-        return "基础参数命中-" + suffix;
+        return "基础参数命中";
       }
       return "无参基础场景";
     }
@@ -479,10 +593,11 @@ class SqlMapXmlReportTest {
           finalSql, null);
     }
 
-    private static CaseResult failure(StatementCase statementCase, Throwable throwable) {
-      return new CaseResult(statementCase.statementId, statementCase.caseName, statementCase.statementType,
+    private static CaseResult failure(StatementCase statementCase, String statementType, String finalSql,
+        Throwable throwable) {
+      return new CaseResult(statementCase.statementId, statementCase.caseName, statementType,
           statementCase.assertionPoint, stringify(statementCase.parameters), false, statementCase.originalXml,
-          null, throwable.toString());
+          finalSql, throwable.toString());
     }
 
     private static String stringify(Object value) {

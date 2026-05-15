@@ -4,9 +4,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -278,6 +275,32 @@ class IbatisToJdbcConverterTest {
 				mapOf("status", "ACTIVE", "orderBy", "created_at desc"));
 		assertEquals(
 				"SELECT id, name, status FROM users WHERE status = ? ORDER BY created_at desc",
+				executionSql.sql());
+		assertEquals(listOf("ACTIVE"), executionSql.parameters());
+	}
+
+	@Test
+	void supportsBraceWrappedPlaceholderVariants() {
+		String xml = "<sqlMap>"
+				+ "<select id=\"findBraceWrapped\" parameterClass=\"map\">"
+				+ "SELECT * FROM users WHERE status = #{status}# ORDER BY ${orderBy}$"
+				+ "</select>"
+				+ "</sqlMap>";
+
+		ConvertedSql inlineSql = converter.convert(
+				xml,
+				"findBraceWrapped",
+				mapOf("status", "ACTIVE", "orderBy", "created_at desc"));
+		assertEquals(
+				"SELECT * FROM users WHERE status = 'ACTIVE' ORDER BY created_at desc",
+				inlineSql.sql());
+
+		ConvertedSql executionSql = converter.convertForExecution(
+				xml,
+				"findBraceWrapped",
+				mapOf("status", "ACTIVE", "orderBy", "created_at desc"));
+		assertEquals(
+				"SELECT * FROM users WHERE status = ? ORDER BY created_at desc",
 				executionSql.sql());
 		assertEquals(listOf("ACTIVE"), executionSql.parameters());
 	}
