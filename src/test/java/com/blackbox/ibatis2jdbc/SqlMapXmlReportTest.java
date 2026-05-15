@@ -22,7 +22,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -31,7 +30,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static com.blackbox.ibatis2jdbc.TestSupport.listOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -39,10 +37,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SqlMapXmlReportTest {
   private static final String RESOURCE_PROPERTY = "sqlmap.resource";
   private static final String REPORT_PROPERTY = "sqlmap.report";
-  private static final Pattern DOCTYPE_PATTERN = Pattern.compile("(?is)<!DOCTYPE[^>]*>");
-  private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("([#$])([\\w.\\[\\]]+)\\1");
-  private static final List<String> STATEMENT_TAGS = Arrays.asList("select", "insert", "update", "delete", "statement");
-  private static final List<String> DYNAMIC_TAGS = Arrays.asList("isNotEmpty", "isEmpty", "iterate", "dynamic", "trim");
 
   private IbatisToJdbcConverter converter;
   private String xml;
@@ -54,11 +48,14 @@ class SqlMapXmlReportTest {
   @BeforeEach
   void setUp() throws IOException {
     converter = new IbatisToJdbcConverter();
-    sqlMapResource = normalizeResourcePath(System.getProperty(RESOURCE_PROPERTY, "/online_sqlmaps/hr_sqlmap.xml"));
+    // sqlMapResource = normalizeResourcePath(System.getProperty(RESOURCE_PROPERTY,
+    // "/online_sqlmaps/hr_sqlmap.xml"));
+    sqlMapResource = normalizeResourcePath(System.getProperty(RESOURCE_PROPERTY,
+      "/sqlmaps/test-sqlmap.xml"));
     sqlMapFileName = extractFileName(sqlMapResource);
     reportPath = resolveReportPath(sqlMapFileName, System.getProperty(REPORT_PROPERTY));
     sqlScriptPath = resolveSqlScriptPath(reportPath);
-    xml = stripDoctype(TestSupport.readResource(SqlMapXmlReportTest.class, sqlMapResource));
+    xml = TestSupport.readResource(SqlMapXmlReportTest.class, sqlMapResource);
   }
 
   @Test
@@ -75,8 +72,7 @@ class SqlMapXmlReportTest {
         finalSql = convertedSql.sql();
         resolvedStatementType = convertedSql.statementType();
         assertTrue(finalSql != null && !finalSql.trim().isEmpty(), statementCase.statementId + " generated blank SQL");
-        assertTrue(!finalSql.contains("<isNotEmpty") && !finalSql.contains("<isEmpty")
-            && !finalSql.contains("<iterate") && !finalSql.contains("<![CDATA["),
+        assertTrue(!IbatisXmlSupport.containsDynamicTagMarkup(finalSql) && !finalSql.contains("<![CDATA["),
             statementCase.statementId + " still contains XML/dynamic tags");
         assertSqlStructure(statementCase.statementId, finalSql);
         results.add(CaseResult.success(statementCase, resolvedStatementType, finalSql));
@@ -97,7 +93,7 @@ class SqlMapXmlReportTest {
         continue;
       }
       Element statement = (Element) node;
-      if (!STATEMENT_TAGS.contains(statement.getTagName())) {
+      if (!IbatisXmlSupport.isStatementTag(statement.getTagName())) {
         continue;
       }
 
@@ -232,7 +228,7 @@ class SqlMapXmlReportTest {
     }
 
     Element element = (Element) node;
-    boolean isDynamicTag = DYNAMIC_TAGS.contains(element.getTagName());
+    boolean isDynamicTag = IbatisXmlSupport.isDynamicTag(element.getTagName());
     if (isDynamicTag) {
       String property = normalizePropertyName(element.getAttribute("property"));
       if (!property.isEmpty()) {
@@ -256,10 +252,10 @@ class SqlMapXmlReportTest {
     if (text == null || text.trim().isEmpty()) {
       return;
     }
-    Matcher matcher = PLACEHOLDER_PATTERN.matcher(text);
+    Matcher matcher = IbatisXmlSupport.PLACEHOLDER_PATTERN.matcher(text);
     while (matcher.find()) {
       char marker = matcher.group(1).charAt(0);
-      String property = normalizePropertyName(matcher.group(2));
+      String property = normalizePropertyName(IbatisXmlSupport.extractPlaceholderExpression(matcher));
       meta.placeholders.put(property, new Placeholder(property, marker));
       if (!insideDynamic) {
         meta.requiredOutsideDynamic.add(property);
@@ -290,6 +286,9 @@ class SqlMapXmlReportTest {
   private Document parseDocument(String text) throws Exception {
     DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
     factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+    factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+    factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+    factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
     factory.setNamespaceAware(false);
     return factory.newDocumentBuilder().parse(new org.xml.sax.InputSource(new java.io.StringReader(text)));
   }
@@ -370,7 +369,6 @@ class SqlMapXmlReportTest {
     builder.append("# ").append(sqlMapFileName).append(" statement 测试报告\n\n");
     builder.append("- 资源路径：").append(sqlMapResource).append("\n");
     builder.append("- 范围：统计该 sqlmap 中全部顶层 statement\n");
-    builder.append("- 补充场景：带 isEmpty 的 statement 额外增加空分支用例\n");
     builder.append("- 用例数：").append(results.size()).append("\n");
     builder.append("- 通过：").append(passed).append("\n");
     builder.append("- 失败：").append(failed).append("\n\n");
@@ -475,10 +473,6 @@ class SqlMapXmlReportTest {
       return trimmed;
     }
     return trimmed + ";";
-  }
-
-  private String stripDoctype(String content) {
-    return DOCTYPE_PATTERN.matcher(content).replaceAll("");
   }
 
   private static final class StatementMeta {
@@ -680,7 +674,12 @@ class SqlMapXmlReportTest {
     }
 
     private static String indent(int depth) {
-      return "  ".repeat(Math.max(0, depth));
+      int safeDepth = Math.max(0, depth);
+      StringBuilder builder = new StringBuilder(safeDepth * 2);
+      for (int i = 0; i < safeDepth; i++) {
+        builder.append("  ");
+      }
+      return builder.toString();
     }
 
     private static String escapeJson(String text) {

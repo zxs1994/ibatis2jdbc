@@ -1,26 +1,93 @@
 # iBatis 到 JDBC 转换测试项目
 
-这是一个最小可运行的测试工程，用来验证 iBatis XML 中的动态 SQL 标签如何转换成 JDBC SQL。
+这个项目用于把 iBatis XML 中的 SQL 语句转换成两类结果：
 
-当前支持的核心场景：
+- 可直接查看的最终 SQL
+- 可供 JDBC `PreparedStatement` 执行的 SQL 和有序参数列表
 
-- `<isNotEmpty>` 条件块
-- `<iterate>` 集合展开
-- `#param#` 占位符替换为 JDBC `?`
-- `dynamic` 的简单 `prepend` 处理
+项目当前基于 Java 8 和 JUnit 5，测试中已不再依赖 H2。
 
-## 运行
+## 当前能力
+
+当前已经覆盖的主要能力包括：
+
+- `#param#` 占位符转最终字面量，或转 JDBC `?`
+- `$param$` 原样拼接 SQL 片段
+- `dynamic` 和 `trim` 片段展开
+- `iterate` 集合展开
+- `isNotEmpty`、`isEmpty`
+- `isNull`、`isNotNull`
+- `isPropertyAvailable`、`isNotPropertyAvailable`
+- `isParameterPresent`、`isNotParameterPresent`
+- `isEqual`、`isNotEqual`、`isGreaterThan`、`isGreaterEqual`、`isLessThan`、`isLessEqual`
+- `compareValue` 和 `compareProperty` 条件比较
+- `<![CDATA[ >= ]]>` 这类操作符 CDATA 清理
+- XML `DOCTYPE` 预处理剥离，避免解析外部 DTD
+
+## 环境要求
+
+- JDK 8
+- Maven 3.9+
+
+## 运行测试
+
+执行全部测试：
 
 ```bash
-mvn test
+mvn clean test
 ```
 
-## 结构
+## 生成 SQLMap 报告
 
-- `src/main/java` 下放转换器实现
-- `src/test/resources` 下放示例 iBatis XML
-- `src/test/java` 下放转换测试
+[src/test/java/com/blackbox/ibatis2jdbc/SqlMapXmlReportTest.java](src/test/java/com/blackbox/ibatis2jdbc/SqlMapXmlReportTest.java) 会读取一个 sqlmap 资源，遍历其中的顶层 statement，自动构造示例参数，并输出：
 
-## 适合做什么
+- Markdown 报告
+- `.sql` 脚本文件
 
-这个项目适合先把你们现有 XML 样例逐个加到测试里，确认转换后的 JDBC SQL 和参数顺序是否正确，再继续扩展标签支持范围。
+默认资源当前是：
+
+- `/sqlmaps/multi-scenario-sqlmap.xml`
+
+直接执行：
+
+```bash
+mvn -Dtest=SqlMapXmlReportTest test
+```
+
+也可以通过 JVM 系统属性覆盖输入资源和输出报告路径：
+
+```bash
+mvn -Dtest=SqlMapXmlReportTest \
+	-Dsqlmap.resource=/online_sqlmaps/common_sqlmap.xml \
+	-Dsqlmap.report=common_sqlmap-full-report.md test
+```
+
+其中：
+
+- `sqlmap.resource` 指定要读取的测试资源路径
+- `sqlmap.report` 指定 Markdown 报告输出路径
+
+对应的 `.sql` 文件会和 Markdown 报告输出到同一路径目录下。
+
+## 主要目录
+
+- `src/main/java`：转换器与执行器实现
+- `src/test/java`：单元测试和报告测试
+- `src/test/resources/sqlmaps`：本地示例 sqlmap
+- `src/test/resources/online_sqlmaps`：更大规模的真实 sqlmap 样例
+
+## 主要类
+
+- [src/main/java/com/blackbox/ibatis2jdbc/IbatisToJdbcConverter.java](src/main/java/com/blackbox/ibatis2jdbc/IbatisToJdbcConverter.java)：核心转换入口
+- [src/main/java/com/blackbox/ibatis2jdbc/IbatisXmlSupport.java](src/main/java/com/blackbox/ibatis2jdbc/IbatisXmlSupport.java)：XML 标签和正则支持工具
+- [src/main/java/com/blackbox/ibatis2jdbc/JdbcExecutor.java](src/main/java/com/blackbox/ibatis2jdbc/JdbcExecutor.java)：执行转换后 SQL 的 JDBC 辅助类
+
+## 适用场景
+
+这个项目适合在迁移 iBatis 到 JDBC 时，先把现有 SQLMap 作为样本喂给转换器，验证：
+
+- 最终 SQL 是否正确展开
+- 动态条件是否按预期命中或收缩
+- `PreparedStatement` 参数顺序是否正确
+
+如果后续要继续扩展标签支持，建议先补测试，再补转换逻辑。

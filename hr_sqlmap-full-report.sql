@@ -1,7 +1,7 @@
 -- hr_sqlmap.xml statement SQL 脚本
 -- 资源路径: /online_sqlmaps/hr_sqlmap.xml
--- 用例数: 267
--- 通过: 266
+-- 用例数: 268
+-- 通过: 267
 -- 失败: 1
 
 -- statementId: stepBackFlowInfo.select
@@ -259,15 +259,27 @@ SELECT t4.showvalue AS ifManager, t1.field0005 AS firstMarriage, t1.field0006 AS
 SELECT t1.firstMarriage, t1.usedMarriageDay, t1.appliedMarriageDay, nvl(t2.remainAnnualLeaveDays, '0') AS restYearDay, t2.onOrderAnnualLeaveDays AS appliedYearDay, CASE t3.ext_attr_11 WHEN 1 THEN '男' WHEN 2 THEN '女' ELSE '' END AS sex FROM vm_cap_hkMemberLeaveInfo t1 LEFT JOIN vm_cap_hkMemberLeaveInfo_son t2 ON t1.id = t2.formmain_id AND t2.year = 'VALUE_001' LEFT JOIN org_member t3 ON t3.id = t1.memberId WHERE t1.memberId = 1001;
 
 -- statementId: getLeaveMaxAndMinDay.select
--- case: 基础参数命中
+-- case: 动态条件命中
 -- type: select
--- assertion: 传入基础变量，验证最终 SQL 正常生成
+-- assertion: 传入动态变量，验证最终 SQL 正常展开
+-- params: {
+--   "vacationTableName": "demo_table",
+--   "leaveType": "VALUE_001",
+--   "leaveDetailType": "VALUE_001",
+--   "hasDetail": "VALUE_001"
+-- }
+select nvl(t1.field0006, '0') as leaveMaxDay ,nvl(t1.field0005 , '0') as leaveMinDay from demo_table t1 left join ctp_enum_item s1 on s1.id = t1.field0001 left join ctp_enum_item s2 on s2.id = t1.field0002 where t1.field0001 = 'VALUE_001';
+
+-- statementId: getLeaveMaxAndMinDay.select
+-- case: 可选条件关闭
+-- type: select
+-- assertion: 移除可选动态属性，观察条件收缩后的 SQL
 -- params: {
 --   "vacationTableName": "demo_table",
 --   "leaveType": "VALUE_001",
 --   "leaveDetailType": "VALUE_001"
 -- }
-select nvl(t1.field0006, '0') as leaveMaxDay ,nvl(t1.field0005 , '0') as leaveMinDay from demo_table t1 left join ctp_enum_item s1 on s1.id = t1.field0001 left join ctp_enum_item s2 on s2.id = t1.field0002 where t1.field0001 = 'VALUE_001' and t1.field0002 = 'VALUE_001';
+select nvl(t1.field0006, '0') as leaveMaxDay ,nvl(t1.field0005 , '0') as leaveMinDay from demo_table t1 left join ctp_enum_item s1 on s1.id = t1.field0001 left join ctp_enum_item s2 on s2.id = t1.field0002 where t1.field0001 = 'VALUE_001';
 
 -- statementId: getHKLeaveMaxAndMinDay.select
 -- case: 基础参数命中
@@ -660,18 +672,18 @@ INSERT INTO demo_table ( ID, formmain_id, SORT, field0042,field0043,field0044,fi
 select t1.field0001 as member,t1.field0003 as dept,t1.field0008 as leavetype, to_char(t1.field0010,'yyyy-mm-dd') as startdate,(select s2.enumvalue from ctp_enum_item s2 where s2.id=t1.field0011) as startdatehalf, to_char(t1.field0012,'yyyy-mm-dd') as enddate,(select s3.enumvalue from ctp_enum_item s3 where s3.id=t1.field0013) as enddatehalf, (select s4.showvalue from ctp_enum_item s4 where s4.id=t2.field0023) as cancelleavetype, to_char(t2.field0025,'yyyy-mm-dd') as newstartdate,(select s5.enumvalue from ctp_enum_item s5 where s5.id=t2.field0026) as newstartdatehalf, to_char(t2.field0027,'yyyy-mm-dd') as newenddate,(select s6.enumvalue from ctp_enum_item s6 where s6.id=t2.field0028) as newenddatehalf, from demo_table t1,demo_table t2 where t1.id=t2.formmain_id and to_char(t1.field0010,'yyyy')='VALUE_001' and (select s1.showvalue from ctp_enum_item s1 where s1.id=t1.field0008) = '年假';
 
 -- statementId: getLeaveInfo.select
--- case: 无参基础场景
+-- case: 基础参数命中
 -- type: select
--- assertion: 不传参数，验证固定 SQL 可直接生成
--- params: "VALUE_001"
-select distinct v.id, title, to_char(leavedate,'yyyy-mm-dd') as leavedate, leavemember, leavedepart, agentmember, memberaddress, note, authorinfo from vm_wfleaveinfo v, ctp_affair c where v.id = c.object_id(+) and (sysdate-15) > v.leavedate and v.id not in ( select v.id from vm_wfleaveinfo v, ctp_affair c where v.id = c.object_id(+) and (sysdate-15) > v.leavedate and c.activity_id = 'VALUE_001' );
+-- assertion: 传入基础变量，验证最终 SQL 正常生成
+-- params: 1001
+select distinct v.id, title, to_char(leavedate,'yyyy-mm-dd') as leavedate, leavemember, leavedepart, agentmember, memberaddress, note, authorinfo from vm_wfleaveinfo v, ctp_affair c where v.id = c.object_id(+) and (sysdate-15) > v.leavedate and v.id not in ( select v.id from vm_wfleaveinfo v, ctp_affair c where v.id = c.object_id(+) and (sysdate-15) > v.leavedate and c.activity_id = 1001 );
 
 -- statementId: getCap4LeaveInfo.select
--- case: 无参基础场景
+-- case: 基础参数命中
 -- type: select
--- assertion: 不传参数，验证固定 SQL 可直接生成
--- params: "VALUE_001"
-select distinct v.id, c.activity_id, to_char(leavedate, 'yyyy-mm-dd') as leavedate, leaveUserId, deptCode, agentNo, workplace, remark, flowUrl, isCloseAccount from vm_wf_cap4leaveinfo v left join ctp_affair c on v.id = c.form_recordid where (sysdate - 15) > v.leavedate and c.activity_id = 'VALUE_001' and c.state = 3 and (v.isCloseAccount is null or v.isCloseAccount != -1089048568118490234) and (v.remark is null or v.remark not in ('派遣人员转正式员工', '母子公司调动')) and v.leaveUserId not in (select staffNo from vm_wf_vm_RevokeSysAccCAP4);
+-- assertion: 传入基础变量，验证最终 SQL 正常生成
+-- params: 1001
+select distinct v.id, c.activity_id, to_char(leavedate, 'yyyy-mm-dd') as leavedate, leaveUserId, deptCode, agentNo, workplace, remark, flowUrl, isCloseAccount from vm_wf_cap4leaveinfo v left join ctp_affair c on v.id = c.form_recordid where (sysdate - 15) > v.leavedate and c.activity_id = 1001 and c.state = 3 and (v.isCloseAccount is null or v.isCloseAccount != -1089048568118490234) and (v.remark is null or v.remark not in ('派遣人员转正式员工', '母子公司调动')) and v.leaveUserId not in (select staffNo from vm_wf_vm_RevokeSysAccCAP4);
 
 -- statementId: getNoteById.select
 -- case: 基础参数命中

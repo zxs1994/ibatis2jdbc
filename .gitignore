@@ -8,7 +8,6 @@
 
 # IDE
 /.idea/
-/.vscode/
 
 # Generated test reports
 /*-report.md

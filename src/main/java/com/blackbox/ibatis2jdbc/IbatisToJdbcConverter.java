@@ -22,16 +22,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.xml.sax.InputSource;
 
 public class IbatisToJdbcConverter {
-  // 用于把 <![CDATA[ >= ]]> 这类只包住操作符的片段还原成普通 SQL 运算符。
-  private static final Pattern CDATA_OPERATOR_PATTERN = Pattern.compile("<!\\[CDATA\\[(\\W+)]]>");
-  // 同时匹配 #property# / #{property}# 和 $property$ / ${property}$ 两类占位符。
-  private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("([#$])(?:\\{([\\w.\\[\\]]+)\\}|([\\w.\\[\\]]+))\\1");
-
   // 生成可直接查看/排查的最终 SQL，# 会被内联成字面量。
   public ConvertedSql convert(String xml, String statementId, Object parameters) {
     return convertInternal(xml, statementId, parameters, true);
@@ -59,6 +53,7 @@ public class IbatisToJdbcConverter {
       if (statement == null) {
         throw new IllegalArgumentException("Cannot find statement: " + statementId);
       }
+      Map<String, Element> sqlFragments = collectSqlFragments(document);
       String statementType = statement.getTagName();
       String resultClass = statement.getAttribute("resultClass");
 
@@ -72,18 +67,21 @@ public class IbatisToJdbcConverter {
       if (parameters instanceof Map) {
         @SuppressWarnings("unchecked")
         Map<String, Object> paramMap = (Map<String, Object>) parameters;
-        renderContext = inlineMode ? RenderContext.inline(paramMap)
-            : RenderContext.execution(paramMap, executionParams);
+        renderContext = inlineMode ? RenderContext.inline(paramMap, sqlFragments)
+            : RenderContext.execution(paramMap, executionParams, sqlFragments);
         convertedParameters = inlineMode ? parameters : executionParams;
-      } else if (parameters instanceof List<?>) {
-        List<?> list = (List<?>) parameters;
-        Map<String, Object> listContext = buildListContext(list);
-        renderContext = inlineMode ? RenderContext.inline(listContext)
-            : RenderContext.execution(listContext, executionParams);
+      } else if (parameters instanceof Collection<?> || (parameters != null && parameters.getClass().isArray())) {
+        Map<String, Object> collectionContext = buildCollectionContext(parameters);
+        renderContext = inlineMode ? RenderContext.inline(collectionContext, sqlFragments)
+            : RenderContext.execution(collectionContext, executionParams, sqlFragments);
+        convertedParameters = inlineMode ? parameters : executionParams;
+      } else if (isSimpleParameterValue(parameters)) {
+        renderContext = inlineMode ? RenderContext.inlineScalar(parameters, sqlFragments)
+            : RenderContext.executionScalar(parameters, executionParams, sqlFragments);
         convertedParameters = inlineMode ? parameters : executionParams;
       } else {
-        renderContext = inlineMode ? RenderContext.inlineScalar(parameters)
-            : RenderContext.executionScalar(parameters, executionParams);
+        renderContext = inlineMode ? RenderContext.inlineBean(parameters, sqlFragments)
+            : RenderContext.executionBean(parameters, executionParams, sqlFragments);
         convertedParameters = inlineMode ? parameters : executionParams;
       }
 
@@ -117,7 +115,10 @@ public class IbatisToJdbcConverter {
   }
 
   private String preprocessXml(String xml) {
-    return xml;
+    if (xml == null || xml.isEmpty()) {
+      return "";
+    }
+    return IbatisXmlSupport.DOCTYPE_PATTERN.matcher(xml).replaceAll("");
   }
 
   private String postprocessSql(String sql) {
@@ -127,7 +128,54 @@ public class IbatisToJdbcConverter {
     // 处理中文逗号等全角标点，避免干扰 SQL 解析与执行
     sql = sql.replaceAll("，", ",").trim();
     // 对只包裹操作符的 CDATA 做一次轻量清理，其它文本仍保留原始内容。
-    return CDATA_OPERATOR_PATTERN.matcher(sql).replaceAll("$1");
+    return IbatisXmlSupport.CDATA_OPERATOR_PATTERN.matcher(sql).replaceAll("$1");
+  }
+
+  private Map<String, Element> collectSqlFragments(Document document) {
+    Map<String, Element> fragments = new LinkedHashMap<>();
+    NodeList nodes = document.getElementsByTagName("sql");
+    for (int index = 0; index < nodes.getLength(); index++) {
+      Node node = nodes.item(index);
+      if (!(node instanceof Element)) {
+        continue;
+      }
+      Element element = (Element) node;
+      String id = element.getAttribute("id");
+      if (!isBlank(id)) {
+        fragments.put(id, element);
+      }
+    }
+    return fragments;
+  }
+
+  private Map<String, Map<String, String>> collectResultMaps(Document document) {
+    Map<String, Map<String, String>> resultMaps = new LinkedHashMap<>();
+    NodeList nodes = document.getElementsByTagName("resultMap");
+    for (int index = 0; index < nodes.getLength(); index++) {
+      Node node = nodes.item(index);
+      if (!(node instanceof Element)) {
+        continue;
+      }
+      Element element = (Element) node;
+      String id = element.getAttribute("id");
+      if (!isBlank(id)) {
+        Map<String, String> propertyMappings = new LinkedHashMap<>();
+        NodeList resultChildren = element.getChildNodes();
+        for (int childIndex = 0; childIndex < resultChildren.getLength(); childIndex++) {
+          Node childNode = resultChildren.item(childIndex);
+          if (childNode instanceof Element) {
+            Element childElement = (Element) childNode;
+            String property = childElement.getAttribute("property");
+            String column = childElement.getAttribute("column");
+            if (!isBlank(property) && !isBlank(column)) {
+              propertyMappings.put(column, property);
+            }
+          }
+        }
+        resultMaps.put(id, propertyMappings);
+      }
+    }
+    return resultMaps;
   }
 
   private String renderNode(Node node, RenderContext context) {
@@ -149,22 +197,48 @@ public class IbatisToJdbcConverter {
       return renderChildren(element, context);
     }
 
+    if ("include".equals(tagName)) {
+      return renderInclude(element, context);
+    }
+
     if ("isNotEmpty".equals(tagName)) {
       // property 有值才展开 body；prepend 的处理保持 iBatis 的行为习惯。
-      if (!shouldRender(element, context))
-        return "";
-      String prepend = element.getAttribute("prepend");
-      String body = renderChildren(element, context);
-      return isBlank(prepend) ? body : prepend.trim() + " " + body;
+      return renderConditionalBody(element, context, shouldRender(element, context));
     }
 
     if ("isEmpty".equals(tagName)) {
       // isEmpty 与 isNotEmpty 相反：property 为空时才输出内部 SQL。
-      if (shouldRender(element, context))
-        return "";
-      String prepend = element.getAttribute("prepend");
-      String body = renderChildren(element, context);
-      return isBlank(prepend) ? body : prepend.trim() + " " + body;
+      return renderConditionalBody(element, context, !shouldRender(element, context));
+    }
+
+    if ("isNull".equals(tagName)) {
+      return renderConditionalBody(element, context,
+          resolveExpression(element.getAttribute("property"), context) == null);
+    }
+
+    if ("isNotNull".equals(tagName)) {
+      return renderConditionalBody(element, context,
+          resolveExpression(element.getAttribute("property"), context) != null);
+    }
+
+    if ("isPropertyAvailable".equals(tagName)) {
+      return renderConditionalBody(element, context, isPropertyAvailable(element.getAttribute("property"), context));
+    }
+
+    if ("isNotPropertyAvailable".equals(tagName)) {
+      return renderConditionalBody(element, context, !isPropertyAvailable(element.getAttribute("property"), context));
+    }
+
+    if ("isParameterPresent".equals(tagName)) {
+      return renderConditionalBody(element, context, context.parameterPresent);
+    }
+
+    if ("isNotParameterPresent".equals(tagName)) {
+      return renderConditionalBody(element, context, !context.parameterPresent);
+    }
+
+    if (IbatisXmlSupport.isBinaryConditionalTag(tagName)) {
+      return renderConditionalBody(element, context, evaluateBinaryCondition(element, context, tagName));
     }
 
     if ("iterate".equals(tagName)) {
@@ -186,7 +260,7 @@ public class IbatisToJdbcConverter {
         body = stripTrailingComma(body);
       }
       if (!isBlank(prepend)) {
-        return prepend.trim() + " " + stripLeadingConjunction(body);
+        return " " + prepend.trim() + " " + stripLeadingConjunction(body);
       }
       return body;
     }
@@ -196,13 +270,7 @@ public class IbatisToJdbcConverter {
 
   private boolean isContainerTag(String tagName) {
     // 这些标签只是语义容器，不直接修改 SQL 结构规则。
-    return "sqlMap".equals(tagName)
-        || "mapper".equals(tagName)
-        || "select".equals(tagName)
-        || "insert".equals(tagName)
-        || "update".equals(tagName)
-        || "delete".equals(tagName)
-        || "statement".equals(tagName);
+    return IbatisXmlSupport.isContainerTag(tagName);
   }
 
   private String renderChildren(Element element, RenderContext context) {
@@ -215,11 +283,216 @@ public class IbatisToJdbcConverter {
     return builder.toString();
   }
 
+  private String renderInclude(Element element, RenderContext context) {
+    String refid = element.getAttribute("refid");
+    Element fragment = context.sqlFragments.get(refid);
+    if (fragment == null && refid.contains(".")) {
+      fragment = context.sqlFragments.get(refid.substring(refid.lastIndexOf('.') + 1));
+    }
+    if (fragment == null) {
+      throw new IllegalArgumentException("Cannot find sql fragment: " + refid);
+    }
+    return renderChildren(fragment, context);
+  }
+
   private boolean shouldRender(Element element, RenderContext context) {
     // 动态标签统一通过 property -> value -> hasValue 三段式判断是否命中。
     String property = element.getAttribute("property");
     Object value = resolveExpression(property, context);
     return hasValue(value);
+  }
+
+  private String renderConditionalBody(Element element, RenderContext context, boolean matched) {
+    if (!matched) {
+      return "";
+    }
+    String prepend = element.getAttribute("prepend");
+    String body = renderChildren(element, context);
+    return isBlank(prepend) ? body : " " + prepend.trim() + " " + body;
+  }
+
+  private boolean evaluateBinaryCondition(Element element, RenderContext context, String tagName) {
+    Object leftValue = resolveExpression(element.getAttribute("property"), context);
+    Object rightValue = resolveComparisonTarget(element, context);
+    int comparison = compareValues(leftValue, rightValue);
+
+    switch (tagName) {
+      case "isEqual":
+        return comparison == 0;
+      case "isNotEqual":
+        return comparison != 0;
+      case "isGreaterThan":
+        return comparison > 0;
+      case "isGreaterEqual":
+        return comparison >= 0;
+      case "isLessThan":
+        return comparison < 0;
+      case "isLessEqual":
+        return comparison <= 0;
+      default:
+        return false;
+    }
+  }
+
+  private Object resolveComparisonTarget(Element element, RenderContext context) {
+    String compareProperty = element.getAttribute("compareProperty");
+    if (!isBlank(compareProperty)) {
+      return resolveExpression(compareProperty, context);
+    }
+    return normalizeComparisonValue(resolveExpression(element.getAttribute("property"), context),
+        element.getAttribute("compareValue"));
+  }
+
+  private <T extends Enum<T>> T safeEnumValueOf(Class<?> enumType, String name) {
+    if (enumType.isEnum()) {
+      try {
+        return (T) Enum.valueOf((Class<T>) enumType, name.trim());
+      } catch (Exception exception) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  private int compareValues(Object leftValue, Object rightValue) {
+    if (leftValue == null && rightValue == null) {
+      return 0;
+    }
+    if (leftValue == null) {
+      return -1;
+    }
+    if (rightValue == null) {
+      return 1;
+    }
+
+    if (leftValue instanceof Number || rightValue instanceof Number) {
+      Double leftNumber = toDouble(leftValue);
+      Double rightNumber = toDouble(rightValue);
+      if (leftNumber != null && rightNumber != null) {
+        return Double.compare(leftNumber, rightNumber);
+      }
+    }
+
+    if (leftValue instanceof Boolean || rightValue instanceof Boolean) {
+      Boolean leftBoolean = toBoolean(leftValue);
+      Boolean rightBoolean = toBoolean(rightValue);
+      if (leftBoolean != null && rightBoolean != null) {
+        return Boolean.compare(leftBoolean, rightBoolean);
+      }
+    }
+
+    if (leftValue instanceof Comparable<?> && rightValue != null && leftValue.getClass().isInstance(rightValue)) {
+      @SuppressWarnings("unchecked")
+      Comparable<Object> leftComparable = (Comparable<Object>) leftValue;
+      return leftComparable.compareTo(rightValue);
+    }
+
+    return String.valueOf(leftValue).compareTo(String.valueOf(rightValue));
+  }
+
+  private Object normalizeComparisonValue(Object leftValue, String compareValue) {
+    if (leftValue == null || compareValue == null) {
+      return compareValue;
+    }
+
+    if (leftValue.getClass().isEnum()) {
+      return safeEnumValueOf((Class<? extends Enum>) leftValue.getClass(), compareValue);
+    }
+
+    if (leftValue instanceof Character && compareValue.length() == 1) {
+      return compareValue.charAt(0);
+    }
+
+    return compareValue;
+  }
+
+  private Double toDouble(Object value) {
+    if (value instanceof Number) {
+      return ((Number) value).doubleValue();
+    }
+    try {
+      return Double.valueOf(String.valueOf(value).trim());
+    } catch (Exception exception) {
+      return null;
+    }
+  }
+
+  private Boolean toBoolean(Object value) {
+    if (value instanceof Boolean) {
+      return (Boolean) value;
+    }
+    String normalized = String.valueOf(value).trim().toLowerCase(Locale.ROOT);
+    if ("true".equals(normalized) || "1".equals(normalized) || "y".equals(normalized)) {
+      return true;
+    }
+    if ("false".equals(normalized) || "0".equals(normalized) || "n".equals(normalized)) {
+      return false;
+    }
+    return null;
+  }
+
+  private boolean isPropertyAvailable(String expression, RenderContext context) {
+    if (isBlank(expression)) {
+      return false;
+    }
+
+    if (context.iterationProperty != null) {
+      String normalizedExpression = expression.replace("[]", "");
+      if (normalizedExpression.equals(context.iterationProperty)) {
+        return true;
+      }
+    }
+
+    if (context.parameters.containsKey(expression)) {
+      return true;
+    }
+
+    String[] parts = expression.split("\\.");
+    Object current = context.parameters.get(parts[0]);
+    if (current == null && context.defaultValue != null && !isSimpleParameterValue(context.defaultValue)) {
+      if (isRootParameterAlias(parts[0])) {
+        current = context.defaultValue;
+      } else if (hasReadableProperty(context.defaultValue, parts[0])) {
+        current = readProperty(context.defaultValue, parts[0]);
+      }
+    }
+    if (current == null) {
+      return parts.length == 1 && context.defaultValue != null && isRootParameterAlias(parts[0]);
+    }
+
+    for (int index = 1; index < parts.length; index++) {
+      if (!hasReadableProperty(current, parts[index])) {
+        return false;
+      }
+      current = readProperty(current, parts[index]);
+      if (current == null && index < parts.length - 1) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private boolean hasReadableProperty(Object target, String name) {
+    if (target instanceof Map<?, ?>) {
+      return ((Map<?, ?>) target).containsKey(name);
+    }
+
+    String suffix = Character.toUpperCase(name.charAt(0)) + name.substring(1);
+    for (String methodName : Arrays.asList("get" + suffix, "is" + suffix)) {
+      try {
+        target.getClass().getMethod(methodName);
+        return true;
+      } catch (NoSuchMethodException ignored) {
+        // Try next lookup.
+      }
+    }
+
+    try {
+      target.getClass().getDeclaredField(name);
+      return true;
+    } catch (NoSuchFieldException ignored) {
+      return false;
+    }
   }
 
   private String renderIterate(Element element, RenderContext context) {
@@ -229,10 +502,12 @@ public class IbatisToJdbcConverter {
     String open = element.getAttribute("open");
     String close = element.getAttribute("close");
     String conjunction = element.getAttribute("conjunction");
+    String prepend = element.getAttribute("prepend");
 
     if (items.isEmpty()) {
       // Keep generated SQL valid across databases for IN ()-like constructs.
-      return open + "null" + close;
+      String body = open + "null" + close;
+      return isBlank(prepend) ? body : " " + prepend.trim() + " " + body;
     }
 
     // 每个元素都会获得一个“迭代上下文”，从而支持 #list[]# 这类写法取到当前项。
@@ -244,7 +519,8 @@ public class IbatisToJdbcConverter {
     }
 
     String joined = String.join(conjunction.isEmpty() ? "," : conjunction, fragments);
-    return open + joined + close;
+    String body = open + joined + close;
+    return isBlank(prepend) ? body : " " + prepend.trim() + " " + body;
   }
 
   private String renderText(String text, RenderContext context) {
@@ -253,11 +529,11 @@ public class IbatisToJdbcConverter {
     }
 
     // 只对 XML 模板本身做一轮占位符解析；替换进来的原始文本不会再次递归展开。
-    Matcher matcher = PLACEHOLDER_PATTERN.matcher(text);
+    Matcher matcher = IbatisXmlSupport.PLACEHOLDER_PATTERN.matcher(text);
     StringBuffer buffer = new StringBuffer();
     while (matcher.find()) {
       String marker = matcher.group(1);
-      String expression = firstNonBlank(matcher.group(2), matcher.group(3));
+      String expression = firstNonBlank(IbatisXmlSupport.extractPlaceholderExpression(matcher));
       Object value = resolvePlaceholder(expression, context);
       if ("$".equals(marker)) {
         // iBatis $...$ is raw text substitution, not prepared-statement binding.
@@ -326,9 +602,25 @@ public class IbatisToJdbcConverter {
       }
     }
 
+    if (context.defaultValue != null) {
+      if (isRootParameterAlias(expression)) {
+        return context.defaultValue;
+      }
+      if (isSimpleParameterValue(context.defaultValue)) {
+        return context.defaultValue;
+      }
+    }
+
     // 再按 a.b.c 逐段向下读取属性，兼容 bean / 嵌套 map / 组合对象。
     String[] parts = expression.split("\\.");
     Object value = context.parameters.get(parts[0]);
+    if (value == null && context.defaultValue != null && !isSimpleParameterValue(context.defaultValue)) {
+      if (isRootParameterAlias(parts[0])) {
+        value = context.defaultValue;
+      } else {
+        value = readProperty(context.defaultValue, parts[0]);
+      }
+    }
     for (int index = 1; index < parts.length && value != null; index++) {
       value = readProperty(value, parts[index]);
     }
@@ -398,6 +690,16 @@ public class IbatisToJdbcConverter {
 
     // 其它对象只要非 null 就视为命中。
     return true;
+  }
+
+  private boolean isSimpleParameterValue(Object value) {
+    return value == null || value instanceof CharSequence || value instanceof Number || value instanceof Boolean
+        || value instanceof Character || value.getClass().isEnum();
+  }
+
+  private boolean isRootParameterAlias(String expression) {
+    return "value".equals(expression) || "_parameter".equals(expression) || "parameter".equals(expression)
+        || "parameterObject".equals(expression);
   }
 
   private List<Object> asList(Object value) {
@@ -482,11 +784,15 @@ public class IbatisToJdbcConverter {
     return result;
   }
 
-  private Map<String, Object> buildListContext(List<?> list) {
-    // 常见 iBatis XML 会把集合参数命名成 ids 或 list，这里同时提供两个别名以提升兼容性。
+  private Map<String, Object> buildCollectionContext(Object collectionValue) {
+    List<Object> items = asList(collectionValue);
     Map<String, Object> context = new LinkedHashMap<>();
-    context.put("ids", list);
-    context.put("list", list);
+    context.put("ids", items);
+    context.put("list", items);
+    context.put("collection", items);
+    if (collectionValue != null && collectionValue.getClass().isArray()) {
+      context.put("array", items);
+    }
     return context;
   }
 
@@ -499,38 +805,59 @@ public class IbatisToJdbcConverter {
     private final Object defaultValue;
     private final boolean inlineMode;
     private final List<Object> executionParams;
+    private final Map<String, Element> sqlFragments;
     private final String iterationProperty;
     private final Object iterationValue;
+    private final boolean parameterPresent;
 
-    private static RenderContext inline(Map<String, Object> parameters) {
-      return new RenderContext(parameters, null, true, null, null, null);
+    private static RenderContext inline(Map<String, Object> parameters, Map<String, Element> sqlFragments) {
+      return new RenderContext(parameters, null, true, null, sqlFragments, null, null, true);
     }
 
-    private static RenderContext inlineScalar(Object scalarValue) {
-      return new RenderContext(Collections.emptyMap(), scalarValue, true, null, null, null);
+    private static RenderContext inlineScalar(Object scalarValue, Map<String, Element> sqlFragments) {
+      return new RenderContext(Collections.emptyMap(), scalarValue, true, null, sqlFragments, null, null,
+          scalarValue != null);
     }
 
-    private static RenderContext execution(Map<String, Object> parameters, List<Object> executionParams) {
-      return new RenderContext(parameters, null, false, executionParams, null, null);
+    private static RenderContext inlineBean(Object beanValue, Map<String, Element> sqlFragments) {
+      return new RenderContext(Collections.emptyMap(), beanValue, true, null, sqlFragments, null, null,
+          beanValue != null);
     }
 
-    private static RenderContext executionScalar(Object scalarValue, List<Object> executionParams) {
-      return new RenderContext(Collections.emptyMap(), scalarValue, false, executionParams, null, null);
+    private static RenderContext execution(Map<String, Object> parameters, List<Object> executionParams,
+        Map<String, Element> sqlFragments) {
+      return new RenderContext(parameters, null, false, executionParams, sqlFragments, null, null, true);
+    }
+
+    private static RenderContext executionScalar(Object scalarValue, List<Object> executionParams,
+        Map<String, Element> sqlFragments) {
+      return new RenderContext(Collections.emptyMap(), scalarValue, false, executionParams, sqlFragments, null, null,
+          scalarValue != null);
+    }
+
+    private static RenderContext executionBean(Object beanValue, List<Object> executionParams,
+        Map<String, Element> sqlFragments) {
+      return new RenderContext(Collections.emptyMap(), beanValue, false, executionParams, sqlFragments, null, null,
+          beanValue != null);
     }
 
     private RenderContext(Map<String, Object> parameters, Object defaultValue, boolean inlineMode,
-        List<Object> executionParams, String iterationProperty, Object iterationValue) {
+        List<Object> executionParams, Map<String, Element> sqlFragments, String iterationProperty,
+        Object iterationValue, boolean parameterPresent) {
       this.parameters = parameters;
       this.defaultValue = defaultValue;
       this.inlineMode = inlineMode;
       this.executionParams = executionParams;
+      this.sqlFragments = sqlFragments;
       this.iterationProperty = iterationProperty;
       this.iterationValue = iterationValue;
+      this.parameterPresent = parameterPresent;
     }
 
     private RenderContext forIteration(String property, Object value, int iterationIndex) {
       // 迭代时复用原上下文，只替换“当前项相关”的两个槽位。
-      return new RenderContext(parameters, defaultValue, inlineMode, executionParams, property, value);
+      return new RenderContext(parameters, defaultValue, inlineMode, executionParams, sqlFragments, property, value,
+          parameterPresent);
     }
   }
 }

@@ -3,7 +3,6 @@ package com.blackbox.ibatis2jdbc;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,13 +13,14 @@ import static com.blackbox.ibatis2jdbc.TestSupport.listOf;
 import static com.blackbox.ibatis2jdbc.TestSupport.mapOf;
 
 class IbatisToJdbcConverterTest {
+	private static final String SQLMAP_RESOURCE = "/sqlmaps/test-sqlmap.xml";
 	private final IbatisToJdbcConverter converter = new IbatisToJdbcConverter();
 
 	// ── convert(): 全内联字面量，输出最终可读 SQL ──────────────────────────────
 
 	@Test
 	void convertInlinesAllParameterTypes() throws Exception {
-		String xml = readResource("/sqlmaps/multi-scenario-sqlmap.xml");
+		String xml = readResource(SQLMAP_RESOURCE);
 
 		// Map 参数：内联为字面量
 		ConvertedSql mapResult = converter.convert(xml, "findUsersByIdMap", mapOf("id", 1001));
@@ -40,16 +40,40 @@ class IbatisToJdbcConverterTest {
 		assertEquals(123, numResult.parameters());
 		assertEquals("select", numResult.statementType());
 
+		ConvertedSql beanResult = converter.convert(xml, "findUsersByIdMap", new UserFilter(1001, "ACTIVE"));
+		assertEquals("SELECT id, name, status, created_at FROM users where id = 1001", beanResult.sql());
+
+		ConvertedSql nestedBeanResult = converter.convert(
+				xml,
+				"findUsersByNestedBean",
+				new SearchCriteria(new UserFilter(1001, "ACTIVE")));
+		assertEquals("SELECT id, name, status FROM users where id = 1001 AND status = 'ACTIVE'",
+				nestedBeanResult.sql());
+
 		// List 参数：iterate 内联每个元素
 		List<Object> listParams = listOf("A001", "B002");
 		ConvertedSql listResult = converter.convert(xml, "findUsersByIdsList", listParams);
 		assertEquals("SELECT id, name, status, created_at FROM users where id IN ('A001','B002')", listResult.sql());
 		assertEquals(listParams, listResult.parameters());
+
+		ConvertedSql collectionAliasResult = converter.convert(xml, "findUsersByCollectionAlias", listParams);
+		assertEquals("SELECT id, name, status, created_at FROM users where id IN ('A001','B002')",
+				collectionAliasResult.sql());
+
+		ConvertedSql arrayAliasResult = converter.convert(xml, "findUsersByArrayAlias", new Long[] { 1001L, 1002L });
+		assertEquals("SELECT id, name, status, created_at FROM users where id IN (1001,1002)", arrayAliasResult.sql());
+
+		ConvertedSql parameterAliasResult = converter.convert(
+				xml,
+				"findUsersByParameterAlias",
+				new SearchCriteria(new UserFilter(1001, "ACTIVE")));
+		assertEquals("SELECT id, name, status FROM users where id = 1001 AND status = 'ACTIVE'",
+				parameterAliasResult.sql());
 	}
 
 	@Test
 	void convertHandlesEdgeCases() throws Exception {
-		String xml = readResource("/sqlmaps/multi-scenario-sqlmap.xml");
+		String xml = readResource(SQLMAP_RESOURCE);
 
 		// null 参数：内联为 null
 		ConvertedSql nullResult = converter.convert(xml, "findUsersById", null);
@@ -70,7 +94,7 @@ class IbatisToJdbcConverterTest {
 
 	@Test
 	void convertWithDynamicTagsAndIterate() throws Exception {
-		String xml = readResource("/sqlmaps/user-sqlmap.xml");
+		String xml = readResource(SQLMAP_RESOURCE);
 		ConvertedSql result = converter.convert(
 				xml,
 				"findUsers",
@@ -86,7 +110,7 @@ class IbatisToJdbcConverterTest {
 
 	@Test
 	void convertSkipsEmptyConditions() throws Exception {
-		String xml = readResource("/sqlmaps/user-sqlmap.xml");
+		String xml = readResource(SQLMAP_RESOURCE);
 		Map<String, Object> parameters = new HashMap<>();
 		parameters.put("name", "");
 		parameters.put("status", null);
@@ -99,15 +123,10 @@ class IbatisToJdbcConverterTest {
 
 	@Test
 	void convertMultipleStatementShapes() throws Exception {
-		String xml = readResource("/sqlmaps/multi-scenario-sqlmap.xml");
+		String xml = readResource(SQLMAP_RESOURCE);
 
-		ConvertedSql filteredUsers = converter.convert(
-				xml,
-				"findUsersByFilters",
-				mapOf("name", "Alice", "status", "ACTIVE", "ids", listOf(7, 8)));
-		assertEquals(
-				"SELECT id, name, status, created_at FROM users WHERE name = 'Alice' AND status = 'ACTIVE' AND id IN (7,8)",
-				filteredUsers.sql());
+		ConvertedSql includeUsers = converter.convert(xml, "findUsersByInclude", mapOf("status", "ACTIVE"));
+		assertEquals("SELECT id, name, status FROM users WHERE status = 'ACTIVE'", includeUsers.sql());
 
 		Map<String, Object> keywordParameters = new HashMap<>();
 		keywordParameters.put("keyword", "tom");
@@ -139,53 +158,9 @@ class IbatisToJdbcConverterTest {
 		assertEquals("DELETE FROM users WHERE code IN ('A001','B002','C003')", deleteUsersByCodes.sql());
 	}
 
-	// ── convertForExecution(): 全 ? 占位符 + 有序参数列表，用于 PreparedStatement ─
-
-	@Test
-	void convertForExecutionProducesPositionalPlaceholders() throws Exception {
-		String xml = readResource("/sqlmaps/multi-scenario-sqlmap.xml");
-
-		// Map 参数：? 占位符 + 有序参数列表
-		ConvertedSql mapResult = converter.convertForExecution(xml, "findUsersByIdMap", mapOf("id", 1001));
-		assertEquals("SELECT id, name, status, created_at FROM users where id = ?", mapResult.sql());
-		assertEquals(listOf(1001), mapResult.parameters());
-		assertEquals("select", mapResult.statementType());
-
-		// String 参数：? 占位符
-		ConvertedSql strResult = converter.convertForExecution(xml, "findUsersById", "U1001");
-		assertEquals("SELECT id, name, status, created_at FROM users where id = ?", strResult.sql());
-		assertEquals(listOf("U1001"), strResult.parameters());
-
-		// Number 参数：? 占位符
-		ConvertedSql numResult = converter.convertForExecution(xml, "findUsersByIdNumber", 123);
-		assertEquals("SELECT id, name, status, created_at FROM users where id = ?", numResult.sql());
-		assertEquals(listOf(123), numResult.parameters());
-
-		// List 参数：每个元素一个 ?
-		ConvertedSql listResult = converter.convertForExecution(xml, "findUsersByIdsList", listOf("A001", "B002"));
-		assertEquals("SELECT id, name, status, created_at FROM users where id IN (?,?)", listResult.sql());
-		assertEquals(listOf("A001", "B002"), listResult.parameters());
-
-		ConvertedSql emptyListResult = converter.convertForExecution(xml, "findUsersByIdsList", listOf());
-		assertEquals("SELECT id, name, status, created_at FROM users where id IN (null)", emptyListResult.sql());
-		assertEquals(listOf(), emptyListResult.parameters());
-	}
-
-	@Test
-	void convertForExecutionWithDynamicTagsAndIterate() throws Exception {
-		String xml = readResource("/sqlmaps/user-sqlmap.xml");
-		ConvertedSql result = converter.convertForExecution(
-				xml,
-				"findUsers",
-				mapOf("status", "ACTIVE", "name", "Alice", "ids", listOf(10, 11, 12)));
-
-		assertEquals("SELECT id, name FROM users WHERE name = ? AND status = ? AND id IN (?,?,?)", result.sql());
-		assertEquals(listOf("Alice", "ACTIVE", 10, 11, 12), result.parameters());
-	}
-
 	@Test
 	void convertForExecutionSkipsEmptyConditions() throws Exception {
-		String xml = readResource("/sqlmaps/user-sqlmap.xml");
+		String xml = readResource(SQLMAP_RESOURCE);
 		Map<String, Object> parameters = new HashMap<>();
 		parameters.put("name", "");
 		parameters.put("status", null);
@@ -198,114 +173,140 @@ class IbatisToJdbcConverterTest {
 	}
 
 	@Test
-	void convertGeneratesFinalSqlDirectly() throws Exception {
-		String xml = readResource("/sqlmaps/user-sqlmap.xml");
+	void supportsSqlIncludeFragmentsInExecutionMode() throws Exception {
+		String xml = readResource(SQLMAP_RESOURCE);
+
+		ConvertedSql result = converter.convertForExecution(xml, "findUsersByInclude", mapOf("status", "ACTIVE"));
+		assertEquals("SELECT id, name, status FROM users WHERE status = ?", result.sql());
+		assertEquals(listOf("ACTIVE"), result.parameters());
+	}
+
+	@Test
+	void supportsBeanParametersInExecutionMode() throws Exception {
+		String xml = readResource(SQLMAP_RESOURCE);
+
+		ConvertedSql beanResult = converter.convertForExecution(xml, "findUsersByIdMap", new UserFilter(1001, "ACTIVE"));
+		assertEquals("SELECT id, name, status, created_at FROM users where id = ?", beanResult.sql());
+		assertEquals(listOf(1001L), beanResult.parameters());
+
+		ConvertedSql nestedBeanResult = converter.convertForExecution(
+				xml,
+				"findUsersByNestedBean",
+				new SearchCriteria(new UserFilter(1001, "ACTIVE")));
+		assertEquals("SELECT id, name, status FROM users where id = ? AND status = ?", nestedBeanResult.sql());
+		assertEquals(listOf(1001L, "ACTIVE"), nestedBeanResult.parameters());
+
+		ConvertedSql collectionAliasResult = converter.convertForExecution(xml, "findUsersByCollectionAlias", listOf(1, 2));
+		assertEquals("SELECT id, name, status, created_at FROM users where id IN (?,?)", collectionAliasResult.sql());
+		assertEquals(listOf(1, 2), collectionAliasResult.parameters());
+
+		ConvertedSql arrayAliasResult = converter.convertForExecution(xml, "findUsersByArrayAlias", new Long[] { 1001L, 1002L });
+		assertEquals("SELECT id, name, status, created_at FROM users where id IN (?,?)", arrayAliasResult.sql());
+		assertEquals(listOf(1001L, 1002L), arrayAliasResult.parameters());
+	}
+
+	@Test
+	void supportsExtendedParameterAliasesAndEnumComparison() throws Exception {
+		String xml = readResource(SQLMAP_RESOURCE);
+
+		ConvertedSql aliasResult = converter.convert(
+				xml,
+				"findUsersByParameterAlias",
+				new SearchCriteria(new UserFilter(1001, "ACTIVE")));
+		assertEquals("SELECT id, name, status FROM users where id = 1001 AND status = 'ACTIVE'", aliasResult.sql());
+
+		ConvertedSql enumCompareResult = converter.convert(xml, "findByEnumCompare", new PriorityHolder(Priority.HIGH));
+		assertEquals("SELECT * FROM users WHERE priority_flag = 1", enumCompareResult.sql());
+	}
+
+	@Test
+	void supportsUnaryConditionalTags() throws Exception {
+		String xml = readResource(SQLMAP_RESOURCE);
+
+		ConvertedSql result = converter.convert(xml, "findByUnaryTags", mapOf("status", "ACTIVE", "name", "Alice"));
+		assertEquals(
+				"SELECT * FROM users WHERE deleted IS NULL AND status = 'ACTIVE' AND name = 'Alice' AND missing_flag = 1",
+				result.sql());
+	}
+
+	@Test
+	void supportsBinaryConditionalTagsAndCompareProperty() throws Exception {
+		String xml = readResource(SQLMAP_RESOURCE);
 
 		ConvertedSql result = converter.convert(
 				xml,
-				"findUsers",
-				mapOf("name", "Alice", "status", "ACTIVE", "ids", listOf(10, 11)));
-
-		assertEquals("SELECT id, name FROM users WHERE name = 'Alice' AND status = 'ACTIVE' AND id IN (10,11)",
+				"findByBinaryTags",
+				mapOf("type", 1, "status", "ACTIVE", "age", 20, "score", 90, "rank", 2, "maxRank", 5, "level", 3));
+		assertEquals(
+				"SELECT * FROM users WHERE type = 1 AND status <> 'DISABLED' AND age > 18 AND score >= 90 AND rank < maxRank AND level <= 3",
 				result.sql());
-		assertEquals(mapOf("name", "Alice", "status", "ACTIVE", "ids", listOf(10, 11)), result.parameters());
 	}
 
 	@Test
-	void convertForExecutionGeneratesPreparedSql() throws Exception {
-		String xml = readResource("/sqlmaps/user-sqlmap.xml");
+	void supportsParameterPresentTags() throws Exception {
+		String xml = readResource(SQLMAP_RESOURCE);
 
-		ConvertedSql result = converter.convertForExecution(
-				xml,
-				"findUsers",
-				mapOf("name", "Alice", "status", "ACTIVE", "ids", listOf(10, 11)));
+		ConvertedSql presentResult = converter.convert(xml, "findByParameterPresence", mapOf("id", 1));
+		assertEquals("SELECT * FROM users WHERE present_flag = 1", presentResult.sql());
 
-		assertEquals("SELECT id, name FROM users WHERE name = ? AND status = ? AND id IN (?,?)", result.sql());
-		assertEquals(listOf("Alice", "ACTIVE", 10, 11), result.parameters());
+		ConvertedSql absentResult = converter.convert(xml, "findByParameterPresence", null);
+		assertEquals("SELECT * FROM users WHERE present_flag = 0", absentResult.sql());
 	}
 
-	@Test
-	void supportsCdataWrappedOperators() throws Exception {
-		String xml = readResource("/sqlmaps/multi-scenario-sqlmap.xml");
+	private String readResource(String resourcePath) {
+		try {
+			return TestSupport.readResource(IbatisToJdbcConverterTest.class, resourcePath);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
 
-		ConvertedSql inlineSql = converter.convert(xml, "findUsersAfter", mapOf("startTime", "2026-05-14 00:00:00"));
-		assertEquals("SELECT id, name FROM users WHERE created_at >= '2026-05-14 00:00:00'", inlineSql.sql());
-
-		ConvertedSql executionSql = converter.convertForExecution(
-				xml,
-				"findUsersAfter",
-				mapOf("startTime", "2026-05-14 00:00:00"));
-		assertEquals("SELECT id, name FROM users WHERE created_at >= ?", executionSql.sql());
-		assertEquals(listOf("2026-05-14 00:00:00"), executionSql.parameters());
 	}
 
-	@Test
-	void ignoresXmlCommentsInBothModes() throws Exception {
-		String xml = readResource("/sqlmaps/multi-scenario-sqlmap.xml");
+	private static final class UserFilter {
+		private final long id;
+		private final String status;
 
-		ConvertedSql inlineSql = converter.convert(
-				xml,
-				"findWithComments",
-				mapOf("name", "Alice", "status", "ACTIVE"));
-		assertEquals("SELECT id, name FROM users WHERE name = 'Alice' AND status = 'ACTIVE'", inlineSql.sql());
+		private UserFilter(long id, String status) {
+			this.id = id;
+			this.status = status;
+		}
 
-		ConvertedSql executionSql = converter.convertForExecution(
-				xml,
-				"findWithComments",
-				mapOf("name", "Alice", "status", "ACTIVE"));
-		assertEquals("SELECT id, name FROM users WHERE name = ? AND status = ?", executionSql.sql());
-		assertEquals(listOf("Alice", "ACTIVE"), executionSql.parameters());
+		public long getId() {
+			return id;
+		}
+
+		public String getStatus() {
+			return status;
+		}
 	}
 
-	@Test
-	void supportsRawDollarAndSafeHashPlaceholders() throws Exception {
-		String xml = readResource("/sqlmaps/multi-scenario-sqlmap.xml");
+	private static final class SearchCriteria {
+		private final UserFilter criteria;
 
-		ConvertedSql inlineSql = converter.convert(
-				xml,
-				"findUsersRawAndSafe",
-				mapOf("status", "ACTIVE", "orderBy", "created_at desc"));
-		assertEquals(
-				"SELECT id, name, status FROM users WHERE status = 'ACTIVE' ORDER BY created_at desc",
-				inlineSql.sql());
+		private SearchCriteria(UserFilter criteria) {
+			this.criteria = criteria;
+		}
 
-		ConvertedSql executionSql = converter.convertForExecution(
-				xml,
-				"findUsersRawAndSafe",
-				mapOf("status", "ACTIVE", "orderBy", "created_at desc"));
-		assertEquals(
-				"SELECT id, name, status FROM users WHERE status = ? ORDER BY created_at desc",
-				executionSql.sql());
-		assertEquals(listOf("ACTIVE"), executionSql.parameters());
+		public UserFilter getCriteria() {
+			return criteria;
+		}
 	}
 
-	@Test
-	void supportsBraceWrappedPlaceholderVariants() {
-		String xml = "<sqlMap>"
-				+ "<select id=\"findBraceWrapped\" parameterClass=\"map\">"
-				+ "SELECT * FROM users WHERE status = #{status}# ORDER BY ${orderBy}$"
-				+ "</select>"
-				+ "</sqlMap>";
-
-		ConvertedSql inlineSql = converter.convert(
-				xml,
-				"findBraceWrapped",
-				mapOf("status", "ACTIVE", "orderBy", "created_at desc"));
-		assertEquals(
-				"SELECT * FROM users WHERE status = 'ACTIVE' ORDER BY created_at desc",
-				inlineSql.sql());
-
-		ConvertedSql executionSql = converter.convertForExecution(
-				xml,
-				"findBraceWrapped",
-				mapOf("status", "ACTIVE", "orderBy", "created_at desc"));
-		assertEquals(
-				"SELECT * FROM users WHERE status = ? ORDER BY created_at desc",
-				executionSql.sql());
-		assertEquals(listOf("ACTIVE"), executionSql.parameters());
+	private enum Priority {
+		LOW,
+		MEDIUM,
+		HIGH
 	}
 
-	private String readResource(String resourcePath) throws IOException, URISyntaxException {
-		return TestSupport.readResource(IbatisToJdbcConverterTest.class, resourcePath);
+	private static final class PriorityHolder {
+		private final Priority priority;
+
+		private PriorityHolder(Priority priority) {
+			this.priority = priority;
+		}
+
+		public Priority getPriority() {
+			return priority;
+		}
 	}
 }

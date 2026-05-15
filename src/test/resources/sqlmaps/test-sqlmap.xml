@@ -1,0 +1,212 @@
+<sqlMap namespace="user">
+	<sql id="userBaseColumns">
+		id, name, status
+	</sql>
+	<sql id="activeUserCondition">
+		status = #status#
+	</sql>
+	<select id="findUsers" parameterClass="map" resultClass="user">
+		SELECT id, name
+		FROM users
+		<dynamic prepend="WHERE">
+			<isNotEmpty property="name">
+				AND name = #name#
+			</isNotEmpty>
+			<isNotEmpty property="status">
+				AND status = #status#
+			</isNotEmpty>
+			<isNotEmpty property="ids">
+				AND id IN
+				<iterate property="ids" open="(" close=")" conjunction=",">
+					#ids[]#
+				</iterate>
+			</isNotEmpty>
+		</dynamic>
+	</select>
+	<select id="findUsersById" parameterClass="java.lang.String" resultClass="user">
+		SELECT id, name, status, created_at
+		FROM users where id = #Id#
+	</select>
+	<select id="findUsersByIdMap" parameterClass="map" resultClass="user">
+		SELECT id, name, status, created_at
+		FROM users where id = #id#
+	</select>
+	<select id="findUsersByIdNumber" parameterClass="java.lang.Long" resultClass="user">
+		SELECT id, name, status, created_at
+		FROM users where id = #id#
+	</select>
+	<select id="findUsersByNestedBean" parameterClass="bean" resultClass="user">
+		SELECT id, name, status
+		FROM users where id = #criteria.id# AND status = #criteria.status#
+	</select>
+	<select id="findUsersByIdsList" parameterClass="java.util.List" resultClass="user">
+		SELECT id, name, status, created_at
+		FROM users where id IN
+		<iterate property="ids" open="(" close=")" conjunction=",">
+			#ids[]#
+		</iterate>
+	</select>
+	<select id="findUsersByCollectionAlias" parameterClass="java.util.Collection" resultClass="user">
+		SELECT id, name, status, created_at
+		FROM users where id IN
+		<iterate property="collection" open="(" close=")" conjunction=",">
+			#collection[]#
+		</iterate>
+	</select>
+	<select id="findUsersByArrayAlias" parameterClass="java.lang.Long[]" resultClass="user">
+		SELECT id, name, status, created_at
+		FROM users where id IN
+		<iterate property="array" open="(" close=")" conjunction=",">
+			#array[]#
+		</iterate>
+	</select>
+	<select id="findUsersByKeyword" parameterClass="map" resultClass="user">
+		SELECT id, name, status
+		FROM users
+		<dynamic prepend="WHERE">
+			<isNotEmpty property="keyword">
+				AND (name LIKE '%' || #keyword# || '%' OR email LIKE '%' || #keyword# || '%')
+			</isNotEmpty>
+			<isEmpty property="deleted">
+				AND deleted = 0
+			</isEmpty>
+		</dynamic>
+	</select>
+	<select id="findUserContactById" parameterClass="map" resultClass="map">
+		SELECT name, email
+		FROM users where id = #id#
+	</select>
+	<select id="findUsersAfter" parameterClass="map" resultClass="user">
+		SELECT id, name FROM users WHERE created_at
+		<![CDATA[>=]]>
+		#startTime#
+	</select>
+	<select id="findWithComments" parameterClass="map" resultClass="user">
+		<!-- leading comment -->
+		SELECT id, name FROM users
+		<dynamic prepend="WHERE">
+			<!-- name condition comment -->
+			<isNotEmpty property="name">
+				AND name = #name#
+			</isNotEmpty>
+			<!-- status condition comment -->
+			<isNotEmpty property="status">
+				AND status = #status#
+			</isNotEmpty>
+		</dynamic>
+	</select>
+	<select id="findUsersRawAndSafe" parameterClass="map" resultClass="user">
+		SELECT id, name, status
+		FROM users
+		WHERE status = #status#
+		ORDER BY $orderBy$
+	</select>
+	<select id="findUsersByInclude" parameterClass="map" resultClass="user">
+		SELECT <include refid="userBaseColumns"/>
+		FROM users
+		WHERE <include refid="activeUserCondition"/>
+	</select>
+	<select id="findUsersByParameterAlias" parameterClass="bean" resultClass="user">
+		SELECT id, name, status
+		FROM users where id = #parameterObject.criteria.id# AND status = #_parameter.criteria.status#
+	</select>
+	<select id="findBraceWrapped" parameterClass="map">
+		SELECT * FROM users WHERE status = #{status}# ORDER BY ${orderBy}$
+	</select>
+	<select id="findByUnaryTags" parameterClass="map">
+		SELECT * FROM users
+		<dynamic prepend="WHERE">
+			<isNull prepend="AND" property="deleted">
+				deleted IS NULL
+			</isNull>
+			<isNotNull prepend="AND" property="status">
+				status = #status#
+			</isNotNull>
+			<isPropertyAvailable prepend="AND" property="name">
+				name = #name#
+			</isPropertyAvailable>
+			<isNotPropertyAvailable prepend="AND" property="missing">
+				missing_flag = 1
+			</isNotPropertyAvailable>
+		</dynamic>
+	</select>
+	<select id="findByBinaryTags" parameterClass="map">
+		SELECT * FROM users
+		<dynamic prepend="WHERE">
+			<isEqual prepend="AND" property="type" compareValue="1">
+				type = 1
+			</isEqual>
+			<isNotEqual prepend="AND" property="status" compareValue="DISABLED">
+				status <![CDATA[<>]]> 'DISABLED'
+			</isNotEqual>
+			<isGreaterThan prepend="AND" property="age" compareValue="18">
+				age <![CDATA[>]]> 18
+			</isGreaterThan>
+			<isGreaterEqual prepend="AND" property="score" compareValue="90">
+				score <![CDATA[>=]]> 90
+			</isGreaterEqual>
+			<isLessThan prepend="AND" property="rank" compareProperty="maxRank">
+				rank <![CDATA[<]]> maxRank
+			</isLessThan>
+			<isLessEqual prepend="AND" property="level" compareValue="3">
+				level <![CDATA[<=]]> 3
+			</isLessEqual>
+		</dynamic>
+	</select>
+	<select id="findByParameterPresence" parameterClass="map">
+		SELECT * FROM users
+		<dynamic prepend="WHERE">
+			<isParameterPresent prepend="AND">
+				present_flag = 1
+			</isParameterPresent>
+			<isNotParameterPresent prepend="AND">
+				present_flag = 0
+			</isNotParameterPresent>
+		</dynamic>
+	</select>
+	<select id="findByEnumCompare" parameterClass="bean">
+		SELECT * FROM users
+		<dynamic prepend="WHERE">
+			<isGreaterThan prepend="AND" property="priority" compareValue="MEDIUM">
+				priority_flag = 1
+			</isGreaterThan>
+		</dynamic>
+	</select>
+	<update id="updateUser" parameterClass="map">
+		UPDATE users
+		<dynamic prepend="SET">
+			<isNotEmpty property="name">
+				name = #name#,
+			</isNotEmpty>
+			<isNotEmpty property="status">
+				status = #status#,
+			</isNotEmpty>
+			<isNotEmpty property="email">
+				email = #email#,
+			</isNotEmpty>
+		</dynamic>
+		WHERE id = #id#
+	</update>
+	<delete id="deleteUsersByIds" parameterClass="map">
+		DELETE FROM users
+		<dynamic prepend="WHERE">
+			<isNotEmpty property="ids">
+				id IN
+				<iterate property="ids" open="(" close=")" conjunction=",">
+					#ids[]#
+				</iterate>
+			</isNotEmpty>
+		</dynamic>
+	</delete>
+	<delete id="deleteUsersByCodes" parameterClass="map">
+		DELETE FROM users
+		<dynamic prepend="WHERE">
+			<isNotEmpty property="codes">
+				code IN
+				<iterate property="codes" open="(" close=")" conjunction=",">
+					#codes[]#
+				</iterate>
+			</isNotEmpty>
+		</dynamic>
+	</delete>
+</sqlMap>

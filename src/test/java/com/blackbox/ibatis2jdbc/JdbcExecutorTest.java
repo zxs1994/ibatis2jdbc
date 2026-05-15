@@ -11,12 +11,13 @@ import static com.blackbox.ibatis2jdbc.TestSupport.listOf;
 import static com.blackbox.ibatis2jdbc.TestSupport.mapOf;
 
 class JdbcExecutorTest {
+  private static final String SQLMAP_RESOURCE = "/sqlmaps/test-sqlmap.xml";
   private final JdbcExecutor executor = new JdbcExecutor();
   private final IbatisToJdbcConverter converter = new IbatisToJdbcConverter();
 
   @Test
   void convertsNamedSqlToPreparedSql() throws Exception {
-    String xml = readResource("/sqlmaps/user-sqlmap.xml");
+    String xml = readResource(SQLMAP_RESOURCE);
     ConvertedSql executionSql = converter.convertForExecution(
         xml,
         "findUsers",
@@ -34,7 +35,7 @@ class JdbcExecutorTest {
 
   @Test
   void keepsPositionalSqlWithListParameters() throws Exception {
-    String xml = readResource("/sqlmaps/multi-scenario-sqlmap.xml");
+    String xml = readResource(SQLMAP_RESOURCE);
     ConvertedSql convertedSql = converter.convertForExecution(xml, "findUsersByIdsList", listOf(1, 2, 3));
 
     JdbcExecutor.PreparedSql preparedSql = executor.toPreparedSql(convertedSql);
@@ -45,7 +46,7 @@ class JdbcExecutorTest {
 
   @Test
   void keepsPositionalSqlWithSingleParameter() throws Exception {
-    String xml = readResource("/sqlmaps/multi-scenario-sqlmap.xml");
+    String xml = readResource(SQLMAP_RESOURCE);
     ConvertedSql executionSql = converter.convertForExecution(xml, "findUsersByIdNumber", 1001);
     ConvertedSql convertedSql = new ConvertedSql(
         executionSql.sql(),
@@ -61,7 +62,7 @@ class JdbcExecutorTest {
 
   @Test
   void failsWhenNamedParameterMissing() throws Exception {
-    String xml = readResource("/sqlmaps/user-sqlmap.xml");
+    String xml = readResource(SQLMAP_RESOURCE);
     ConvertedSql executionSql = converter.convertForExecution(
         xml,
         "findUsers",
@@ -82,7 +83,7 @@ class JdbcExecutorTest {
 
   @Test
   void failsWhenPlaceholderCountAndListSizeMismatch() throws Exception {
-    String xml = readResource("/sqlmaps/multi-scenario-sqlmap.xml");
+    String xml = readResource(SQLMAP_RESOURCE);
     ConvertedSql executionSql = converter.convertForExecution(xml, "findUsersByIdsList", listOf(1, 2));
     ConvertedSql convertedSql = new ConvertedSql(
         executionSql.sql(),
