@@ -74,14 +74,18 @@ def generate_report():
     
     # ============ 目录 ============
     add_heading_with_style(doc, '目录', 1)
-    doc.add_paragraph('1. 项目概述', style='List Number')
-    doc.add_paragraph('2. 转换方案设计', style='List Number')
-    doc.add_paragraph('3. 核心功能说明', style='List Number')
-    doc.add_paragraph('4. 系统架构', style='List Number')
-    doc.add_paragraph('5. 实现细节', style='List Number')
-    doc.add_paragraph('6. 测试验证', style='List Number')
-    doc.add_paragraph('7. 适用场景与价值', style='List Number')
-    doc.add_paragraph('8. 后续扩展规划', style='List Number')
+    # 换行符号
+    doc.add_paragraph()
+    doc.add_paragraph('1. 项目概述')
+    doc.add_paragraph('2. 转换方案设计')
+    doc.add_paragraph('3. 核心功能说明')
+    doc.add_paragraph('4. 系统架构')
+    doc.add_paragraph('5. 实现细节')
+    doc.add_paragraph('6. 测试验证')
+    doc.add_paragraph('7. 适用场景与价值')
+    doc.add_paragraph('8. 后续扩展规划')
+    doc.add_paragraph('9. 技术栈')
+    doc.add_paragraph('10. 总结')
     
     doc.add_page_break()
     
@@ -90,10 +94,12 @@ def generate_report():
     
     add_heading_with_style(doc, '1.1 背景与目标', 2)
     doc.add_paragraph(
-        'iBatis 在不少遗留系统中仍被大量使用。随着技术栈升级，'
-        '项目通常需要逐步迁移到 JDBC 或其他数据访问方案。'
-        '本项目提供自动化转换能力，将 iBatis XML 中的 SQL 定义'
-        '转换为可审查、可执行的 JDBC 形式。'
+        '目前系统中 iBatis 已无法继续使用，但项目中仍留下大量 SQL 定义在 XML 文件中。'
+        '由于 iBatis 停止维护，直接升级到 MyBatis 或其他 ORM 框架会面临兼容性问题、成本高、风险大等障碍。'
+        '不得不转向使用 JDBC 来替代，但 JDBC 本身无法识别 iBatis XML 文件。'
+        '手工将每条 SQL 从 XML 转换为代码工作量巨大，且测试验证成本极高（堪称地狱级别）。'
+        '本项目通过自动化方案，智能解析 iBatis XML，自动展开动态标签，生成可供 JDBC 直接执行的 SQL 与参数列表，'
+        '极大降低迁移成本与测试压力。'
     )
     
     add_heading_with_style(doc, '1.2 核心价值', 2)
@@ -107,13 +113,13 @@ def generate_report():
     
     add_heading_with_style(doc, '2.1 总体思路', 2)
     doc.add_paragraph('转换流程分为两个阶段：')
-    doc.add_paragraph('第一阶段：XML 解析与标签展开', style='List Number')
+    doc.add_paragraph('第一阶段：XML 解析与标签展开')
     doc.add_paragraph(
         '读取 iBatis SQLMap XML 文件，识别所有 SQL 语句定义，'
         '展开动态标签（dynamic、iterate等），根据示例参数完成参数内联。',
         style='List Bullet 2'
     )
-    doc.add_paragraph('第二阶段：JDBC 标准化', style='List Number')
+    doc.add_paragraph('第二阶段：JDBC 标准化')
     doc.add_paragraph(
         '将内联后的 SQL 转换为 JDBC 标准格式：'
         '用 ? 占位符替换参数，维护有序的参数绑定列表。',
@@ -148,11 +154,12 @@ def generate_report():
     
     add_heading_with_style(doc, '3.1 支持的 iBatis 特性', 2)
     
-    doc.add_paragraph('参数占位符：', style='List Number')
-    doc.add_paragraph('#param# - 参数替换为 ?（JDBC 模式）', style='List Bullet 2')
-    doc.add_paragraph('$param$ - 参数原样拼接（SQL 片段）', style='List Bullet 2')
+    doc.add_paragraph('参数占位符：')
+    doc.add_paragraph('#param# - 参数替换为 ?（JDBC prepared 模式）', style='List Bullet 2')
+    doc.add_paragraph('$param$ - 参数原样拼接（SQL 片段内联模式）', style='List Bullet 2')
+    doc.add_paragraph('多种参数类型自动推断：Map、String、Number、Bean、List、Array、Enum', style='List Bullet 2')
     
-    doc.add_paragraph('条件标签：', style='List Number')
+    doc.add_paragraph('条件标签：')
     doc.add_paragraph('dynamic、trim - 条件段落展开', style='List Bullet 2')
     doc.add_paragraph('isNotEmpty、isEmpty - 空值判断', style='List Bullet 2')
     doc.add_paragraph('isNull、isNotNull - NULL 判断', style='List Bullet 2')
@@ -160,11 +167,11 @@ def generate_report():
     doc.add_paragraph('isGreaterThan、isLessThan - 大小比较', style='List Bullet 2')
     doc.add_paragraph('compareValue、compareProperty - 自定义比较', style='List Bullet 2')
     
-    doc.add_paragraph('集合处理：', style='List Number')
+    doc.add_paragraph('集合处理：')
     doc.add_paragraph('iterate - 遍历集合生成 IN 语句', style='List Bullet 2')
     doc.add_paragraph('Collection、Array、List 参数别名', style='List Bullet 2')
     
-    doc.add_paragraph('其他特性：', style='List Number')
+    doc.add_paragraph('其他特性：')
     doc.add_paragraph('include - 引用 SQL 片段', style='List Bullet 2')
     doc.add_paragraph('resultMap - 映射结果集', style='List Bullet 2')
     doc.add_paragraph('CDATA 字符清理 - 处理特殊字符', style='List Bullet 2')
@@ -182,42 +189,43 @@ def generate_report():
     
     add_heading_with_style(doc, '4.1 核心类设计', 2)
     
-    doc.add_paragraph('IbatisToJdbcConverter：主转换器', style='List Number')
+    doc.add_paragraph('IbatisToJdbcConverter：主转换器')
     doc.add_paragraph('入口方法：convertPrepared(statementId, parameters)', style='List Bullet 2')
     doc.add_paragraph('扫描方法：loadSqlMapsFromClasspath(fileOrDirPaths)', style='List Bullet 2')
     doc.add_paragraph('扫描结果：getLoadedStatementInfos()/getLoadedStatementCount()', style='List Bullet 2')
     doc.add_paragraph('职责：转换 SQL、提取参数绑定', style='List Bullet 2')
 
-    doc.add_paragraph('ConvertedSql：转换结果对象', style='List Number')
+    doc.add_paragraph('ConvertedSql：转换结果对象')
     doc.add_paragraph('核心字段：sql（? 占位符形式）、preparedBindings（参数列表）', style='List Bullet 2')
     doc.add_paragraph('常用方法：toPreviewSql()（生成可执行 SQL 预览）', style='List Bullet 2')
 
-    doc.add_paragraph('JdbcExecutor：JDBC 执行器', style='List Number')
+    doc.add_paragraph('JdbcExecutor：JDBC 执行器')
     doc.add_paragraph('职责：将转换结果按参数顺序绑定并执行', style='List Bullet 2')
 
-    doc.add_paragraph('IbatisXmlSupport：XML 工具类', style='List Number')
+    doc.add_paragraph('IbatisXmlSupport：XML 工具类')
     doc.add_paragraph('职责：标签识别、占位符解析、属性提取', style='List Bullet 2')
     
     add_heading_with_style(doc, '4.2 处理流程', 2)
     
-    doc.add_paragraph('1. 扫描并加载 SQLMap 文件', style='List Number')
-    doc.add_paragraph('通过 loadSqlMapsFromClasspath 扫描 classpath、目录或 jar 中的 sqlmap 文件', style='List Bullet 2')
-    doc.add_paragraph('解析 XML 并建立 statement/sql/resultMap 索引', style='List Bullet 2')
+    doc.add_paragraph('1. 扫描并加载 SQLMap 文件')
+    doc.add_paragraph('通过 loadSqlMapsFromClasspath 扫描 classpath、目录或 jar 中的 *_sqlmap.xml 文件', style='List Bullet 2')
+    doc.add_paragraph('解析 XML 并建立 statement/sql/resultMap 索引到新快照', style='List Bullet 2')
+    doc.add_paragraph('原子切换生效，所有新请求立即使用新索引', style='List Bullet 2')
     
-    doc.add_paragraph('2. 查询 statement 定义', style='List Number')
-    doc.add_paragraph('根据 statementId 定位对应的 SQL 语句', style='List Bullet 2')
+    doc.add_paragraph('2. 查询 statement 定义')
+    doc.add_paragraph('根据 statementId 从 activeSnapshot 定位对应的 SQL 语句', style='List Bullet 2')
     
-    doc.add_paragraph('3. 展开动态标签', style='List Number')
+    doc.add_paragraph('3. 展开动态标签')
     doc.add_paragraph('递归处理 dynamic、iterate 等条件标签', style='List Bullet 2')
     
-    doc.add_paragraph('4. 参数内联或占位', style='List Number')
+    doc.add_paragraph('4. 参数内联或占位')
     doc.add_paragraph('根据转换模式（内联/prepared）处理参数', style='List Bullet 2')
     
-    doc.add_paragraph('5. SQL 正规化', style='List Number')
+    doc.add_paragraph('5. SQL 正规化')
     doc.add_paragraph('清理多余空白、转换为标准 JDBC 格式', style='List Bullet 2')
     
-    doc.add_paragraph('6. 返回转换结果', style='List Number')
-    doc.add_paragraph('ConvertedSql 对象包含 SQL、参数、元数据', style='List Bullet 2')
+    doc.add_paragraph('6. 返回转换结果')
+    doc.add_paragraph('ConvertedSql 对象包含 SQL、参数、元数据和 preparedBindings（JDBC参数列表）', style='List Bullet 2')
     
     # ============ 5. 实现细节 ============
     add_heading_with_style(doc, '5. 实现细节', 1)
@@ -227,13 +235,20 @@ def generate_report():
         '系统采用"双模式"设计：'
     )
     doc.add_paragraph(
-        '预览模式（toPreviewSql()）：将 # 占位符替换为实际参数值（带类型转换）',
+        '预览模式（toPreviewSql()）：将 # 占位符替换为实际参数值（带类型转换），',
         style='List Bullet'
     )
     doc.add_paragraph(
-        'JDBC 模式（getPreparedBindings()）：将 # 占位符转为 ?，'
-        '维护有序的参数列表，供 PreparedStatement 绑定',
+        '便于人工审查和 SQL 预览',
+        style='List Bullet 2'
+    )
+    doc.add_paragraph(
+        'JDBC 模式（getPreparedBindings()）：将 # 占位符转为 ?，',
         style='List Bullet'
+    )
+    doc.add_paragraph(
+        '维护有序的参数列表（preparedBindings），供 PreparedStatement 按顺序绑定',
+        style='List Bullet 2'
     )
     
     add_heading_with_style(doc, '5.2 动态标签展开逻辑', 2)
@@ -250,6 +265,43 @@ def generate_report():
     )
     doc.add_paragraph('输入：ids = [1, 2, 3]', style='List Bullet')
     doc.add_paragraph('输出：IN (?, ?, ?)，参数绑定：[1, 2, 3]', style='List Bullet')
+    
+    add_heading_with_style(doc, '5.4 XML热更新机制（双缓冲+原子切换）', 2)
+    doc.add_paragraph(
+        '为支持SQLMap的在线热更新，系统采用"双缓冲+原子切换"无锁设计，确保热更新过程中的高并发安全：'
+    )
+    doc.add_paragraph(
+        '加载新XML：后台线程构建完整的新快照（statement索引、sql片段、resultMap等全量数据）',
+        style='List Bullet'
+    )
+    doc.add_paragraph(
+        '原子切换：新快照构建完成后，通过AtomicReference一次性原子切换指针，瞬间完成切换',
+        style='List Bullet'
+    )
+    doc.add_paragraph(
+        '读取无锁：所有请求直接读volatile activeSnapshot，完全无需加锁，避免热更新期间的性能下降',
+        style='List Bullet'
+    )
+    doc.add_paragraph(
+        '并发安全保证：',
+        style='List Bullet'
+    )
+    doc.add_paragraph(
+        '旧请求继续使用旧快照，新请求立即使用新快照，新旧快照不会交织',
+        style='List Bullet 2'
+    )
+    doc.add_paragraph(
+        '热更新时旧请求不受阻，新请求不等待，零延迟、零阻塞',
+        style='List Bullet 2'
+    )
+    doc.add_paragraph(
+        '旧快照自动垃圾回收，无需手动管理',
+        style='List Bullet 2'
+    )
+    doc.add_paragraph(
+        '运维优势：无需重启应用即可加载最新SQLMap文件，提升系统可用性和灵活性',
+        style='List Bullet'
+    )
     
     # ============ 6. 测试验证 ============
     add_heading_with_style(doc, '6. 测试验证', 1)
@@ -287,28 +339,27 @@ def generate_report():
     doc.add_paragraph('降低风险：通过测试验证转换准确性', style='List Bullet')
     doc.add_paragraph('提高质量：确保参数顺序、SQL 逻辑一致', style='List Bullet')
     doc.add_paragraph('便于审查：生成可读性强的报告，便于人工检查', style='List Bullet')
+    doc.add_paragraph('热更新支持：无需重启应用即可加载最新 SQLMap，大幅提升运维效率', style='List Bullet')
+    doc.add_paragraph('高并发安全：采用双缓冲+原子切换，在高并发场景下无需加锁', style='List Bullet')
+    doc.add_paragraph('综合最优：在兼容性、迁移成本与落地风险约束下，可视为当前阶段可能的最优解', style='List Bullet')
     
     # ============ 8. 后续扩展规划 ============
     add_heading_with_style(doc, '8. 后续扩展规划', 1)
     
     add_heading_with_style(doc, '8.1 功能扩展', 2)
     doc.add_paragraph('支持更多 iBatis 标签：placeholder、typeAlias 等', style='List Bullet')
-    doc.add_paragraph('增强参数验证：类型检查、范围验证', style='List Bullet')
-    doc.add_paragraph('优化 SQL 格式化：自动缩进、关键字高亮', style='List Bullet')
     
-    add_heading_with_style(doc, '8.2 工具扩展', 2)
-    doc.add_paragraph('Web UI：提供在线转换界面', style='List Bullet')
-    doc.add_paragraph('IDE 插件：VS Code / IntelliJ IDEA 集成', style='List Bullet')
-    doc.add_paragraph('CLI 工具：命令行批量处理', style='List Bullet')
-    doc.add_paragraph('数据库集成：支持直接执行验证', style='List Bullet')
-    
-    add_heading_with_style(doc, '8.3 性能优化', 2)
-    doc.add_paragraph('缓存机制：预解析 XML，加速重复转换', style='List Bullet')
-    doc.add_paragraph('并行处理：多线程处理大规模 SQLMap', style='List Bullet')
-    doc.add_paragraph('增量更新：只处理变更的 statement', style='List Bullet')
+    add_heading_with_style(doc, '8.2 性能优化（未来方向）', 2)
+    doc.add_paragraph('分片索引：对超大规模 SQLMap 进行分片优化', style='List Bullet')
+    doc.add_paragraph('智能缓存失效：根据文件变动细粒度更新索引', style='List Bullet')
     
     # ============ 9. 技术栈 ============
     add_heading_with_style(doc, '9. 技术栈', 1)
+
+    add_heading_with_style(doc, '9.1 依赖与第三方包说明', 2)
+    doc.add_paragraph('生产代码依赖：仅使用 Java 8 标准库（java.* / javax.* / org.w3c.dom / org.xml.sax）', style='List Bullet')
+    doc.add_paragraph('第三方运行时依赖：无（不依赖 Spring、MyBatis、Apache Commons 等外部库）', style='List Bullet')
+    doc.add_paragraph('测试依赖：仅引入 JUnit 5（org.junit.jupiter），作用域为 test，不进入生产运行时', style='List Bullet')
     
     doc.add_paragraph('语言：Java 8', style='List Bullet')
     doc.add_paragraph('构建：Maven 3.9+', style='List Bullet')
@@ -329,7 +380,7 @@ def generate_report():
     doc.add_paragraph()
     doc.add_paragraph(
         '该方案适用于遗留系统现代化改造场景，可在保持业务连续性的前提下分阶段推进。'
-        '后续可继续扩展工具链能力，例如 Web 界面、IDE 集成和批量处理能力。'
+        '在现有系统约束与迁移目标下，该方案可视为当前阶段可能的最优解。'
     )
     
     # 保存文档
