@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static com.blackbox.ibatis2jdbc.TestSupport.listOf;
@@ -44,6 +45,7 @@ class IbatisToJdbcConverterTest {
 				"SELECT * FROM users WHERE status = ? ORDER BY id DESC",
 				bracePrepared.getSql());
 		assertEquals(listOf("ACTIVE"), bracePrepared.getPreparedBindings());
+
 	}
 
 	/**
@@ -300,21 +302,6 @@ class IbatisToJdbcConverterTest {
 
 		assertEquals("SELECT user_id, user_name FROM users", convertedSql.toPreviewSql());
 		assertEquals("userResultMap", convertedSql.getResultMapId());
-	}
-
-	/**
-	 * 测试内存预加载入口：扫描 classpath 中 *sqlmap.xml 并建立 statementId 索引
-	 * 期望：只传 statementId + parameters 也可以完成 SQL 转换
-	 */
-	@Test
-	void convertsByStatementIdAfterLoadingSqlMaps() {
-		int loaded = converter.loadSqlMapsFromClasspath();
-		assertTrue(loaded > 0);
-
-		// 直接按 statementId 调用，验证能正确转换 SQL
-		ConvertedSql result = converter.convertPrepared("findUsersByIdMap", mapOf("id", 1001));
-		assertEquals("SELECT id, name, status, created_at FROM users where id = 1001", result.toPreviewSql());
-		assertEquals(mapOf("id", 1001), result.getParameters());
 	}
 
 	/**

@@ -53,7 +53,7 @@ def generate_report():
     
     subtitle = doc.add_paragraph()
     subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    subtitle_run = subtitle.add_run('完整技术方案文档')
+    subtitle_run = subtitle.add_run('技术方案与测试说明')
     subtitle_run.font.size = Pt(16)
     subtitle_run.font.name = '宋体'
     
@@ -66,7 +66,7 @@ def generate_report():
     
     version_p = doc.add_paragraph()
     version_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    version_run = version_p.add_run('版本：v1.0')
+    version_run = version_p.add_run('版本：v1.1')
     version_run.font.size = Pt(11)
     
     # 分页符
@@ -90,32 +90,30 @@ def generate_report():
     
     add_heading_with_style(doc, '1.1 背景与目标', 2)
     doc.add_paragraph(
-        'iBatis 是一个经典的 ORM 框架，在企业级应用中广泛使用。随着技术栈更新，'
-        '许多项目需要从 iBatis 迁移到原生 JDBC 或新的 ORM 框架。'
-        '本项目提供了一个自动化转换工具，将 iBatis XML 配置中的 SQL 语句'
-        '转换为标准 JDBC PreparedStatement 格式。'
+        'iBatis 在不少遗留系统中仍被大量使用。随着技术栈升级，'
+        '项目通常需要逐步迁移到 JDBC 或其他数据访问方案。'
+        '本项目提供自动化转换能力，将 iBatis XML 中的 SQL 定义'
+        '转换为可审查、可执行的 JDBC 形式。'
     )
     
     add_heading_with_style(doc, '1.2 核心价值', 2)
-    doc.add_paragraph('降低迁移成本：自动转换 SQL，避免手工逐一修改', style='List Bullet')
-    doc.add_paragraph('确保准确性：通过单元测试验证转换逻辑的正确性', style='List Bullet')
-    doc.add_paragraph('提供可视化：生成 Excel 和 Markdown 报告，便于人工审查', style='List Bullet')
-    doc.add_paragraph('保证兼容性：完整支持 iBatis 的动态 SQL 特性', style='List Bullet')
+    doc.add_paragraph('降低迁移成本：批量转换 SQL，减少人工改写工作量', style='List Bullet')
+    doc.add_paragraph('提升可验证性：通过测试与报告输出支持逐条核对', style='List Bullet')
+    doc.add_paragraph('增强可读性：生成 Markdown、SQL 与 Excel 明细，便于审查', style='List Bullet')
+    doc.add_paragraph('保持兼容性：覆盖常见 iBatis 动态 SQL 语法', style='List Bullet')
     
     # ============ 2. 转换方案设计 ============
     add_heading_with_style(doc, '2. 转换方案设计', 1)
     
     add_heading_with_style(doc, '2.1 总体思路', 2)
-    doc.add_paragraph(
-        '转换方案采用两步走：'
-    )
-    doc.add_paragraph('第一步：XML 解析与标签展开', style='List Number')
+    doc.add_paragraph('转换流程分为两个阶段：')
+    doc.add_paragraph('第一阶段：XML 解析与标签展开', style='List Number')
     doc.add_paragraph(
         '读取 iBatis SQLMap XML 文件，识别所有 SQL 语句定义，'
         '展开动态标签（dynamic、iterate等），根据示例参数完成参数内联。',
         style='List Bullet 2'
     )
-    doc.add_paragraph('第二步：JDBC 标准化', style='List Number')
+    doc.add_paragraph('第二阶段：JDBC 标准化', style='List Number')
     doc.add_paragraph(
         '将内联后的 SQL 转换为 JDBC 标准格式：'
         '用 ? 占位符替换参数，维护有序的参数绑定列表。',
@@ -184,24 +182,27 @@ def generate_report():
     
     add_heading_with_style(doc, '4.1 核心类设计', 2)
     
-    doc.add_paragraph('IbatisToJdbcConverter - 主转换器', style='List Number')
+    doc.add_paragraph('IbatisToJdbcConverter：主转换器', style='List Number')
     doc.add_paragraph('入口方法：convertPrepared(statementId, parameters)', style='List Bullet 2')
-    doc.add_paragraph('功能：XML 加载、SQL 转换、参数提取', style='List Bullet 2')
-    
-    doc.add_paragraph('ConvertedSql - 转换结果封装', style='List Number')
-    doc.add_paragraph('属性：sql（? 占位符形式）、preparedBindings（参数列表）', style='List Bullet 2')
-    doc.add_paragraph('方法：toPreviewSql()（生成可读预览）', style='List Bullet 2')
-    
-    doc.add_paragraph('JdbcExecutor - JDBC 执行器', style='List Number')
-    doc.add_paragraph('功能：将转换结果直接执行到数据库', style='List Bullet 2')
-    
-    doc.add_paragraph('IbatisXmlSupport - XML 工具库', style='List Number')
-    doc.add_paragraph('功能：标签识别、正则表达式、属性提取', style='List Bullet 2')
+    doc.add_paragraph('扫描方法：loadSqlMapsFromClasspath(fileOrDirPaths)', style='List Bullet 2')
+    doc.add_paragraph('扫描结果：getLoadedStatementInfos()/getLoadedStatementCount()', style='List Bullet 2')
+    doc.add_paragraph('职责：转换 SQL、提取参数绑定', style='List Bullet 2')
+
+    doc.add_paragraph('ConvertedSql：转换结果对象', style='List Number')
+    doc.add_paragraph('核心字段：sql（? 占位符形式）、preparedBindings（参数列表）', style='List Bullet 2')
+    doc.add_paragraph('常用方法：toPreviewSql()（生成可执行 SQL 预览）', style='List Bullet 2')
+
+    doc.add_paragraph('JdbcExecutor：JDBC 执行器', style='List Number')
+    doc.add_paragraph('职责：将转换结果按参数顺序绑定并执行', style='List Bullet 2')
+
+    doc.add_paragraph('IbatisXmlSupport：XML 工具类', style='List Number')
+    doc.add_paragraph('职责：标签识别、占位符解析、属性提取', style='List Bullet 2')
     
     add_heading_with_style(doc, '4.2 处理流程', 2)
     
-    doc.add_paragraph('1. 加载 SQLMap XML 文件', style='List Number')
-    doc.add_paragraph('解析 DOCTYPE，建立 statement 索引', style='List Bullet 2')
+    doc.add_paragraph('1. 扫描并加载 SQLMap 文件', style='List Number')
+    doc.add_paragraph('通过 loadSqlMapsFromClasspath 扫描 classpath、目录或 jar 中的 sqlmap 文件', style='List Bullet 2')
+    doc.add_paragraph('解析 XML 并建立 statement/sql/resultMap 索引', style='List Bullet 2')
     
     doc.add_paragraph('2. 查询 statement 定义', style='List Number')
     doc.add_paragraph('根据 statementId 定位对应的 SQL 语句', style='List Bullet 2')
@@ -262,13 +263,13 @@ def generate_report():
     
     add_heading_with_style(doc, '6.2 测试运行', 2)
     doc.add_paragraph('运行命令：mvn clean test', style='List Bullet')
-    doc.add_paragraph('当前测试数量：18+ 个测试用例', style='List Bullet')
-    doc.add_paragraph('测试结果：全部通过（BUILD SUCCESS）', style='List Bullet')
+    doc.add_paragraph('测试规模：以当前代码库实际测试集合为准', style='List Bullet')
+    doc.add_paragraph('测试结果：以本次执行输出为准', style='List Bullet')
     
     add_heading_with_style(doc, '6.3 报告生成', 2)
-    doc.add_paragraph('SQLMap 报告：自动读取 XML，生成 Markdown + SQL 脚本', style='List Bullet')
-    doc.add_paragraph('Excel 提取：从测试代码解析 convertPrepared 调用，导出参数表', style='List Bullet')
-    doc.add_paragraph('覆盖范围：common_sqlmap / hr_sqlmap 等真实样本', style='List Bullet')
+    doc.add_paragraph('SQLMap 报告：自动读取 SQLMap，生成 Markdown 与 SQL 脚本', style='List Bullet')
+    doc.add_paragraph('Excel 导出：从 Markdown 报告提取结构化字段并生成明细表', style='List Bullet')
+    doc.add_paragraph('覆盖范围：以当前测试资源目录中的样本文件为准', style='List Bullet')
     
     doc.add_page_break()
     
@@ -282,7 +283,7 @@ def generate_report():
     doc.add_paragraph('遗留系统升级：文档化和验证现有 SQL 逻辑', style='List Bullet')
     
     add_heading_with_style(doc, '7.2 业务价值', 2)
-    doc.add_paragraph('加速迁移：自动化转换，减少手工工作量 80%+', style='List Bullet')
+    doc.add_paragraph('加速迁移：自动化转换，显著减少手工改写工作量', style='List Bullet')
     doc.add_paragraph('降低风险：通过测试验证转换准确性', style='List Bullet')
     doc.add_paragraph('提高质量：确保参数顺序、SQL 逻辑一致', style='List Bullet')
     doc.add_paragraph('便于审查：生成可读性强的报告，便于人工检查', style='List Bullet')
@@ -319,17 +320,16 @@ def generate_report():
     add_heading_with_style(doc, '10. 总结', 1)
     
     doc.add_paragraph(
-        '本项目提供了一个完整、可靠的 iBatis to JDBC 转换方案，'
-        '通过自动化处理 XML 解析、动态标签展开、参数绑定等复杂逻辑，'
-        '大幅降低了迁移成本。项目已覆盖 iBatis 的主要特性，'
-        '并通过充分的单元测试保证了转换准确性。'
+        '本项目提供了可落地的 iBatis 到 JDBC 转换方案。'
+        '通过自动化处理 XML 解析、动态标签展开与参数绑定，'
+        '可在迁移过程中提升效率并降低人工改写风险。'
+        '结合测试与报告，可支持逐条核对与持续迭代。'
     )
     
     doc.add_paragraph()
     doc.add_paragraph(
-        '该方案特别适合大规模遗留系统的现代化改造，可在保证业务连续性的前提下，'
-        '逐步升级技术栈。未来还可进一步扩展工具链，包括 Web UI、IDE 插件等，'
-        '进一步提升用户体验。'
+        '该方案适用于遗留系统现代化改造场景，可在保持业务连续性的前提下分阶段推进。'
+        '后续可继续扩展工具链能力，例如 Web 界面、IDE 集成和批量处理能力。'
     )
     
     # 保存文档
