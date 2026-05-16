@@ -1,11 +1,9 @@
 package com.blackbox.ibatis2jdbc;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -15,12 +13,38 @@ import static com.blackbox.ibatis2jdbc.TestSupport.mapOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class IbatisToJdbcConverterTest {
-	private static final String SQLMAP_RESOURCE = "/sqlmaps/test-sqlmap.xml";
+	private static final String SQLMAP_RESOURCE = "src/test/resources/sqlmaps/test-sqlmap.xml";
 	private final IbatisToJdbcConverter converter = new IbatisToJdbcConverter();
 
-	// ────────────────────────────────────────────────────────────────
-	// convert() 模式：全内联字面量，输出最终可读 SQL
-	// ────────────────────────────────────────────────────────────────
+	@BeforeEach
+	void setUp() throws IOException {
+		converter.loadSqlMapsFromClasspath(SQLMAP_RESOURCE);
+	}
+
+	/**
+	 * 处理成jdbc可执行的sql，#占位符# 应替换为 ?，$占位符替换成正确的值
+	 */
+	@Test
+	void convertPreparedKeepsDollarPlaceholdersAsRawText() throws Exception {
+
+		// $ 占位符放入值，# 占位符转换为 ?，绑定值按出现顺序收集
+		ConvertedSql prepared = converter.convertPrepared(
+				"findUsersRawAndSafe",
+				mapOf("status", "ACTIVE", "orderBy", "created_at DESC"));
+		assertEquals(
+				"SELECT id, name, status FROM users WHERE status = ? ORDER BY created_at DESC",
+				prepared.getSql());
+		assertEquals(listOf("ACTIVE"), prepared.getPreparedBindings());
+
+		// 测试 #{key}# 或者 ${key}$ 这种边界情况，确保仍然正确处理
+		ConvertedSql bracePrepared = converter.convertPrepared(
+				"findBraceWrapped",
+				mapOf("status", "ACTIVE", "orderBy", "id DESC"));
+		assertEquals(
+				"SELECT * FROM users WHERE status = ? ORDER BY id DESC",
+				bracePrepared.getSql());
+		assertEquals(listOf("ACTIVE"), bracePrepared.getPreparedBindings());
+	}
 
 	/**
 	 * 测试参数内联：Map/String/Number/Bean/List/Array等各类参数类型
@@ -29,59 +53,61 @@ class IbatisToJdbcConverterTest {
 	 */
 	@Test
 	void convertInlinesAllParameterTypes() throws Exception {
-		String xml = readResource(SQLMAP_RESOURCE);
 
 		// Map 参数：内联为字面量
-		ConvertedSql mapResult = converter.convert(xml, "findUsersByIdMap", mapOf("id", 1001));
-		assertEquals("SELECT id, name, status, created_at FROM users where id = 1001", mapResult.getSql());
+		ConvertedSql mapResult = converter.convertPrepared("findUsersByIdMap", mapOf("id", 1001));
+		assertEquals("SELECT id, name, status, created_at FROM users where id = 1001", mapResult.toPreviewSql());
 		assertEquals(mapOf("id", 1001), mapResult.getParameters());
 		assertEquals("select", mapResult.getStatementType());
 		assertEquals("user", mapResult.getResultClass());
 
 		// String 参数：内联为字符串字面量
-		ConvertedSql strResult = converter.convert(xml, "findUsersById", "U1001");
-		assertEquals("SELECT id, name, status, created_at FROM users where id = 'U1001'", strResult.getSql());
+		ConvertedSql strResult = converter.convertPrepared("findUsersById", "U1001");
+		assertEquals("SELECT id, name, status, created_at FROM users where id = 'U1001'", strResult.toPreviewSql());
 		assertEquals("U1001", strResult.getParameters());
 
 		// Number 参数：内联为数字字面量
-		ConvertedSql numResult = converter.convert(xml, "findUsersByIdNumber", 123);
-		assertEquals("SELECT id, name, status, created_at FROM users where id = 123", numResult.getSql());
+		ConvertedSql numResult = converter.convertPrepared("findUsersByIdNumber", 123);
+		assertEquals("SELECT id, name, status, created_at FROM users where id = 123", numResult.toPreviewSql());
 		assertEquals(123, numResult.getParameters());
 		assertEquals("select", numResult.getStatementType());
 
 		// Bean 参数：内联为属性值的字面量
-		ConvertedSql beanResult = converter.convert(xml, "findUsersByIdMap", new UserFilter(1001, "ACTIVE"));
-		assertEquals("SELECT id, name, status, created_at FROM users where id = 1001", beanResult.getSql());
+		ConvertedSql beanResult = converter.convertPrepared("findUsersByIdMap", new UserFilter(1001, "ACTIVE"));
+		assertEquals("SELECT id, name, status, created_at FROM users where id = 1001", beanResult.toPreviewSql());
+		assertEquals(listOf(1001).toString(), beanResult.getPreparedBindings().toString());
 
 		// 嵌套 Bean 参数：内联为嵌套属性值的字面量
-		ConvertedSql nestedBeanResult = converter.convert(
-				xml,
+		ConvertedSql nestedBeanResult = converter.convertPrepared(
 				"findUsersByNestedBean",
 				new SearchCriteria(new UserFilter(1001, "ACTIVE")));
 		assertEquals("SELECT id, name, status FROM users where id = 1001 AND status = 'ACTIVE'",
-				nestedBeanResult.getSql());
+				nestedBeanResult.toPreviewSql());
 
 		// List 参数：iterate 内联每个元素
-		ConvertedSql listResult = converter.convert(xml, "findUsersByIdsList", listOf("A001", "B002"));
-		assertEquals("SELECT id, name, status, created_at FROM users where id IN ('A001','B002')", listResult.getSql());
+		ConvertedSql listResult = converter.convertPrepared("findUsersByIdsList", listOf("A001", "B002"));
+		assertEquals("SELECT id, name, status, created_at FROM users where id IN ('A001','B002')",
+				listResult.toPreviewSql());
 		assertEquals(listOf("A001", "B002"), listResult.getParameters());
 
 		// Array 参数：iterate 内联每个元素
-		ConvertedSql collectionAliasResult = converter.convert(xml, "findUsersByCollectionAlias", listOf("A001", "B002"));
+		ConvertedSql collectionAliasResult = converter.convertPrepared("findUsersByCollectionAlias",
+				listOf("A001", "B002"));
 		assertEquals("SELECT id, name, status, created_at FROM users where id IN ('A001','B002')",
-				collectionAliasResult.getSql());
+				collectionAliasResult.toPreviewSql());
 
 		// Array 参数别名访问：内联每个元素
-		ConvertedSql arrayAliasResult = converter.convert(xml, "findUsersByArrayAlias", new Long[] { 1001L, 1002L });
-		assertEquals("SELECT id, name, status, created_at FROM users where id IN (1001,1002)", arrayAliasResult.getSql());
+		ConvertedSql arrayAliasResult = converter.convertPrepared("findUsersByArrayAlias",
+				new Long[] { 1001L, 1002L });
+		assertEquals("SELECT id, name, status, created_at FROM users where id IN (1001,1002)",
+				arrayAliasResult.toPreviewSql());
 
 		// 参数别名访问：_parameter/criteria等别名能正确解析
-		ConvertedSql parameterAliasResult = converter.convert(
-				xml,
+		ConvertedSql parameterAliasResult = converter.convertPrepared(
 				"findUsersByParameterAlias",
 				new SearchCriteria(new UserFilter(1001, "ACTIVE")));
 		assertEquals("SELECT id, name, status FROM users where id = 1001 AND status = 'ACTIVE'",
-				parameterAliasResult.getSql());
+				parameterAliasResult.toPreviewSql());
 	}
 
 	/**
@@ -90,21 +116,20 @@ class IbatisToJdbcConverterTest {
 	 */
 	@Test
 	void convertHandlesEdgeCases() throws Exception {
-		String xml = readResource(SQLMAP_RESOURCE);
 
 		// null 参数：内联为 null
-		ConvertedSql nullResult = converter.convert(xml, "findUsersById", null);
-		assertEquals("SELECT id, name, status, created_at FROM users where id = null", nullResult.getSql());
+		ConvertedSql nullResult = converter.convertPrepared("findUsersById", null);
+		assertEquals("SELECT id, name, status, created_at FROM users where id = null", nullResult.toPreviewSql());
 		assertEquals(null, nullResult.getParameters());
 
 		// 空字符串：内联为 ''
-		ConvertedSql emptyStrResult = converter.convert(xml, "findUsersById", "");
-		assertEquals("SELECT id, name, status, created_at FROM users where id = ''", emptyStrResult.getSql());
+		ConvertedSql emptyStrResult = converter.convertPrepared("findUsersById", "");
+		assertEquals("SELECT id, name, status, created_at FROM users where id = ''", emptyStrResult.toPreviewSql());
 		assertEquals("", emptyStrResult.getParameters());
 
 		// 空 List：iterate 输出空括号或 (null)
-		ConvertedSql emptyListResult = converter.convert(xml, "findUsersByIdsList", listOf());
-		assertEquals("SELECT id, name, status, created_at FROM users where id IN (null)", emptyListResult.getSql());
+		ConvertedSql emptyListResult = converter.convertPrepared("findUsersByIdsList", listOf());
+		assertEquals("SELECT id, name, status, created_at FROM users where id IN (null)", emptyListResult.toPreviewSql());
 		assertEquals(listOf(), emptyListResult.getParameters());
 	}
 
@@ -114,16 +139,14 @@ class IbatisToJdbcConverterTest {
 	 */
 	@Test
 	void convertWithDynamicTagsAndIterate() throws Exception {
-		String xml = readResource(SQLMAP_RESOURCE);
 
 		// 全部参数命中：dynamic 条件全部展开，iterate 内联每个元素
-		ConvertedSql result = converter.convert(
-				xml,
+		ConvertedSql result = converter.convertPrepared(
 				"findUsers",
 				mapOf("name", "Alice", "status", "ACTIVE", "ids", listOf(10, 11, 12)));
 		assertEquals(
 				"SELECT id, name FROM users WHERE name = 'Alice' AND status = 'ACTIVE' AND id IN (10,11,12)",
-				result.getSql());
+				result.toPreviewSql());
 		assertEquals(
 				mapOf("name", "Alice", "status", "ACTIVE", "ids", listOf(10, 11, 12)),
 				result.getParameters());
@@ -135,10 +158,10 @@ class IbatisToJdbcConverterTest {
 	 */
 	@Test
 	void convertSkipsEmptyConditions() throws Exception {
-		String xml = readResource(SQLMAP_RESOURCE);
 		// dynamic 条件全部跳过，返回基础 SELECT 语句
-		ConvertedSql result = converter.convert(xml, "findUsers", mapOf("name", "", "status", null, "ids", listOf()));
-		assertEquals("SELECT id, name FROM users", result.getSql());
+		ConvertedSql result = converter.convertPrepared("findUsers",
+				mapOf("name", "", "status", null, "ids", listOf()));
+		assertEquals("SELECT id, name FROM users", result.toPreviewSql());
 	}
 
 	/**
@@ -147,41 +170,38 @@ class IbatisToJdbcConverterTest {
 	 */
 	@Test
 	void convertMultipleStatementShapes() throws Exception {
-		String xml = readResource(SQLMAP_RESOURCE);
 
 		// include 引用：sql 片段被正确替换
-		ConvertedSql includeUsers = converter.convert(xml, "findUsersByInclude", mapOf("status", "ACTIVE"));
-		assertEquals("SELECT id, name, status FROM users WHERE status = 'ACTIVE'", includeUsers.getSql());
+		ConvertedSql includeUsers = converter.convertPrepared("findUsersByInclude", mapOf("status", "ACTIVE"));
+		assertEquals("SELECT id, name, status FROM users WHERE status = 'ACTIVE'", includeUsers.toPreviewSql());
 
 		// SQL 标签：sql 片段被正确替换
-		ConvertedSql keywordUsers = converter.convert(xml, "findUsersByKeyword", mapOf("keyword", "tom", "deleted", null));
+		ConvertedSql keywordUsers = converter.convertPrepared("findUsersByKeyword",
+				mapOf("keyword", "tom", "deleted", null));
 		assertEquals(
 				"SELECT id, name, status FROM users WHERE (name LIKE '%' || 'tom' || '%' OR email LIKE '%' || 'tom' || '%') AND deleted = 0",
-				keywordUsers.getSql());
+				keywordUsers.toPreviewSql());
 
 		// UPDATE 语句：正确识别 statementType，SET 子句正确渲染
-		ConvertedSql updateUser = converter.convert(
-				xml,
+		ConvertedSql updateUser = converter.convertPrepared(
 				"updateUser",
 				mapOf("id", 1001, "name", "Bob", "status", "DISABLED", "email", "bob@example.com"));
 		assertEquals(
 				"UPDATE users SET name = 'Bob', status = 'DISABLED', email = 'bob@example.com' WHERE id = 1001",
-				updateUser.getSql());
+				updateUser.toPreviewSql());
 		assertEquals("update", updateUser.getStatementType());
 
 		// DELETE 语句：正确识别 statementType，WHERE 子句正确渲染
-		ConvertedSql deleteUsers = converter.convert(
-				xml,
+		ConvertedSql deleteUsers = converter.convertPrepared(
 				"deleteUsersByIds",
 				mapOf("ids", listOf(21, 22, 23)));
-		assertEquals("DELETE FROM users WHERE id IN (21,22,23)", deleteUsers.getSql());
+		assertEquals("DELETE FROM users WHERE id IN (21,22,23)", deleteUsers.toPreviewSql());
 
 		// DELETE 语句 + List 参数：正确识别 statementType，WHERE 子句正确渲染，List 参数被 iterate 内联
-		ConvertedSql deleteUsersByCodes = converter.convert(
-				xml,
+		ConvertedSql deleteUsersByCodes = converter.convertPrepared(
 				"deleteUsersByCodes",
 				mapOf("codes", listOf("A001", "B002", "C003")));
-		assertEquals("DELETE FROM users WHERE code IN ('A001','B002','C003')", deleteUsersByCodes.getSql());
+		assertEquals("DELETE FROM users WHERE code IN ('A001','B002','C003')", deleteUsersByCodes.toPreviewSql());
 	}
 
 	// ────────────────────────────────────────────────────────────────
@@ -194,18 +214,18 @@ class IbatisToJdbcConverterTest {
 	 */
 	@Test
 	void supportsExtendedParameterAliasesAndEnumComparison() throws Exception {
-		String xml = readResource(SQLMAP_RESOURCE);
 
 		// 参数别名访问：内联为属性值的字面量
-		ConvertedSql aliasResult = converter.convert(
-				xml,
+		ConvertedSql aliasResult = converter.convertPrepared(
 				"findUsersByParameterAlias",
 				new SearchCriteria(new UserFilter(1001, "ACTIVE")));
-		assertEquals("SELECT id, name, status FROM users where id = 1001 AND status = 'ACTIVE'", aliasResult.getSql());
+		assertEquals("SELECT id, name, status FROM users where id = 1001 AND status = 'ACTIVE'",
+				aliasResult.toPreviewSql());
 
 		// 枚举比较：枚举值被正确解析并与 compareValue 比较
-		ConvertedSql enumCompareResult = converter.convert(xml, "findByEnumCompare", new PriorityHolder(Priority.HIGH));
-		assertEquals("SELECT * FROM users WHERE priority_flag = 1", enumCompareResult.getSql());
+		ConvertedSql enumCompareResult = converter.convertPrepared("findByEnumCompare",
+				new PriorityHolder(Priority.HIGH));
+		assertEquals("SELECT * FROM users WHERE priority_flag = 1", enumCompareResult.toPreviewSql());
 	}
 
 	/**
@@ -214,13 +234,12 @@ class IbatisToJdbcConverterTest {
 	 */
 	@Test
 	void supportsUnaryConditionalTags() throws Exception {
-		String xml = readResource(SQLMAP_RESOURCE);
 
 		// isNotNull/isNotEmpty 条件命中，isNull/isEmpty 条件跳过
-		ConvertedSql result = converter.convert(xml, "findByUnaryTags", mapOf("status", "ACTIVE", "name", "Alice"));
+		ConvertedSql result = converter.convertPrepared("findByUnaryTags", mapOf("status", "ACTIVE", "name", "Alice"));
 		assertEquals(
 				"SELECT * FROM users WHERE deleted IS NULL AND status = 'ACTIVE' AND name = 'Alice' AND missing_flag = 1",
-				result.getSql());
+				result.toPreviewSql());
 	}
 
 	/**
@@ -230,16 +249,14 @@ class IbatisToJdbcConverterTest {
 	 */
 	@Test
 	void supportsBinaryConditionalTagsAndCompareProperty() throws Exception {
-		String xml = readResource(SQLMAP_RESOURCE);
 
 		// 多条件组合：多个二元条件标签同时命中，compareProperty 正确比较两个参数
-		ConvertedSql result = converter.convert(
-				xml,
+		ConvertedSql result = converter.convertPrepared(
 				"findByBinaryTags",
 				mapOf("type", 1, "status", "ACTIVE", "age", 20, "score", 90, "rank", 2, "maxRank", 5, "level", 3));
 		assertEquals(
 				"SELECT * FROM users WHERE type = 1 AND status <> 'DISABLED' AND age > 18 AND score >= 90 AND rank < maxRank AND level <= 3",
-				result.getSql());
+				result.toPreviewSql());
 	}
 
 	/**
@@ -248,15 +265,14 @@ class IbatisToJdbcConverterTest {
 	 */
 	@Test
 	void supportsParameterPresentTags() throws Exception {
-		String xml = readResource(SQLMAP_RESOURCE);
 
 		// 参数存在：命中 isParameterPresent 分支
-		ConvertedSql presentResult = converter.convert(xml, "findByParameterPresence", mapOf("id", 1));
-		assertEquals("SELECT * FROM users WHERE present_flag = 1", presentResult.getSql());
+		ConvertedSql presentResult = converter.convertPrepared("findByParameterPresence", mapOf("id", 1));
+		assertEquals("SELECT * FROM users WHERE present_flag = 1", presentResult.toPreviewSql());
 
 		// 参数不存在：命中 isNotParameterPresent 分支
-		ConvertedSql absentResult = converter.convert(xml, "findByParameterPresence", null);
-		assertEquals("SELECT * FROM users WHERE present_flag = 0", absentResult.getSql());
+		ConvertedSql absentResult = converter.convertPrepared("findByParameterPresence", null);
+		assertEquals("SELECT * FROM users WHERE present_flag = 0", absentResult.toPreviewSql());
 	}
 
 	/**
@@ -265,12 +281,11 @@ class IbatisToJdbcConverterTest {
 	 */
 	@Test
 	public void testResultMapIntegration() throws Exception {
-		String xml = readResource(SQLMAP_RESOURCE);
 		// resultMap引用：resultMapId被正确解析和传递
-		ConvertedSql convertedSql = converter.convert(xml, "selectUserByResultMap", null);
+		ConvertedSql convertedSql = converter.convertPrepared("selectUserByResultMap", null);
 
 		assertNotNull(convertedSql);
-		assertEquals("SELECT user_id, user_name FROM users", convertedSql.getSql());
+		assertEquals("SELECT user_id, user_name FROM users", convertedSql.toPreviewSql());
 		assertEquals("userResultMap", convertedSql.getResultMapId());
 	}
 
@@ -280,11 +295,10 @@ class IbatisToJdbcConverterTest {
 	 */
 	@Test
 	void supportsNamespacedResultMapReference() throws Exception {
-		String xml = readResource(SQLMAP_RESOURCE);
 		// resultMap引用：命名空间前缀被去掉，正确回退到本地id
-		ConvertedSql convertedSql = converter.convert(xml, "selectUserByNamespacedResultMap", null);
+		ConvertedSql convertedSql = converter.convertPrepared("selectUserByNamespacedResultMap", null);
 
-		assertEquals("SELECT user_id, user_name FROM users", convertedSql.getSql());
+		assertEquals("SELECT user_id, user_name FROM users", convertedSql.toPreviewSql());
 		assertEquals("userResultMap", convertedSql.getResultMapId());
 	}
 
@@ -298,8 +312,8 @@ class IbatisToJdbcConverterTest {
 		assertTrue(loaded > 0);
 
 		// 直接按 statementId 调用，验证能正确转换 SQL
-		ConvertedSql result = converter.convert("findUsersByIdMap", mapOf("id", 1001));
-		assertEquals("SELECT id, name, status, created_at FROM users where id = 1001", result.getSql());
+		ConvertedSql result = converter.convertPrepared("findUsersByIdMap", mapOf("id", 1001));
+		assertEquals("SELECT id, name, status, created_at FROM users where id = 1001", result.toPreviewSql());
 		assertEquals(mapOf("id", 1001), result.getParameters());
 	}
 
@@ -311,7 +325,7 @@ class IbatisToJdbcConverterTest {
 	void throwsWhenConvertByStatementIdWithoutLoading() {
 		IbatisToJdbcConverter freshConverter = new IbatisToJdbcConverter();
 		IllegalStateException exception = assertThrows(IllegalStateException.class,
-				() -> freshConverter.convert("findUsersByIdMap", mapOf("id", 1001)));
+				() -> freshConverter.convertPrepared("findUsersByIdMap", mapOf("id", 1001)));
 		assertTrue(exception.getMessage().contains("loadSqlMapsFromClasspath"));
 	}
 
@@ -326,13 +340,10 @@ class IbatisToJdbcConverterTest {
 	 */
 	@Test
 	void throwsWhenStatementIdDoesNotExist() throws Exception {
-		String xml = readResource(SQLMAP_RESOURCE);
 
 		IllegalStateException exception = assertThrows(IllegalStateException.class,
-				() -> converter.convert(xml, "missingStatement", mapOf("id", 1)));
-
-		assertTrue(exception.getCause() instanceof IllegalArgumentException);
-		assertEquals("Cannot find statement: missingStatement", exception.getCause().getMessage());
+				() -> converter.convertPrepared("missingStatement", mapOf("id", 1)));
+		assertTrue(exception.getMessage().contains("Cannot find statementId in memory index: missingStatement"));
 	}
 
 	/**
@@ -342,10 +353,9 @@ class IbatisToJdbcConverterTest {
 	 */
 	@Test
 	void throwsWhenIncludeFragmentDoesNotExist() throws Exception {
-		String xml = readResource(SQLMAP_RESOURCE);
 
 		IllegalStateException exception = assertThrows(IllegalStateException.class,
-				() -> converter.convert(xml, "brokenInclude", null));
+				() -> converter.convertPrepared("brokenInclude", null));
 
 		assertTrue(exception.getCause() instanceof IllegalArgumentException);
 		assertEquals("Cannot find sql fragment: missingFragment", exception.getCause().getMessage());
@@ -358,22 +368,12 @@ class IbatisToJdbcConverterTest {
 	 */
 	@Test
 	void throwsWhenResultMapDoesNotExist() throws Exception {
-		String xml = readResource(SQLMAP_RESOURCE);
 
 		IllegalStateException exception = assertThrows(IllegalStateException.class,
-				() -> converter.convert(xml, "brokenResultMap", null));
+				() -> converter.convertPrepared("brokenResultMap", null));
 
 		assertTrue(exception.getCause() instanceof IllegalArgumentException);
 		assertEquals("Cannot find resultMap: notExists", exception.getCause().getMessage());
-	}
-
-	private String readResource(String resourcePath) {
-		try {
-			return TestSupport.readResource(IbatisToJdbcConverterTest.class, resourcePath);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
-
 	}
 
 	private static final class UserFilter {

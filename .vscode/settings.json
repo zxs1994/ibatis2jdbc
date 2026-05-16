@@ -9,5 +9,6 @@
   ],
   "terminal.integrated.env.osx": {
     "JAVA_HOME": "/Users/xusheng/Library/Java/JavaVirtualMachines/corretto-1.8.0_492/Contents/Home"
-  }
+  },
+  "java.debug.settings.onBuildFailureProceed": true
 }

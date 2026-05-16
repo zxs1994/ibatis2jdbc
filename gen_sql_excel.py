@@ -3,7 +3,7 @@
 """
 从 IbatisToJdbcConverterTest 自动提取：
 1) 场景：@Test 上方注释第一行
-2) 入参：converter.convert 的第三个参数（若为二参重载则取第二个参数）
+2) 入参：converter.convertPrepared 的第二个参数
 3) 原始 XML：按 statementId 从 test-sqlmap.xml 提取对应节点
 4) 得到的 SQL：优先取 assertEquals("...", var.getSql())，否则标记为 N/A
 """
@@ -17,7 +17,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 ROOT = Path("/Users/xusheng/Desktop/blackbox/ibatis2jdbc")
 TEST_JAVA = ROOT / "src/test/java/com/blackbox/ibatis2jdbc/IbatisToJdbcConverterTest.java"
 SQLMAP_XML = ROOT / "src/test/resources/sqlmaps/test-sqlmap.xml"
-OUTPUT = ROOT / "IbatisToJdbcConverterTest_全量测试场景.xlsx"
+OUTPUT = ROOT / "IbatisToJdbcConverter_场景测试.xlsx"
 
 
 def split_top_level_args(arg_text: str):
@@ -285,7 +285,7 @@ def extract_comment_above_index(text: str, index: int):
 
 def extract_convert_calls(method_body: str):
     calls = []
-    marker = "converter.convert("
+    marker = "converter.convertPrepared("
     start = 0
 
     while True:
@@ -293,7 +293,7 @@ def extract_convert_calls(method_body: str):
         if idx == -1:
             break
 
-        open_idx = idx + len("converter.convert")
+        open_idx = idx + len("converter.convertPrepared")
         close_idx = find_matching_paren(method_body, open_idx)
         if close_idx == -1:
             break
@@ -377,10 +377,7 @@ def build_rows():
             end_index = call["end"]
             decl_start = call["decl_start"]
 
-            if len(args) >= 3:
-                statement_raw = args[1]
-                input_param = args[2].strip()
-            elif len(args) == 2:
+            if len(args) == 2:
                 statement_raw = args[0]
                 input_param = args[1].strip()
             else:
@@ -392,11 +389,18 @@ def build_rows():
 
             next_start = calls[call_index + 1]["start"] if call_index + 1 < len(calls) else len(method_body)
             search_block = method_body[end_index:next_start]
+            # 优先查 toPreviewSql()，再查 getSql()
             sql_match = re.search(
-                rf'assertEquals\(\s*"((?:\\.|[^"\\])*)"\s*,\s*{re.escape(var_name)}\.getSql\(\)\s*\);',
+                rf'assertEquals\(\s*"((?:\\.|[^"\\])*)"\s*,\s*{re.escape(var_name)}\.toPreviewSql\(\)\s*\);',
                 search_block,
                 re.S,
             )
+            if not sql_match:
+                sql_match = re.search(
+                    rf'assertEquals\(\s*"((?:\\.|[^"\\])*)"\s*,\s*{re.escape(var_name)}\.getSql\(\)\s*\);',
+                    search_block,
+                    re.S,
+                )
             sql = sql_match.group(1).replace('\\"', '"') if sql_match else "N/A"
 
             sub_scene = extract_comment_above_index(method_body, decl_start)

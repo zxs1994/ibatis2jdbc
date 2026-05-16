@@ -1,5 +1,5 @@
 -- test-sqlmap.xml statement SQL 脚本
--- 资源路径: /sqlmaps/test-sqlmap.xml
+-- 资源路径: src/test/resources/sqlmaps/test-sqlmap.xml
 -- 用例数: 39
 -- 通过: 37
 -- 失败: 2

@@ -37,25 +37,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SqlMapXmlReportTest {
   private static final String RESOURCE_PROPERTY = "sqlmap.resource";
   private static final String REPORT_PROPERTY = "sqlmap.report";
-
-  private IbatisToJdbcConverter converter;
   private String xml;
   private String sqlMapResource;
   private String sqlMapFileName;
   private Path reportPath;
   private Path sqlScriptPath;
 
+  private static final String SQLMAP_RESOURCE = "src/test/resources/sqlmaps/test-sqlmap.xml";
+  private final IbatisToJdbcConverter converter = new IbatisToJdbcConverter();
+
   @BeforeEach
   void setUp() throws IOException {
-    converter = new IbatisToJdbcConverter();
-    // sqlMapResource = normalizeResourcePath(System.getProperty(RESOURCE_PROPERTY,
-    // "/online_sqlmaps/hr_sqlmap.xml"));
-    sqlMapResource = normalizeResourcePath(System.getProperty(RESOURCE_PROPERTY,
-        "/sqlmaps/test-sqlmap.xml"));
-    sqlMapFileName = extractFileName(sqlMapResource);
+    sqlMapResource = normalizeResourcePath(System.getProperty(RESOURCE_PROPERTY, SQLMAP_RESOURCE));
+    String sqlMapFilePath = toFileSystemSqlMapPath(sqlMapResource);
+    sqlMapFileName = extractFileName(sqlMapFilePath);
     reportPath = resolveReportPath(sqlMapFileName, System.getProperty(REPORT_PROPERTY));
     sqlScriptPath = resolveSqlScriptPath(reportPath);
-    xml = TestSupport.readResource(SqlMapXmlReportTest.class, sqlMapResource);
+    xml = new String(Files.readAllBytes(Paths.get(sqlMapFilePath)), StandardCharsets.UTF_8);
+    converter.clearLoadedSqlMaps();
+    converter.loadSqlMapsFromClasspath(sqlMapFilePath);
   }
 
   @Test
@@ -68,8 +68,8 @@ class SqlMapXmlReportTest {
       String finalSql = null;
       String resolvedStatementType = statementCase.statementType;
       try {
-        ConvertedSql convertedSql = converter.convert(xml, statementCase.statementId, statementCase.parameters);
-        finalSql = convertedSql.getSql();
+        ConvertedSql convertedSql = converter.convertPrepared(statementCase.statementId, statementCase.parameters);
+        finalSql = convertedSql.toPreviewSql();
         resolvedStatementType = convertedSql.getStatementType();
         assertTrue(finalSql != null && !finalSql.trim().isEmpty(), statementCase.statementId + " generated blank SQL");
         assertTrue(!IbatisXmlSupport.containsDynamicTagMarkup(finalSql) && !finalSql.contains("<![CDATA["),
@@ -404,10 +404,16 @@ class SqlMapXmlReportTest {
 
   private String normalizeResourcePath(String value) {
     if (value == null || value.trim().isEmpty()) {
-      return "/online_sqlmaps/hr_sqlmap.xml";
+      return SQLMAP_RESOURCE;
     }
-    String trimmed = value.trim();
-    return trimmed.startsWith("/") ? trimmed : "/" + trimmed;
+    return value.trim();
+  }
+
+  private String toFileSystemSqlMapPath(String resourcePath) {
+    if (resourcePath.startsWith("/")) {
+      return "src/test/resources" + resourcePath;
+    }
+    return resourcePath;
   }
 
   private String extractFileName(String resourcePath) {
