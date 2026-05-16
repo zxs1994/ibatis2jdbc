@@ -1,0 +1,557 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+
+    <!-- 查询补充未交原因档案信息_给业务人员发流程的信息 -->
+    <select id="getFillReasonArchives.business.select" resultClass="com.seeyon.apps.kk.phone.model.FillReasonArchives" >
+    	select v.id id,
+       	v.bengin_date bengin_date,
+       	v.end_date end_date,
+       	v.business_sendate business_sendate,
+       	v.secretary_sendate secretary_sendate,
+       	v.business_flag business_flag,
+       	v.secretary_flag secretary_flag
+		from vm_fillreason_archives v 
+		<![CDATA[where v.business_sendate <= sysdate
+		and nvl(v.business_flag,'0') <> '1']]> 
+    </select>
+    
+    <!-- 查询补充未交原因档案信息_给行政秘书发流程的信息 -->
+    <select id="getFillReasonArchives.sectetary.select" resultClass="com.seeyon.apps.kk.phone.model.FillReasonArchives" parameterClass="map">
+    	select v.id id,
+       	v.bengin_date bengin_date,
+       	v.end_date end_date,
+       	v.business_sendate business_sendate,
+       	v.secretary_sendate secretary_sendate,
+       	v.business_flag business_flag,
+       	v.secretary_flag secretary_flag
+		from vm_fillreason_archives v 
+		<![CDATA[where v.secretary_sendate <= sysdate
+		and nvl(v.secretary_flag,'0') <> '1']]> 
+    </select>
+    
+    <!-- 查询时间段内的未交手机档案 -->
+    <select id="getUnHandPhoneRecord.select" resultClass="com.seeyon.apps.kk.phone.model.UnHandPhoneRecord" parameterClass="map">
+    	select v.id id,
+    	v.register_date register_date,
+       	v.register_period register_period,
+       	v.uphand_member business,
+       	v.depart depart,
+       	v.hand_state hand_state,
+       	v.unhand_season unhand_season,
+       	v.send_state send_state,
+		v.comments comments
+		from vm_unhandphone_archives v
+		where v.unhand_season is null
+		and v.register_date between trunc(#benginDate#) and #endDate#
+		and v.hand_state = 2148475974818942065<!-- 未上交 -->
+		and v.send_state = -4924790884161860057<!-- 未发送 -->
+    </select>
+    
+    <select id="getUnHandPhoneRecord.secretary.select" resultClass="com.seeyon.apps.kk.phone.model.UnHandPhoneRecord" parameterClass="map">
+    	select v.id id,
+    	v.register_date register_date,
+       	v.register_period register_period,
+       	v.uphand_member business,
+       	v.depart depart,
+       	v.hand_state hand_state,
+       	v.unhand_season unhand_season,
+       	v.send_state send_state
+		from vm_unhandphone_archives v
+		where v.unhand_season is null
+		and v.register_date between #benginDate# and #endDate#
+		and v.hand_state = 2148475974818942065<!-- 未上交 -->
+		and v.send_state = -660051773175676407<!-- 已发送 -->
+    </select>
+    
+    <select id="getEvations.select" resultClass="com.seeyon.apps.kk.phone.model.Evations" parameterClass="map">
+    	select nvl(v.begindate,v.applytime) beginDate,
+    	v.enddate endDate,
+    	v.proposercode proposercode,
+    	v.evectiontype evectiontype 
+		from vm_evations v
+		<![CDATA[where nvl(v.begindate,v.applytime) <= #date# 
+		and v.enddate >= #date# 
+		and v.proposercode = #proposercode#]]> 
+		and rownum = 1
+    </select>
+    
+    <select id="getAbsence.select" resultClass="com.seeyon.apps.kk.phone.model.Absence" parameterClass="map">
+    	select v.proposercode proposercode,
+         v.begindate begindate,
+         v.enddate enddate,
+         v.beginPeriod beginPeriod,
+         v.endPeriod endPeriod
+    from  vm_absence v
+    <![CDATA[where v.begindate is not null
+    and v.enddate is not null
+    and to_date(to_char(v.begindate,'yyyy-mm-dd') || decode(v.beginperiod,770469099444389055,'00:00:00','12:00:00'),'yyyy-mm-ddhh24:mi:ss')  <= to_date(to_char(#date# ,'yyyy-mm-dd') || decode(#period#,-8856166350962081063,'09:00:00','13:00:00'),'yyyy-mm-ddhh24:mi:ss')
+		and to_date(to_char(v.enddate,'yyyy-mm-dd') || decode(v.endperiod,770469099444389055,'12:00:00','23:59:00'),'yyyy-mm-ddhh24:mi:ss') >=  to_date(to_char(#date# ,'yyyy-mm-dd') || decode(#period#,-8856166350962081063,'09:00:00','13:00:00'),'yyyy-mm-ddhh24:mi:ss')
+		and v.proposercode = #proposercode#
+		and rownum = 1]]> 
+    </select>
+    
+    <update id="unHandPhoneRecord.update"  parameterClass="map">
+		update vm_unhandphone_archives set unhand_season = #reason#,hand_state = 3725937545616052073
+		where id = #id#
+	</update>
+
+	<update id="updateO32CommentsToRecord.update"  parameterClass="map">
+		update vm_unhandphone_archives set comments = #comments#
+		where id = #id#
+	</update>
+	
+	<!-- 插入任务人员信息 -->
+	<insert id="fillReasonArchives.SonRecord.insert"  parameterClass="map">
+		insert into vm_fillreason_archives_son(id, formmain_id, sort,task_type,member,send_state)(
+       	select util_common.getAbsID,
+              #id#,
+              (select count(1) + 1 from  vm_fillreason_archives_son where formmain_id = #id#),
+              #taskEnumId#,
+              #userId#,
+              #sendEnumId#
+       	from dual)
+	</insert>
+
+	<!-- 往手机未交档案中插入一条数据 -->
+	<insert id="unHandPhoneRecord.insert" parameterClass="map">
+		insert into vm_unhandphone_archives(
+       		id,state,start_member_id,start_date,approve_member_id,approve_date,
+	       	finishedflag,ratifyflag,ratify_member_id,update_member,update_date,
+	       	register_date,register_period,uphand_member,depart,
+	       	hand_state,date_sources,
+	       	comments,send_state,hrid
+		) values (
+	       #id#,1,-6760911671874597139,sysdate,0,sysdate,
+	       0,0,0,-6760911671874597139,sysdate,
+	       #registerDate#,#registerPeriod#,#uphandMember#,#depart#,
+	       #handState#,-4757194022281916618,
+	       #comments#,-4924790884161860057,#hrId#
+		)
+	</insert>
+	
+	<insert id = "unHandPhoneRecordContent.insert" parameterClass = "long">
+	insert into ctp_content_all
+  (ID,
+   CREATE_ID,
+   CREATE_DATE,
+   MODIFY_ID,
+   MODIFY_DATE,
+   MODULE_TYPE,
+   MODULE_ID,
+   MODULE_TEMPLATE_ID,
+   CONTENT_TYPE,
+   CONTENT,
+   CONTENT_DATA_ID,
+   CONTENT_TEMPLATE_ID,
+   TITLE,
+   SORT)
+values
+  (util_common.getAbsID,
+   '-6760911671874597139',
+  sysdate,
+   '',
+   null,
+   '37',
+   #formId#,
+   '-1192136872180628670',
+   '20',
+   '',
+   #formId#,
+   '8962213824091408148',
+   '手机未交档案',
+   '0')
+	</insert>
+	<select id="fillReasonArchivesByDate.select" parameterClass="map" resultClass="java.lang.String">
+		select id from vm_fillreason_archives v
+		where to_char(v.bengin_date, 'yyyy-mm-dd') = to_char(#beginDate#, 'yyyy-mm-dd') and to_char(v.end_date, 'yyyy-mm-dd')=to_char(#endDate#, 'yyyy-mm-dd')
+	</select>
+	<!-- 将时间插入补充未交原因档案表 -->
+	<insert id="fillReasonArchives.insert" parameterClass="map">
+		insert into vm_fillreason_archives(
+		       id,state,start_member_id,start_date,approve_member_id,approve_date,
+			       	finishedflag,ratifyflag,ratify_member_id,update_member,update_date,
+		       bengin_date,end_date,
+		       business_sendate,business_flag,secretary_flag
+		)values(
+		          util_common.getAbsID,1,-6760911671874597139,sysdate,0,sysdate,
+			       0,0,0,-6760911671874597139,sysdate,
+		         #beginDate#,#endDate#,
+		        sysdate ,'0','0'
+		)
+	</insert>
+	
+	<!-- 判断是否已经存在该时段的未上交记录 -->
+    <select id="isHaveRecord.select" parameterClass="map" resultClass="long">
+    	select count(1) from vm_unhandphone_archives 
+    	where uphand_member = #uphandMember#
+		and   register_date = #registerDate#
+		and   register_period = #registerPeriod#	
+    </select>
+	
+	<!-- 判断是否为上交手机人员配置表中的人员 -->
+    <select id="isConfiguredPerson.select" parameterClass="map" resultClass="long">
+    	select count(1) from formmain_3592 where field0003 = #userId#
+    </select>
+    
+    <!-- 获取所有上交手机配置表中的人员 -->
+	<select id="getConfiguredPerson.select" parameterClass="map" resultClass="string">
+    	select field0003 from formmain_3592
+    </select>
+	<!-- 获取所有上交手机配置表中的人员 -->
+	<select id="getO32Info.select" parameterClass="map" resultClass="java.util.HashMap">
+    	select field0003 AS USERID,field0005 O32ID from formmain_3592
+    </select>
+	<!-- 删除子表空信息 -->
+	<update id="fillReasonArchives.SonRecord.delete"  parameterClass="map">
+		delete from vm_fillreason_archives_son
+		where formmain_id = #id#
+		and member is null
+	</update>
+	
+	<!-- 更新任务发送状态 -->
+	<update id="fillReasonArchives.businessFlag.update"  parameterClass="map">
+		update vm_fillreason_archives set business_flag = '1'
+		where id = #id#
+	</update>
+	<update id="fillReasonArchives.sectetaryFlag.update"  parameterClass="map">
+		update vm_fillreason_archives set secretary_flag = '1',secretary_sendate=sysdate
+		where id = #id#
+	</update>
+	
+	<update id="fillReasonArchives.update"  parameterClass="map">
+		update vm_fillreason_archives set secretary_sendate = #secretarySendate#
+		where id = #id#
+	</update>
+	
+	<!-- 根据部门获得行政秘书 -->
+	<select id="getSectetary.select" resultClass="string" parameterClass="map">
+		select field0004 from formmain_3593 where field0003 = #depart#
+	</select>
+	
+	<!-- 根据人员工号获取人员ID -->
+	<select id="getUserIdByHrId.select" resultClass="string" parameterClass="map">
+		select * from vm_member v, org_principal p 
+           where v.userid = p.member_id and v.hrId = #hrId#
+	</select>
+	
+	<!-- 获取需要执行查询的sql -->
+	<select id="phone.getPhonesql" parameterClass="map" resultClass="string">
+ select 
+'select o.str_state as manipulate, CONVERT(nvarchar(30), o.str_date,101) registerDate,
+CONVERT(nvarchar(30), o.str_date,120) date,
+case
+when convert(int, replace(convert(char(8), o.str_date, 108), ' || ''':''' || ','''')) between 080000 and 113000
+and convert(int, replace(convert(char(8), o.str_date, 108), ' || ''':''' || ', '''')) != 113000
+then' || '''AM''' || '
+when convert(int,replace(convert(char(8), o.str_date, 108), ' || ''':''' || ', '''')) between 113000 and 160000 then
+' || '''PM''' || '
+else
+''''
+end registerPeriod,
+k.keys hrId,
+u.userreason as  reason
+from [sjg].[dbo].[lz_openlog] o left join [sjg].[dbo].[lz_keys] k  on o.Str_CardNo = k.keys
+left join [sjg].[dbo].[lz_usertakekey] u
+on u.userid = o.Str_CardNo and u.date_time between DATEADD(MINUTE,-3,o.str_date) and DATEADD(MINUTE,3,o.str_date)
+where k.keys is not null and k.keys != ' || '''0''' || '
+and o.str_date between convert(datetime,' || '''_strBeginDate_''' || ' ,101) and convert(datetime, ' || '''_strEndDate_''' || ' ,101)
+and cast(DATEPART(HOUR,o.str_date) as int) between 8 and 16
+order by o.str_lockn,o.str_date '
+from dual
+    </select>
+    
+    <!-- 判断是否为工作日 -->
+    <select id="phone.isWorkDay.select" parameterClass="map" resultClass="long">
+    	select  util_common.isWorkDay(#date#) 
+    	from dual
+    </select>
+    <!-- 查找业务人员中时间流程发送时间超过规定时间的流程 -->
+    <select id="findBusinessFlowBydate.select" parameterClass="java.util.HashMap" resultClass="string">
+		select id from formmain_3595 f where  trunc(f.start_date) between trunc( #monday#) and trunc( #friday#) and f.finishedflag = 0
+	</select>
+    <update id="updateBusinessWriteByFormIds.updtae"  parameterClass="java.util.HashMap" >
+    	update wf_businesswritereason set note =  note || '超过规定期限未填写，由OA系统自动终止流程,终止时间' || to_char(sysdate,'yyyy-mm-dd') 
+        WHERE id IN
+        <iterate open="(" close=")" conjunction="," property="formIds">
+			#formIds[]#
+		</iterate>
+    </update>
+	<insert id="researcherShouldHandPhoneInfo.insert" parameterClass="com.seeyon.apps.kk.phone.model.ResearcherHandlePhoneModel">
+		insert into
+		vm_ResearcherHandlePhoneInfo
+		(id,
+		state,
+		start_member_id,
+		start_date,
+		approve_member_id,
+		approve_date,
+		finishedflag,
+		ratifyflag,
+		ratify_member_id,
+		ratify_date,
+		login_name,
+		depart_name,
+		km_id,
+		phone_hand_date,
+		userId)
+		values(
+		util_common.getAbsID,
+		#state#,
+		#start_member_id#,
+		#start_date#,
+		#approve_member_id#,
+		#approve_date#,
+		#finishedflag#,
+		#ratifyflag#,
+		#ratify_member_id#,
+		#ratify_date#,
+		#login_name#,
+		#depart_name#,
+		#km_id#,
+		to_date(#phone_hand_date#, 'yyyymmdd'),
+		util_user.getMemIdByMemCode(#km_id#))
+	</insert>
+	<select id="researcherHandlePhone.select" resultClass="java.lang.String" parameterClass="java.util.HashMap">
+		select
+		to_char(phone_hand_date, 'yyyymmdd')  || login_name
+		from vm_ResearcherHandlePhoneInfo where to_char(phone_hand_date, 'yyyymmdd') between #startdate# and #enddate#
+	</select>
+	<!-- 应交手机人员信息 -->
+	<select id="handPhoneMemberConfInfo.select" resultClass="java.util.HashMap">
+		select
+		field0003 memberId,
+		field0006 isResearcher
+		from formmain_3592
+	</select>
+	<!-- 根究时间查找应交手机人员数据信息 -->
+	<select id="findResearcherHandPhone.select" resultClass="java.lang.String" parameterClass="java.util.HashMap">
+		select (userId || to_char(phone_hand_date, 'MM/dd/yyyy')) as memberDate from vm_ResearcherHandlePhoneInfo where to_char(phone_hand_date, 'yyyy-mm-dd') between to_char(#beginDate#, 'yyyy-mm-dd') and to_char(#endDate#, 'yyyy-mm-dd')
+	</select>
+	<!-- 查找已经发起补填原因流程的人 -->
+	<select id="businessNoWriteReasonByDate.select" parameterClass="java.util.HashMap" resultClass="com.seeyon.apps.kk.phone.model.WriteReasonSecretaryModel">
+		select
+		distinct
+		'CL_FillInReason_T001' flowType,
+		to_char(#beginDate#, 'yyyy-mm-dd') || to_char(#endDate#, 'yyyy-mm-dd') || uphand_member flowId,
+		h.secretary writer,
+		'14000' sendUserNo,
+		v.depart depart,
+		to_char(sysdate, 'yyyy-mm-dd HH24:mi:ss') sendDate,
+		to_char(#beginDate#, 'yyyy-mm-dd') bengin_date,
+		to_char(#endDate#, 'yyyy-mm-dd') end_date,
+		v.uphand_member business
+		from vm_unhandphone_archives v
+		left join handPhoneSecretaryConfig h
+		on v.depart = h.depart
+		where v.unhand_season is null
+		and v.register_date between #beginDate# and #endDate#
+		and v.hand_state = 2148475974818942065
+		and v.unhand_season is null
+		and v.uphand_member not in
+		(select f.business
+		from vm_fillreason_phone f
+		where to_char(f.bengin_date, 'yyyy-mm-dd') =
+		to_char(#beginDate#, 'yyyy-mm-dd')
+		and to_char(f.end_date, 'yyyy-mm-dd') =
+		to_char(#endDate#, 'yyyy-mm-dd')
+		and f.business is not null)
+	</select>
+
+	<!-- 根据用户查找所有手机柜及交易系统操作记录 -->
+	<select id="phoneAndTradingRecordByUserId.select" parameterClass="java.util.HashMap" resultClass="com.seeyon.apps.kk.phone.model.PhoneAndTradingRecord">
+		select
+		id,
+		registerDate,
+		userId,
+		hrId,
+		mornSubState,
+		mornNonSubReason,
+		afterSubState,
+		afterNonSubReason
+		from vm_cap4_phoneAndTradingRecord
+		where userId = #userId#
+	</select>
+
+	<!-- 根据主表id查找手机柜明细表所有记录 -->
+	<select id="phoneCabinetSonRecordById.select" parameterClass="java.util.HashMap" resultClass="com.seeyon.apps.kk.phone.model.PhoneCabinetSonRecord">
+		select
+		id,
+		registerPeriod,
+		manipulate,
+		phoneCabineDate,
+		reason
+		from vm_cap4_phoneCabinetSonRecord
+		where formmain_id = #formmain_id#
+	</select>
+
+	<!-- 根据主表id查找交易系统明细表所有记录 -->
+	<select id="tradingSystemSonRecordById.select" parameterClass="java.util.HashMap" resultClass="com.seeyon.apps.kk.phone.model.TradingSystemSonRecord">
+		select
+		id,
+		registerPeriod,
+		referType,
+		o32IdOrLoginName,
+		name,
+		isOperationLog,
+		lastRecordDate,
+		platformStatus
+		from vm_cap4_tradingSystemSonRecord
+		where formmain_id = #formmain_id#
+	</select>
+
+	<!-- 插入手机柜及交易系统主表信息 -->
+	<insert id="insertPhoneAndTradingRecordRecord.insert" parameterClass="java.util.HashMap">
+		insert into vm_cap4_phoneAndTradingRecord(
+		ID,
+		STATE,
+		START_MEMBER_ID,
+		START_DATE,
+		APPROVE_MEMBER_ID,
+		APPROVE_DATE,
+		FINISHEDFLAG,
+		RATIFYFLAG,
+		RATIFY_MEMBER_ID,
+		RATIFY_DATE,
+		SORT,
+		MODIFY_MEMBER_ID,
+		MODIFY_DATE,
+		registerDate,
+		userId,
+		hrId,
+		mornSubState,
+		mornNonSubReason,
+		afterSubState,
+		afterNonSubReason
+		) VALUES(
+		#id#,
+		1,
+		null,
+		sysdate,
+		null,
+		sysdate,
+		0,
+		0,
+		0,
+		sysdate,
+		0,
+		null,
+		sysdate,
+		to_date(#registerDate#,'yyyy-MM-dd'),
+		#userId#,
+		#hrId#,
+		#mornSubState#,
+		#mornNonSubReason#,
+		#afterSubState#,
+		#afterNonSubReason#
+		)
+	</insert>
+
+	<!-- 更新手机柜及交易系统操作记录 -->
+	<update id="updatePhoneAndTradingRecord.update" parameterClass="java.util.HashMap" >
+		update vm_cap4_phoneAndTradingRecord
+		set
+		hrId = #hrId#,
+		mornSubState = #mornSubState#,
+		mornNonSubReason = #mornNonSubReason#,
+		afterSubState = #afterSubState#,
+		afterNonSubReason = #afterNonSubReason#
+		where id = #id#
+	</update>
+
+	<!-- 删除手机柜操作记录明细表数据 -->
+	<delete id="deletePhoneCabinetSonRecord.delete" >
+		delete vm_cap4_phoneCabinetSonRecord  where formmain_id =  #id#
+	</delete>
+
+	<!-- 删除交易系统操作记录明细表数据 -->
+	<delete id="deleteTradingSystemSonRecord.delete" >
+		delete vm_cap4_tradingSystemSonRecord  where formmain_id =  #id#
+	</delete>
+
+	<!-- 插入手机柜操作记录明细表数据-->
+	<insert id="insertPhoneCabinetSonRecord.insert" parameterClass="java.util.HashMap" >
+		insert into vm_cap4_phoneCabinetSonRecord values(util_common.getAbsID, #formmain_id#, #registerPeriod#, #manipulate#, to_date(#phoneCabineDate#,'yyyy-MM-dd HH24:mi:ss'), #reason#)
+	</insert>
+
+	<!-- 插入交易系统操作记录明细表数据 -->
+	<insert id="insertTradingSystemSonRecord.insert" parameterClass="java.util.HashMap" >
+		insert into vm_cap4_tradingSystemSonRecord values(util_common.getAbsID, #formmain_id#, #registerPeriod#, #referType#, #o32IdOrLoginName#, #name#, #isOperationLog#, to_date(#lastRecordDate#,'yyyy-MM-dd HH24:mi:ss'), #platformStatus#)
+	</insert>
+
+	<!-- 根据时间区间查找所有手机柜及交易系统操作记录ID -->
+	<select id="queryPhoneAndTradingIdByDate.select" parameterClass="java.util.HashMap" resultClass="string">
+		select id from vm_cap4_phoneAndTradingRecord
+		where to_char(registerDate, 'yyyy-mm-dd') = to_char(#registerDate#, 'yyyy-mm-dd')
+	</select>
+
+	<!-- 根据主表ID集合删除手机柜明细表数据 -->
+	<delete id="deletePhoneCabinetSonRecordById.delete"  parameterClass="java.util.HashMap" >
+		delete vm_cap4_phoneCabinetSonRecord  where formmain_id  in  ($ids$)
+	</delete>
+
+	<!-- 根据主表ID集合删除交易系统操作记录明细表数据 -->
+	<delete id="deleteTradingSystemSonRecordById.delete"  parameterClass="java.util.HashMap" >
+		delete vm_cap4_tradingSystemSonRecord  where formmain_id  in  ($ids$)
+	</delete>
+
+	<!-- 根据主表ID集合删除手机柜及交易系统主表数据 -->
+	<delete id="deletePhoneAndTradingRecordById.delete"  parameterClass="java.util.HashMap" >
+		delete vm_cap4_phoneAndTradingRecord  where id  in  ($ids$)
+	</delete>
+
+	<!-- 删除已经存在该时段的未上交记录 -->
+	<delete id="deleteIsHaveRecord.delete" parameterClass="java.util.HashMap" >
+		delete from vm_unhandphone_archives
+		where uphand_member = #uphandMember#
+		and   register_date = #registerDate#
+		and   register_period = #registerPeriod#
+	</delete>
+
+	<!-- 更新手机柜及交易系统上午未交手机理由 -->
+	<update id="updatePhoneAndTradingMornNonSubReason.update" parameterClass="java.util.HashMap" >
+		update vm_cap4_phoneAndTradingRecord
+		set
+		mornNonSubReason = #mornNonSubReason#
+		where to_char(registerDate, 'yyyy-mm-dd') = to_char(#registerDate#, 'yyyy-mm-dd') and userId = #userId#
+	</update>
+
+	<!-- 更新手机柜及交易系统下午未交手机理由 -->
+	<update id="updatePhoneAndTradingAfterSubReason.update" parameterClass="java.util.HashMap" >
+		update vm_cap4_phoneAndTradingRecord
+		set
+		afterNonSubReason = #afterNonSubReason#
+		where to_char(registerDate, 'yyyy-mm-dd') = to_char(#registerDate#, 'yyyy-mm-dd') and userId = #userId#
+	</update>
+
+	<!-- 更新手机柜及交易系统上午未交手机理由和状态 -->
+	<update id="updatePhoneAndTradingMornStateCause.update" parameterClass="java.util.HashMap" >
+		update vm_cap4_phoneAndTradingRecord
+		set
+		mornNonSubCause = #mornNonSubCause#,
+		mornSubState = 3725937545616052073
+		where to_char(registerDate, 'yyyy-mm-dd') = to_char(#registerDate#, 'yyyy-mm-dd') and userId = #userId#
+	</update>
+
+	<!-- 更新手机柜及交易系统下午未交手机理由和状态 -->
+	<update id="updatePhoneAndTradingAfterStateCause.update" parameterClass="java.util.HashMap" >
+		update vm_cap4_phoneAndTradingRecord
+		set
+		afterSubCause = #afterSubCause#,
+		afterSubState = 3725937545616052073
+		where to_char(registerDate, 'yyyy-mm-dd') = to_char(#registerDate#, 'yyyy-mm-dd') and userId = #userId#
+	</update>
+
+	<!-- 插入未填手机原因子表信息 -->
+	<update id="writeReason.SonRecord.insert" parameterClass="java.util.HashMap" >
+		insert into vm_writereason_phone_son
+		(id, formmain_id, sort, register_date, register_period, comments)
+		values(util_common.getAbsID, #formmain_id#,(select count(1) + 1 from vm_writereason_phone_son vws where vws.formmain_id = #formmain_id#), to_date(#register_date#,'yyyy-MM-dd'), #register_period#, #comments#)
+	</update>
+
+	<!-- 更新手机柜档案记录状态 -->
+	<update id="updateUnHandPhoneById.update"  parameterClass="map">
+		update vm_unhandphone_archives  set send_state = #send_state#
+		where id = #id#
+	</update>
+</sqlMap>

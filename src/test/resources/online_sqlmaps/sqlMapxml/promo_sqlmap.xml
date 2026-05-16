@@ -1,0 +1,249 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+	<!-- 报销接口查询 根据时间记性查询 -->
+	<!-- 返回值为promoEntity -->
+	<select id="getpromo.select" resultClass="com.seeyon.apps.kk.promo.model.promoEntity"
+		parameterClass="java.lang.String">
+		select
+		vm_applyson.id as ID,org_member.name as applyUser,
+		org_member.code as applyUserNo,vm_applymain.applyDate as applyDate,
+		vm_applymain.archiveDate as archiveDate,org_unit.name as applyDept ,
+		org_unit.code as applyDeptNo,vm_applyson.cateGory as cateGory,
+		vm_applyson.numbers as numbers,vm_applyson.usePurpose as
+		usePurpose,vm_applymain.flowId as flowId,vm_applyson.price as price
+		from
+		vm_applymain
+		join
+		vm_applyson
+		on vm_applymain.id=vm_applyson.formid
+		join
+		org_member
+		on
+		vm_applymain.applyUser=org_member.id
+		join org_unit
+		on
+		vm_applymain.applyDept=org_unit.id
+		where vm_applymain.applyDate <![CDATA[>]]>=
+		to_date(#applyDate#,'yyyy-mm-dd')
+	</select>
+	<!-- 获取正在盘点中的所有管理员 (org_member) -->
+	<select id="getOrgMemberId.select" resultClass="java.lang.String"
+		parameterClass="string">
+		select id from org_member t where org_department_id in
+		($batchDepart$)
+	</select>
+
+	<!-- 更新宣传品的信息 (vm_promobatchinfo) -->
+	<update id="batchCheckTable.update" parameterClass="map">
+		update
+		vm_promobatchinfo
+		set
+		<dynamic prepend=" ">
+			<isNotEmpty prepend="," property="isChange">
+				isChange =
+				util_common.getEnumIdByRefName('数量是否变化',#isChange#)
+			</isNotEmpty>
+			<isNotEmpty prepend="," property="checkCount">
+				checkCount = #checkCount#
+			</isNotEmpty>
+			<isNotEmpty prepend="," property="promoChangeCount">
+				promoChangeCount =
+				#promoChangeCount#
+			</isNotEmpty>
+			<isNotEmpty prepend="," property="batchNote">
+				checkNote = #batchNote#
+			</isNotEmpty>
+		</dynamic>
+		where promocode = #promoCode#
+	</update>
+	<!-- 根据编号进行删除 -->
+	<delete id="promoByid.delete" parameterClass="string">
+		delete from
+		vm_promobatchinfo where batchno =#batchno#
+	</delete>
+	<!-- 结束后进行全面删除 -->
+	<delete id="allInfo.delete" parameterClass="string">
+		delete from
+		vm_promobatchinfo
+	</delete>
+
+
+	<delete id="allInfoHistory.delete" parameterClass="string">
+		delete from
+		vm_promocheckhistory where promobatch=#promobatch#
+	</delete>
+
+
+
+
+
+	<!-- 查询所有的（vm_promobatchinfo）宣传品信息 -->
+	<select id="checkBatchInfo.select" resultClass="com.seeyon.apps.kk.promo.model.PromoBatchInfo"
+		parameterClass="map">
+		select id, batchno,
+		batchdate, batchmember, batchdepart, batchmanager,
+		stockcount,
+		checkcount,
+		checknote, promocode, ischange, promoprice,
+		promouse, promochangecount,
+		promoname
+		from vm_promobatchinfo
+		where 1=1
+		<isNotEmpty prepend="AND" property="promocode">
+			promocode = #promocode#
+		</isNotEmpty>
+	</select>
+
+	<!-- 宣传品盘点批次档案视图（vm_promocheckbatch） 查询宣传品盘点批次信息 -->
+	<select id="promocheck.select" resultClass="com.seeyon.apps.kk.promo.model.PromoCheckBatch"
+		parameterClass="java.lang.String">
+		select
+		id, batchno, applayuser, batchdepart,
+		batchmanager, batchstatus,applydate,checknote,checkremark
+		from
+		vm_promocheckbatch
+		where batchstatus=
+		util_common.getEnumIdByRefName('盘点状态',#status#)
+	</select>
+	<!-- 更改宣传品盘点批次状态（vm_promocheckbatch） -->
+	<update id="promocheck.update" parameterClass="map">
+		update
+		vm_promocheckbatch set batchstatus= #status# where
+		batchstatus=#statusing#
+	</update>
+	<!--根据批次号 查询部门（vm_promocheckbatch） -->
+	<select id="getDepart.select" resultClass="java.lang.String"
+		parameterClass="string">
+		select vm_promocheckbatch.batchdepart from
+		vm_promocheckbatch
+		where
+		vm_promocheckbatch.batchno=#batchno#
+	</select>
+
+	<!-- 根据批次号查询管理员（vm_promocheckbatch） -->
+	<select id="getManager.select" resultClass="java.lang.String"
+		parameterClass="string">
+		select vm_promocheckbatch.batchmanager from
+		vm_promocheckbatch
+		where
+		vm_promocheckbatch.batchno=#batchno#
+	</select>
+
+	<!-- 查询操作日志（vm_promooperatelog）中是否有数据 -->
+	<select id="operateLogById.select" resultClass="com.seeyon.apps.kk.promo.model.PromoOperteLog"
+		parameterClass="string">
+		select
+		id,manager,managerdepart,operatedate,promoname,promochangecount,operatetype,operateprice,promocode
+		from vm_promooperatelog where id = #operateLogId#
+	</select>
+	<!-- 更细日志表（vm_promooperatelog）中的库存信息 -->
+	<update id="promoOperateLog.update" parameterClass="com.seeyon.apps.kk.promo.model.PromoOperteLog">
+		update
+		vm_promooperatelog
+		set
+		promochangecount = #promoChangeCount#
+		where id =
+		#id#
+	</update>
+	<!-- 向日志表中插入数据（vm_promooperatelog） -->
+	<insert id="perateToPromoLog.insert" parameterClass="com.seeyon.apps.kk.promo.model.PromoOperteLog">
+		insert into
+		vm_promooperatelog
+		(id,manager,managerdepart,operatedate,promoname,promochangecount,operatetype,operateprice,promocode)
+		values
+		(#id#,#manager#,#managerDepart#,#operateDate#,#promoName#,#promoChangeCount#,#operateType#,#operatePrice#,#promoCode#)
+	</insert>
+	<!-- 宣传品操作日志（vm_promooperatelog） 向宣传品操作日志中插入数据 -->
+	<insert id="operateToPromoLog.insert" parameterClass="com.seeyon.apps.kk.promo.model.PromoOperteLog">
+		insert into
+		vm_promooperatelog
+		(id,manager,managerdepart,operatedate,promoname,promochangecount,operatetype,operateprice,promocode,updatemanager,updatedate)
+		values
+		(#id#,#manager#,#managerDepart#,#operateDate#,#promoName#,#promoChangeCount#,#operateType#,#operatePrice#,#promoCode#,#updateManager#,#updateDate#)
+	</insert>
+	<!-- 正文表信息(ctp_content_all)，向正文表中插入宣传品正文信息  -->
+	<insert id="contentInfoPromoLog.insert" parameterClass="map">
+        INSERT INTO  CTP_CONTENT_ALL( ID ,  CREATE_ID ,  CREATE_DATE ,  MODIFY_ID ,
+        MODIFY_DATE ,  MODULE_TYPE ,
+        MODULE_ID ,  MODULE_TEMPLATE_ID ,  CONTENT_TYPE ,  CONTENT ,  CONTENT_DATA_ID ,
+        CONTENT_TEMPLATE_ID ,  TITLE ,  SORT )
+        VALUES(util_common.getID,-6760911671874597139,SYSDATE,
+        -6760911671874597139,SYSDATE,37,#formId#,7461148667809252724,
+        20,null,#formId#, -3676677948578054032,'宣传品操作日志',0)
+	</insert>
+	
+	<!-- 插入宣传品历史档案中（vm_promocheckhistory） -->
+	<insert id="setPromoHistory.insert">
+		insert
+		into
+		vm_promocheckhistory (id,promobatch,
+		promodate, promouser,
+		promodep,
+		promoadmin, inventnumber, checknumber,
+		inventremark,ischange,
+		changenumber,promoname,batchno,promoprice)
+		select
+		util_common.getID(),vm_promobatchinfo.batchno,vm_promobatchinfo.batchdate,vm_promobatchinfo.batchmember,vm_promobatchinfo.batchdepart,vm_promobatchinfo.batchmanager,vm_promobatchinfo.stockcount,
+		vm_promobatchinfo.checkcount,vm_promobatchinfo.checknote,
+		vm_promobatchinfo.ischange,
+		vm_promobatchinfo.promochangecount,vm_promobatchinfo.promoname,vm_promobatchinfo.promocode,vm_promobatchinfo.promoprice
+		from vm_promobatchinfo
+	</insert>
+
+	<!-- 插入到宣传品盘点信息中（vm_promobatchinfo） -->
+	<insert id="setINnfos.insert" parameterClass="map">
+		insert
+		into
+		vm_promobatchinfo(id,promocode,batchno,batchdate,batchmember,batchdepart,batchmanager,stockcount,checknote,promoname,promoprice)
+		select
+		util_common.getID(),pv.promono,pb.batchno,pb.applydate,pb.applayuser,pv.dependents,pv.admins,pv.promoquantity,pb.checknote,pv.promoname,pv.promoprice
+		from vm_promoinvent pv, vm_promocheckbatch pb
+		where
+		pb.batchno=#batchno#
+		and (pv.dependents in
+		<iterate open="(" close=")" conjunction="," property="depart">
+			#depart[]#
+		</iterate>
+		or
+		pv.admins
+		in
+		<iterate open="(" close=")" conjunction="," property="manager">
+			#manager[]#
+		</iterate>
+		)
+	</insert>
+
+
+	<!-- 查询库存中是否有数据 -->
+	<select id="selectByde.select" resultClass="com.seeyon.apps.kk.promo.model.PromoInvent"
+		parameterClass="map">
+		select
+		util_common.getID(),pv.promono,pb.batchno,pb.applydate,pb.applayuser,pv.dependents,pv.admins,pv.promoquantity,pb.checknote,pv.promoname
+		as promoname,pv.promoprice
+		from vm_promoinvent pv, vm_promocheckbatch
+		pb
+		where (pv.dependents in
+		<iterate open="(" close=")" conjunction="," property="depart">
+			#depart[]#
+		</iterate>
+		or
+		pv.admins
+		in
+		<iterate open="(" close=")" conjunction="," property="manager">
+			#manager[]#
+		</iterate>
+		)
+	</select>
+
+
+	<!-- 增加备注，附件 -->
+	<update id="batchInfo.update" parameterClass="com.seeyon.apps.kk.promo.model.PromoCheckBatch">
+		update
+		vm_promocheckbatch set
+		vm_promocheckbatch.checknote=#checknote#,vm_promocheckbatch.checkremark=#checkremark#
+		where vm_promocheckbatch.batchno =#batchno#
+	</update>
+</sqlMap>
+
+	

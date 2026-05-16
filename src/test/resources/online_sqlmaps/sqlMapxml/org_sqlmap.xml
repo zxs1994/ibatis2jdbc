@@ -1,0 +1,2564 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+    <!-- 清空人员信息临时表 -->
+    <delete id="tempEmployee.delete"  parameterClass="map">
+        delete from spsm_employeeinfo_TEMP
+    </delete>
+    <!-- 清空后查询是否临时表是否还有数据 -->
+    <select id="tempEmployee.count" resultClass="int" parameterClass="map">
+        select count(*) from spsm_employeeinfo_TEMP
+    </select>
+
+    <!-- 插入人员信息临时表 -->
+    <insert id="tempEmployee.insert"  parameterClass="map">
+        INSERT INTO spsm_employeeinfo_TEMP
+        (VC_ACCOUNT,VC_CODE,VC_NAME,vc_staffstatus,D_JOINDATE,D_LEAVEDATE,
+        VC_COMPANYCODE,VC_COMPANYNAME,VC_DEPTCODE,VC_DEPTNAME,VC_MAINJOB,VC_PARTTIMEJOB,
+        VC_MOBILE,VC_CERTTYPE,VC_CERTNO,VC_WORKPLACE,vc_stafftype,VC_job,VC_JOBGRADE,vc_sex,VC_WORKPHONE,VC_WORKEMAIL)
+        VALUES
+        (#account#,#code#,#name#,#staffStatus#,to_date(#joinDate#,'YYYY-MM-DD'),to_date(#leaveDate#,'YYYY-MM-DD'),
+        #companyCode#,#companyName#,#deptCode#,#deptName#,#mainJob#,#partTimeJob#,
+        #mobile#,#certType#,#certNo#,#workPlace#,#staffType#,#job#,#jobGrade#,#sex#,#workPhone#,#workEmail#)
+    </insert>
+
+
+    <!-- 查询人员信息临时表 -->
+    <select id="tempEmployee.select"  resultClass="employee" parameterClass="map">
+        select t.VC_ACCOUNT as account,t.VC_CODE as code,t.VC_NAME as name,t.vc_staffstatus as staffStatus,
+        to_char(t.D_JOINDATE,'YYYY-MM-DD') as joinDate,to_char(t.D_LEAVEDATE,'YYYY-MM-DD') as leaveDate,
+        t.VC_COMPANYCODE as companyCode,t.VC_COMPANYNAME as companyName,t.VC_DEPTCODE as deptCode,
+        t.VC_DEPTNAME as deptName,t.VC_MAINJOB as mainJob,t.VC_PARTTIMEJOB as partTimeJob,
+        t.VC_MOBILE as mobile,t.VC_CERTTYPE as certType,t.VC_CERTNO as certNo,t.VC_WORKPLACE as workPlace,
+        t.vc_stafftype as staffType,t.VC_job as job,t.VC_JOBGRADE as jobGrade,t.vc_sex as sex,VC_WORKPHONE as workPhone,
+        VC_WORKEMAIL as workEmail
+        from spsm_employeeinfo_TEMP t
+        where 1=1
+        <isNotEmpty prepend="AND"  property="code">
+            t.VC_CODE = #code#
+        </isNotEmpty>
+    </select>
+
+    <!-- 更新人员信息临时表 -->
+    <update id="tempEmployee.update" parameterClass="map">
+        update spsm_employeeinfo_TEMP set
+        VC_CODE = #code#,
+        VC_PARTTIMEJOB = #partTimeJob#,
+        VC_MAINJOB = #mainJob#,
+        VC_COMPANYNAME = #companyName#,
+        VC_ACCOUNT = #account#,
+        VC_DEPTNAME = #deptName#,
+        VC_COMPANYCODE = #companyCode#,
+        VC_DEPTCODE = #deptCode#,
+        D_JOINDATE = to_date(#joinDate#,'YYYY-MM-DD'),
+        D_LEAVEDATE = to_date(#leaveDate#,'YYYY-MM-DD'),
+        VC_STAFFSTATUS = #staffStatus#,
+        VC_WORKPLACE = #workPlace#,
+        VC_WORKPHONE = #workPhone#,
+        VC_WORKEMAIL = #workEmail#
+        where VC_CODE = #code#
+    </update>
+
+    <!-- 找出人员信息正式表多于临时表的记录 -->
+    <select id="getDiffrenceInEmploye.select"  resultClass="mapBean"  parameterClass="map">
+        select t1.code from
+        (select code as code from VM_EMPLOYEEFORM where stafftype ='内部员工' and deleteflag='0'
+        MINUS select VC_CODE as code from spsm_employeeinfo_temp)t1
+    </select>
+    <!-- 将正式表记录逻辑删除 -->
+    <update id="logicDelEmploye.update"  parameterClass="map">
+        update VM_EMPLOYEEFORM set deleteflag='1' where code=#code#
+    </update>
+
+    <!-- 插入人员信息变化表 -->
+    <insert id="employeChange.insert"  parameterClass="map">
+        insert into spsm_employeeinfo_change
+        (N_RECID,VC_ACCOUNT,VC_NAME,vc_staffstatus,vc_COMPANYCODE,
+        vc_deptname,vc_deptcode,vc_mobile,vc_certno,vc_certtype,
+        vc_workplace,VC_PARTTIMEJOB,vc_mainjob,
+        D_joindate,D_leavedate,
+        D_EDITDATE,vc_changesource,VC_CHANGEINFO,vc_job,
+        N_pushstatus,N_OPERATIONTYPE,vc_sex,vc_code,vc_companyname,VC_JOBGRADE,
+        VC_WORKEMAIL,VC_WORKPHONE,vc_stafftype,N_CONFIRMSTATUS)
+        values
+        (SPSM_EMPLOYEEINFO_SEQUENCE.nextval,#account#,#name#,#staffStatus#,#companyCode#,
+        #deptName#,#deptCode#,#mobile#,#certNo#,
+        #certType#,#workPlace#,#partTimeJob#,#mainJob#,
+        to_date(#joinDate#,'YYYY-MM-DD'),to_date(#leaveDate#,'YYYY-MM-DD'),
+        to_date(#editDate#,'YYYY-MM-DD hh24:mi'),#changeSource#,#changeInfo#,#job#,
+        #pushStatus#,#operationType#,#sex#,#code#,#companyName#,#jobGrade#,
+        #workEmail#,#workPhone#,#staffType#,#confirmStatus#)
+    </insert>
+    <!-- 获取正式表数据  -->
+    <select id="formalEmployee.select" resultClass="employee"  parameterClass="map">
+        select nvl(t.parttimejob,'') as partTimeJob,nvl(t.account,'') as account,nvl(t.name,'') as name,
+        nvl(t.staffstatus,'') as staffStatus,to_char(t.joindate,'yyyy-mm-dd') as joinDate,
+        to_char(t.leaveDate,'yyyy-mm-dd') as leaveDate,nvl(t.companyname,'') as companyName,nvl(t.companycode,'') as companyCode,
+        nvl(t.deptName,'') as deptName ,nvl(t.deptCode,'') as deptCode,
+        nvl(t.mainJob,'') as mainJob,nvl(t.mobile,'') as mobile,nvl(t.certType,'') as certType,
+        nvl(t.certNo,'') as certNo,nvl(t.workPlace, '') as workPlace,
+        nvl(t.job,'') as job,nvl(t.jobGrade, '') as jobGrade,nvl(t.sex,'') as sex,
+        nvl(t.code,'') as code,nvl(t.workEmail,'') as workEmail,nvl(t.workPhone,'') as workPhone,nvl(t.deleteFlag,'') as deleteFlag,
+        nvl(t.staffType,'') as staffType
+        from VM_EMPLOYEEFORM t
+        where t.code = #code#
+    </select>
+
+
+    <!-- 插入人员信息档案 ,默认插入人员状态为不删除,默认内部员工-->
+    <insert id="formalEmployee.insert"  parameterClass="map">
+        insert into VM_EMPLOYEEFORM
+        (ID,
+        parttimejob,account,name,staffstatus,joindate,leavedate,companyname,companycode,
+        deptname,deptcode,mainjob,mobile,certtype,certno,workplace,
+        job,stafftype,jobgrade,deleteflag,code,sex,workPhone,workEmail)
+        values(#id# ,
+        #partTimeJob#,#account#,#name#,#staffStatus#,to_date(#joinDate#,'yyyy-mm-dd'),to_date(#leaveDate#,'yyyy-mm-dd'),#companyName#,#companyCode#,
+        #deptName#,#deptCode#,#mainJob#,#mobile#,#certType#,#certNo#,#workPlace#,
+        #job#,#staffType#,#jobGrade#,0,#code#,#sex#,#workPhone#,#workEmail#
+        )
+    </insert>
+
+    <!-- 更新人员信息档案 -->
+    <update id="formalEmployee.update"  parameterClass="map">
+        update  VM_EMPLOYEEFORM set
+        parttimejob = #partTimeJob#,name=#name#,staffstatus=#staffStatus#,joindate=to_date(#joinDate#,'yyyy-mm-dd'),
+        leavedate = to_date(#leaveDate#,'yyyy-mm-dd'),companyname = #companyName#,companycode = #companyCode#,
+        deptname = #deptName#,deptcode = #deptCode#,mainjob = #mainJob#,
+        certtype = #certType#,certno = #certNo#,mobile = #mobile#,
+        workplace = #workPlace#,job = #job#,jobgrade = #jobGrade#,account = #account#,
+        staffType = #staffType#,sex=#sex#,
+        workphone = #workPhone#,workemail = #workEmail#
+        where code = #code#
+    </update>
+
+    <select id = "findEmployeeByCode" resultClass="long"  parameterClass="string">
+        select count(*)
+        from VM_EMPLOYEEFORM
+        where code = #code#
+    </select>
+
+    <!-- 逻辑删除正式表 -->
+    <update id="logicDel.update"  parameterClass="map">
+        update  VM_EMPLOYEEFORM
+        set deleteflag = 1
+        where code = #code#
+    </update>
+
+    <!-- 展示变更记录 -->
+    <select id="showChangeRecord.select" resultClass="mapBean" parameterClass="map">
+        select VC_CHANGESOURCE as source,to_char(D_EDITDATE,'YYYY-MM-DD HH24:MI') as editDate,VC_NAME as name,
+        VC_DEPTNAME as deptName,VC_COMPANYNAME as companyName,VC_MAINJOB as mainjob,VC_PARTTIMEJOB as partTimeJob,
+        VC_CHANGEInfo as changeInfo,VC_WORKPLACE as workPlace,
+        case when N_PUSHSTATUS=0 then '未推送'
+        when N_PUSHSTATUS=1 then '已推送'
+        end as push,
+        case when N_OPERATIONTYPE=0 then '删除'
+        when N_OPERATIONTYPE=1 then '更新'
+        when N_OPERATIONTYPE=2 then '新增'
+        end as operation,
+        VC_ACCOUNT as account,to_char(D_JOINDATE,'YYYY-MM-DD') as joinDate,to_char(D_LEAVEDATE,'YYYY-MM-DD') as leaveDate,
+        VC_COMPANYCODE as companyCode,VC_DEPTCODE as deptCode,VC_MOBILE as mobile,
+        VC_CERTNO as certNo,VC_CERTTYPE as certType,VC_job as job,
+        vc_sex as sex, vc_stafftype as staffType, VC_CODE as code,vc_staffstatus as staffStatus,
+        VC_JOBGRADE as jobGrade,VC_WORKEMAIL as workEmail,VC_WORKPHONE as workPhone,
+        case when N_CONFIRMSTATUS=0 then '未确认'
+        when N_CONFIRMSTATUS=1 then '已确认'
+        when N_CONFIRMSTATUS=2 THEN '被打回'
+        end as confirm,N_RECID as recId
+        from spsm_employeeinfo_change
+        where 1=1
+        <isNotEmpty prepend="AND"   property="code">
+            VC_CODE = #code#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="source">
+            VC_CHANGESOURCE like '%'||#source#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="name">
+            VC_NAME like '%'||#name#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="startDate">
+            D_EDITDATE <![CDATA[>]]>=to_date(#startDate#,'yyyy-mm-dd')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="endDate">
+            D_EDITDATE <![CDATA[<]]>=to_date(#endDate#,'yyyy-mm-dd HH24:mi')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="org">
+            VC_DEPTNAME like '%'||#org#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="pushStatus">
+            N_PUSHSTATUS = #pushStatus#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="recId">
+            N_RECID = #recId#
+        </isNotEmpty>
+        order by D_EDITDATE desc
+    </select>
+
+    <select id="showChangeRecord.select.count" resultClass="long"  parameterClass="map">
+        select count(*)
+        from spsm_employeeinfo_change
+        where 1=1
+        <isNotEmpty prepend="AND"   property="code">
+            VC_CODE = #code#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="source">
+            VC_CHANGESOURCE like '%'||#source#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="name">
+            VC_NAME like '%'||#name#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="startDate">
+            D_EDITDATE <![CDATA[>]]>=to_date(#startDate#,'yyyy-mm-dd')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="endDate">
+            D_EDITDATE <![CDATA[<]]>=to_date(#endDate#,'yyyy-mm-dd HH24:mi')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="org">
+            VC_DEPTNAME like '%'||#org#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="pushStatus">
+            N_PUSHSTATUS = #pushStatus#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="recId">
+            N_RECID = #recId#
+        </isNotEmpty>
+    </select>
+
+    <!-- 查询需推送记录 -->
+    <select id="publishMemberChangeRecord.select" resultClass="employeeChange"  parameterClass="map">
+        select VC_ACCOUNT as kmAccount,to_char(D_JOINDATE,'YYYY-MM-DD') as joinDate,
+        to_char(D_LEAVEDATE,'YYYY-MM-DD') as leaveDate,VC_COMPANYCODE as companyCode,
+        VC_DEPTCODE as depKMCode,VC_MAINJOB as mainJob,VC_PARTTIMEJOB as partTimeJob,
+        VC_MOBILE as mobile,VC_CERTNO as certNo,
+        VC_WORKPLACE as workPlace,to_char(D_EDITDATE,'YYYY-MM-DD') as editDate,VC_DEPTNAME as department,VC_NAME as name,
+        vc_staffstatus as empStatus,VC_CERTTYPE as certType,VC_CHANGESOURCE as changeSource,
+        VC_CHANGEINFO as changeInfo,VC_job as job,vc_sex as sex,N_OPERATIONTYPE as operationType,
+        VC_COMPANYNAME as company,vc_stafftype as staffType,VC_CODE as code,VC_JOBGRADE as jobGrade,
+        VC_WORKEMAIL as workEmail,VC_WORKPHONE as workPhone,N_CONFIRMSTATUS  as confirmStatus,N_PUSHSTATUS as pushStatus,
+        N_RECID as recId
+        from spsm_employeeinfo_change
+        where 1=1
+        <isNotEmpty prepend="AND"   property="push">
+            N_PUSHSTATUS = #push#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="confirm">
+            N_CONFIRMSTATUS = #confirm#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="recId">
+            N_RECID  IN
+            <iterate conjunction="," open="(" close=")" property="recId">
+                #recId[]#
+            </iterate>
+        </isNotEmpty>
+    </select>
+
+    <!-- 更新人员信息推送成功的数据 -->
+    <update id="publishMemberChangeRecord.update"  parameterClass="map">
+        update  spsm_employeeinfo_change
+        set N_PUSHSTATUS = 1
+        where N_RECID = #recId#
+    </update>
+
+    <!-- 查询需组织变更推送记录 -->
+    <select id="publishOrgChangeRecord.select" resultClass="organisationChange"  parameterClass="map">
+        select N_RECID as recId，VC_COMPANYCODE as companyCode,VC_DEPCODE as depCode,VC_DEPARTMENT as department,
+        VC_SUPERIORDEPCODE as superiordDepCode, VC_SUPERIORDEPARTMENT as superiordDepartment,VC_MANAGERCODE as managerCode,
+        to_char(D_CREATEDATE,'YYYY-MM-DD') as createDate,VC_managerNAME as managerName,VC_CHANGESOURCE as changeSource,VC_CHANGERECORD as changeRecord,
+        N_OPERATIONTYPE as operationType,N_PUSHSTATUS as pushStatus,VC_COMPANY as company,
+        N_CONFIRMSTATUS as confirmStatus , to_char(D_EDITEDATE,'YYYY-MM-DD HH24:mi') as editDate
+        from spsm_organizations_change
+        where 1=1
+        <isNotEmpty prepend="AND"   property="push">
+            N_PUSHSTATUS = #push#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="confirm">
+            N_CONFIRMSTATUS = #confirm#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="recId">
+            N_RECID  IN
+            <iterate conjunction="," open="(" close=")" property="recId">
+                #recId[]#
+            </iterate>
+        </isNotEmpty>
+    </select>
+
+    <!-- 更新组织信息推送成功的数据 -->
+    <update id="publisOrgChangeRecord.update"  parameterClass="map">
+        update  spsm_organizations_change
+        set N_PUSHSTATUS = 1
+        where N_RECID = #recId#
+    </update>
+
+    <!--组织机构临时表(spsm_organizations_temp) 清空组织机构临时表的数据  -->
+    <delete id="organRegister.delete" >
+        delete from
+        spsm_organizations_temp
+    </delete>
+    <select id="tempOrgan.count" resultClass="int" parameterClass="map">
+        select count(*) from spsm_organizations_temp
+    </select>
+    <!-- 组织机构临时表（spsm_organizations_temp） 查询组织机构临时表数据-->
+    <select id="organRegister.select" resultClass="java.util.HashMap">
+        select
+        VC_DEPCODE,
+        VC_DEPARTMENT,
+        VC_SUPERIORDEPCODE,
+        VC_SUPERIORDEPARTMENT,
+        VC_MANAGERCODE,
+        to_char(D_CREATEDATE,'yyyy-MM-dd') as D_CREATEDATE,
+        VC_MANAGERNAME,
+        VC_COMPANY,
+        VC_COMPANYCODE
+        from spsm_organizations_temp
+    </select>
+    <!-- 组织机构临时表（spsm_organizations_register） 查询组织机构临时表数据-->
+    <select id="organRegisterById.select" resultClass="java.util.HashMap" parameterClass="map">
+        select
+        VC_DEPCODE,
+        VC_DEPARTMENT,
+        VC_SUPERIORDEPCODE,
+        VC_SUPERIORDEPARTMENT,
+        VC_MANAGERCODE,
+        to_char(D_CREATEDATE,'yyyy-MM-dd') as D_CREATEDATE,
+        VC_MANAGERNAME,
+        VC_COMPANY
+        from spsm_organizations_temp
+        where VC_DEPCODE = #depCode#
+    </select>
+    <delete id="deleteOrganById.delete" parameterClass="map">
+        delete spsm_organizations_temp  where VC_DEPCODE = #depCode#
+    </delete>
+
+    <!-- 组织机构信息临时表（spsm_organizations_temp） 在组织结构信息临时表中插入数据 -->
+    <insert id="organRegister.insert" parameterClass="map">
+        insert into spsm_organizations_temp(
+        VC_DEPCODE,
+        VC_DEPARTMENT,
+        VC_SUPERIORDEPCODE,
+        VC_SUPERIORDEPARTMENT,
+        VC_MANAGERCODE,
+        D_CREATEDATE,
+        VC_MANAGERNAME,
+        VC_COMPANY,
+        VC_COMPANYCODE
+        )
+        values
+        (#DEPCODE#,#DEPARTMENT#,#SUPERIORDEPCODE#,#SUPERIORDEPARTMENT#,#MANAGERACCOUNT#,
+        #CREATEDATE#,#MANAGERNAME#,#COMPANY#,#COMPANYCODE#)
+    </insert>
+    <!-- 组织机构信息临时表·(spsm_organizations_temp)与组织机构信息表.（spsm_organizations）查询正式表有而临时表没有的数据的集合-->
+    <select id="findCodeList.select" resultClass="java.util.HashMap">
+        select deptcode from(select deptcode from VM_ORGANIZATIONFORM minus select vc_depcode as deptcode from spsm_organizations_temp)
+    </select>
+    <!-- 组织机构信息正式表.（formmain_2365）逻辑删除组织机构正式表 -->
+    <update id="formalLogicalDel.update" parameterClass="map">
+        update VM_ORGANIZATIONFORM  set deptstatus = '1' where deptcode=#FIELD0004#
+    </update>
+
+    <!-- 组织机构信息正式表.（formmain_2365） 在组织结构信息正式表中插入数据 -->
+    <insert id="organ.insert" parameterClass="map">
+        insert into VM_ORGANIZATIONFORM(
+        id,
+        companyname,
+        companycode,
+        createdate,
+        deptname,
+        deptcode,
+        superiordeptname,
+        superiordeptcode,
+        managername,
+        managercode,
+        deptstatus)
+        values
+        (#ID#,#COMPANY#,#COMPANYCODE#,to_char(#CREATEDATE#,'yyyy-mm-dd'),#DEPARTMENT#,#DEPCODE#,#SUPERIORDEPARTMENT#,
+        #SUPERIORDEPCODE#,#MANAGERNAME#,#MANAGERACCOUNT#,#STATUS#
+        )
+    </insert>
+    <!-- 修改至此 -->
+    <!-- 组织机构信息正式表.（formmain_2365） 查询组织机构相关信息 -->
+    <select id="findOrgtanInfoByCode.select" parameterClass="map" resultClass="java.util.HashMap">
+        select
+        companyCode as vc_companycode,
+        companyname as vc_company,
+        deptcode as VC_DEPCODE,
+        deptname as VC_DEPARTMENT,
+        superiordeptcode as VC_SUPERIORDEPCODE,
+        superiordeptname as VC_SUPERIORDEPARTMENT,
+        managercode as VC_MANAGERCODE,
+        managername as VC_MANAGERNAME,
+        createdate as D_CREATEDATE
+        FROM VM_ORGANIZATIONFORM WHERE deptcode = #depcode#
+    </select>
+    <!-- 组织机构信息变化表（spsm_organizations_change） 在组织结构信息变化表中插入数据 -->
+    <insert id="organChange.insert" parameterClass="map">
+        insert into  spsm_organizations_change(
+        N_RECID,
+        VC_COMPANYCODE,
+        VC_DEPCODE,
+        VC_DEPARTMENT,
+        VC_SUPERIORDEPCODE,
+        VC_SUPERIORDEPARTMENT,
+        VC_MANAGERCODE,
+        D_CREATEDATE,
+        VC_MANAGERNAME,
+        VC_CHANGESOURCE,
+        VC_CHANGERECORD,
+        N_OPERATIONTYPE,
+        N_PUSHSTATUS,
+        VC_COMPANY,
+        N_CONFIRMSTATUS,
+        D_EDITEDATE)
+        values(#RECID#,#COMPANYCODE#,#DEPCODE#,#DEPARTMENT#,#SUPERIORDEPCODE#,#SUPERIORDEPARTMENT#,#MANAGERACCOUNT#,
+        #CREATEDATE#,#MANAGERNAME#,#CHANGERESOURCE#,#CHANGERECORD#,#OPERATIONTYPE#,0,#COMPANY#,0,to_date(#EDITEDATE#,'yyyy-MM-dd HH24:mi'))
+    </insert>
+    <!--组织结构正式表(formmain_2365) 更新组织结构正式表  -->
+    <update id="organ.update" parameterClass="map">
+        update VM_ORGANIZATIONFORM  set
+        <dynamic prepend=" ">
+            <isNotEmpty     prepend="," property="COMPANYCODE">
+                companycode = #COMPANYCODE#
+            </isNotEmpty>
+            <isNotEmpty     prepend="," property="MANAGERACCOUNT">
+                managercode = #MANAGERACCOUNT#
+            </isNotEmpty>
+            <isNotEmpty     prepend="," property="MANAGERNAME">
+                managername = #MANAGERNAME#
+            </isNotEmpty>
+            <isNotEmpty     prepend="," property="COMPANY">
+                companyname = #COMPANY#
+            </isNotEmpty>
+            <isNotEmpty       prepend="," property="DEPARTMENT">
+                deptname = #DEPARTMENT#
+            </isNotEmpty>
+            <isNotEmpty        prepend="," property="SUPERIORDEPCODE">
+                superiordeptcode = #SUPERIORDEPCODE#
+            </isNotEmpty>
+            <isNotEmpty        prepend="," property="SUPERIORDEPARTMENT">
+                superiordeptname = #SUPERIORDEPARTMENT#
+            </isNotEmpty>
+            <isNotEmpty         prepend="," property="CREATEDATE">
+                createdate = #CREATEDATE#
+            </isNotEmpty>
+            <isNotEmpty         prepend="," property="STATUS">
+                deptstatus = #STATUS#
+            </isNotEmpty>
+        </dynamic>
+        where deptcode = #CODE#
+    </update>
+
+    <!-- 组织机构变化表(spsm_organizations_change) 根据条件获取变化列表-->
+    <select id="queryForOrganizationsChange.select"  resultClass="mapBean" parameterClass="map" >
+        select
+        N_RECID as recId,
+        VC_COMPANYCODE as companyCode,
+        VC_DEPCODE     as depCode,
+        VC_DEPARTMENT  as departMent,
+        VC_SUPERIORDEPCODE    as superiorDepCode,
+        VC_SUPERIORDEPARTMENT as superiorDepartment ,
+        VC_MANAGERCODE  as managerCode ,
+        D_CREATEDATE        as createDate ,
+        VC_MANAGERNAME     as managerName,
+        VC_CHANGESOURCE       as changeSource,
+        VC_CHANGERECORD      as changeRecord,
+        case when N_OPERATIONTYPE=0 then '删除'
+        when N_OPERATIONTYPE=1 then '更新'
+        when N_OPERATIONTYPE=2 then '新增'
+        end as operation,
+        case when N_PUSHSTATUS=0 then '未推送'
+        when N_PUSHSTATUS=1 then '已推送'
+        end as push,
+        VC_COMPANY    as company,
+        case when N_CONFIRMSTATUS=0 then '未确认'
+        when N_CONFIRMSTATUS=1 then '已确认'
+        when N_CONFIRMSTATUS=2 THEN '被打回'
+        end as confirm,
+        to_char(D_EDITEDATE,'yyyy-MM-dd HH24:mi')  as  EDITEDATE
+        from spsm_organizations_change
+        where 1=1
+        <isNotEmpty prepend="AND" property="changeStartDate">
+            D_EDITEDATE <![CDATA[>]]>=
+            to_date(#changeStartDate#,'YYYY-MM-DD HH24:mi')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="changeEndDate">
+            D_EDITEDATE<![CDATA[<]]>=
+            to_date(#changeEndDate#,'YYYY-MM-DD HH24:mi')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="changeSource">
+            vc_changesource = #changeSource#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="managerName">
+            vc_managername like '%'||#managerName#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="department">
+            VC_DEPARTMENT like '%'||#department#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="depCode">
+            VC_DEPCODE like '%'||#depCode#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="pushStatus">
+            N_PUSHSTATUS = #pushStatus#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="recId">
+            N_recid = #recId#
+        </isNotEmpty>
+        order by D_EDITEDATE desc
+    </select>
+    <select id="queryForOrganizationsChange.select.count" resultClass="long"  parameterClass="map">
+        select count(*)  from spsm_organizations_change
+        where 1=1
+        <isNotEmpty prepend="AND" property="changeStartDate">
+            D_EDITEDATE <![CDATA[>]]>=
+            to_date(#changeStartDate#,'YYYY-MM-DD HH24:mi')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="changeEndDate">
+            D_EDITEDATE<![CDATA[<]]>=
+            to_date(#changeEndDate#,'YYYY-MM-DD HH24:mi')
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="changeSource">
+            vc_changesource = #changeSource#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="managerName">
+            vc_managername like '%'||#managerName#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="department">
+            VC_DEPARTMENT like '%'||#department#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="depCode">
+            VC_DEPCODE like '%'||#depCode#||'%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="pushStatus">
+            N_PUSHSTATUS = #pushStatus#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="recId">
+            N_recid = #recId#
+        </isNotEmpty>
+    </select>
+
+    <!-- 查询上级部门及其名称-->
+    <select id="selectOrgByName.select" resultClass="mapBean"  parameterClass="map">
+        select distinct  t.deptname as deptName,t.deptcode as deptCode
+        from  VM_ORGANIZATIONFORM t
+        where t.deptname like '%'||#deptName#||'%'
+    </select>
+    <!-- 员工信息表  选取员工信息表里面的员工账号与员工姓名作为新增时组织机构里面的领导编号与领导姓名 -->
+    <select id="selectmanagerByName.select"  resultClass="mapBean"  parameterClass="map">
+        select t.name as managerName,t.code as managerAcount
+        from  VM_EMPLOYEEFORM t
+        where t.name like '%'||#managerName#||'%'
+    </select>
+    <!-- 查询部门名称 -->
+    <select id="selectOrg.select" resultClass="mapBean"  parameterClass="map">
+        select t.deptName as deptName,t.deptCode as deptCode
+        from  vm_organizationform t
+        where t.deptName like '%'||#deptName#||'%'
+    </select>
+
+    <!-- 查询人员编号 -->
+    <select id="selectMemberCode.select" resultClass="int"  parameterClass="map">
+        SELECT SPSM_EMPLOYEEINFO_CODE_SIGN.nextval as memberCode from  dual
+    </select>
+    <!-- 查询组织编号 -->
+    <select id="selectDepartmentCode.select" resultClass="int"  parameterClass="map">
+        SELECT SPSM_ORGANIZATIONS_CODE_SIGN.nextval as deptCode from  dual
+    </select>
+    <!-- 更新或者修改的时候，查询部门名称是否存在 -->
+    <select id="getRepetDepByName.select" resultClass="map"  parameterClass="map">
+        select deptname from VM_ORGANIZATIONFORM  where deptname = #deptname#
+    </select>
+    <!-- 查询所有的公司名称  -->
+    <select id="getAllComapny.select" resultClass="java.lang.String">
+        select companyname from vm_companyform
+    </select>
+    <!-- 查询指定公司名称的公司编号 -->
+    <select id="getCompanyCode.select" resultClass="java.lang.String"  parameterClass="map">
+        select companycode from vm_companyform  where companyname = #companyname#
+    </select>
+    <!-- 查询未推送的组织记录信息数量 -->
+    <select id="getPushOrgCount.select" resultClass="int"  parameterClass="map">
+        select count(*) as count from spsm_organizations_change
+        where 1=1
+        <isNotEmpty prepend="AND"   property="push">
+            N_PUSHSTATUS = #push#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="confirm">
+            N_CONFIRMSTATUS = #confirm#
+        </isNotEmpty>
+
+    </select>
+    <!-- 查询未推送的人员信息数量  -->
+    <select id="getPushMemCount.select" resultClass="int"  parameterClass="map">
+        select count(*) as count from spsm_employeeinfo_change
+        where 1=1
+        <isNotEmpty prepend="AND"   property="push">
+            N_PUSHSTATUS = #push#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="confirm">
+            N_CONFIRMSTATUS = #confirm#
+        </isNotEmpty>
+    </select>
+    <!-- 根据人员编号查询人员联系方式-->
+    <select id = "getEmpOfficNoAndEmailByCode.select" resultClass="java.util.HashMap"  parameterClass="string">
+        select o.ext_attr_1 as telePhone, o.ext_attr_2 as workEmail,o.ext_attr_3 as workPhone from org_member o where o.code = #code#
+    </select>
+    <!-- 根据员工号查询推送KM系统异常手机号记录-->
+    <select id = "selectVmUpdateMobileKmByUserId.select" resultClass="java.util.HashMap"  parameterClass="string">
+        select id, userId from vm_updatePhone_km  where userId = #userId#
+    </select>
+    <!-- 查询推送KM系统异常手机号记录-->
+    <select id = "selectVmUpdateMobileKm.select" resultClass="java.util.HashMap"  parameterClass="string">
+        select id , userId , loginName , pushTime ,
+        pushStatus , mobile , systemName
+        from vm_updatePhone_km  where pushStatus = 'N' and systemName = #systemName#
+        order by pushTime
+    </select>
+    <update id="updateVmUpdateMobileKm.update" parameterClass="java.util.HashMap">
+        update vm_updatePhone_km set
+        pushStatus = #pushStatus#
+        where id = #id#
+    </update>
+    <insert id="insertVmUpdateMobileKm.insert" parameterClass="java.util.HashMap">
+        insert into vm_updatePhone_km
+        (id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        userId,
+        loginName,
+        pushTime,
+        pushStatus,
+        mobile,
+        systemName
+        )
+        values
+        (#id#,
+        1,
+        -6760911671874597139,
+        sysdate,
+        0,
+        sysdate,
+        0,
+        0,
+        0,
+        null,
+        0,
+        -6760911671874597139,
+        sysdate,
+        #userId#,
+        #loginName#,
+        to_date(#pushTime#, 'yyyy-mm-dd'),
+        #pushStatus#,
+        #mobile#,
+        #systemName#
+        )
+    </insert>
+    <!-- 根据业务分组调整申请传递过来的ID值删除业务内分组调整信息底表的数据 -->
+    <delete id = "businessTeamById.delete" parameterClass="long">
+        delete from vm_deptbusigroup v where v.businessmember in
+        (select column_value from
+        table(util_common.split((select w.businessmember from vm_wfdeptbusigroup w where id = #formId#),',') ),
+        vm_wfdeptbusigroup t2
+        where t2.id = #formId#)
+        and v.businesstype = (select t.businesstype from vm_wfdeptbusigroup t where t.id = #formId#)
+    </delete>
+    <!-- 根据业务分组调整申请传递过来的ID值,判断是新增还是修改 -->
+    <update id = "businessTeamById.update" parameterClass="long">
+        merge into vm_deptbusigroup a
+        using (select t2.id,
+        t1.column_value businessmember,
+        t2.senduser,
+        t2.senddepart,
+        t2.businessType,
+        t2.businessname,
+        t2.adjustmentType,
+        t2.teamleader,
+        t2.note,
+        t2.bussinessdepartcode
+        from table(util_common.split((select f.businessmember from vm_wfdeptbusigroup f where f.id = #formId#),',')) t1,
+        vm_wfdeptbusigroup t2 where t2.id = #formId#) b
+        on (b.businessmember = a.businessmember and a.businesstype = b.businessType)
+        when matched then
+        update set a.bussinessleader = b.teamleader,
+        a.businessname = b.businessname,
+        a.note = b.note,
+        a.bussinessdepartcode = b.bussinessdepartcode
+        when not matched then
+        insert
+        values
+        (util_common.getAbsID,
+        1,
+        -6760911671874597139,
+        sysdate,
+        0,
+        sysdate,
+        0,
+        0,
+        0,
+        null,
+        0,
+        -6760911671874597139,
+        sysdate,
+        trunc(sysdate),
+        b.businessType,
+        b.businessmember,
+        b.senddepart,
+        b.businessname,
+        b.teamleader,
+        b.note,
+        b.bussinessdepartcode)
+    </update>
+    <!-- 业务分组查询接口数据返回值 -->
+    <select id="bussinessTeam.select" parameterClass="map" resultClass="com.seeyon.apps.kk.org.model.BusinessTeam">
+        select id,businessType,memberKMID,
+        memberName,deptKMID,deptName,leaderKMID,leaderName,businessGroupCode, businessGroupName
+        from vm_interface_wfdeptbusigroup
+        where 1=1
+        <isNotEmpty prepend="AND"   property="businessType">
+            businessType = #businessType#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="memberKMIDs">
+            memberKMID in($memberKMIDs$)
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="leaderKMIDs">
+            leaderKMID in($leaderKMIDs$)
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="deptKMIDs">
+            deptKMID in($deptKMIDs$)
+        </isNotEmpty>
+    </select>
+    <!-- 向ctp_content_all中插入数据 -->
+    <insert id = "bussinessCtpContent.insert" >
+        merge into ctp_content_all a
+        using
+        (select id from vm_deptbusigroup c where c.id not in (select module_id from ctp_content_all)) c
+        on (1=0)
+        when not matched   then
+        insert (ID,
+        CREATE_ID,
+        CREATE_DATE,
+        MODIFY_ID,
+        MODIFY_DATE,
+        MODULE_TYPE,
+        MODULE_ID,
+        MODULE_TEMPLATE_ID,
+        CONTENT_TYPE,
+        CONTENT,
+        CONTENT_DATA_ID,
+        CONTENT_TEMPLATE_ID,
+        TITLE,
+        SORT)
+        values(util_common.getAbsID,
+        '-6760911671874597139',
+        sysdate,
+        '',
+        null,
+        '37',
+        c.id,
+        '-109711906195223375',
+        '20',
+        '',
+        c.id,
+        '-5566001276150398038',
+        '部门内业务审批分组',
+        '0')
+    </insert>
+    <select id="searchCodeOrIDByName.select" parameterClass="map" resultClass="mapBean">
+        select type,id,code,name,orgname from
+        (
+        select '岗位' as type, p.id,p.code,p.name, o.name as orgname from
+        org_post p
+        left join
+        org_unit o
+        on
+        p.org_account_id = o.id and p.status = 1 and o.status=1
+        union all
+        select '部门'as type， id, code, name,name orgName
+        from org_unit o
+        union all
+        select '职级' as type,l.id,l.code,l.name,o.name orgname from org_level l
+        left join org_unit o
+        on  l.org_account_id = o.id and l.status = 1and o.status=1
+        union all
+        select '角色' as type,r.id, r.code, r.name, o.name as orgname
+        from org_role r
+        left join org_unit o
+        on r.org_account_id = o.id
+        and r.status = 1
+        and o.status = 1
+        union all
+        select '小组' as type, t.id, t.code, t.name, o.name orgname
+        from org_team t
+        left join org_unit o
+        on t.org_account_id = o.id
+        and t.status = 1
+        and o.status = 1
+        union all
+        select '人员' as type ,m.id, m.code, m.name, o.name orgname
+        from org_member m
+        left join org_unit o
+        on m.org_account_id = o.id
+        and m.status = 1
+        and o.status = 1) t
+        where 1=1
+        <isNotEmpty prepend=" "   property="vague">
+            <isNotEmpty prepend="and"   property="name">
+                ((t.name  like '%'||#name#||'%')
+                <isNotEmpty prepend="or"   property="id">
+                    (t.id=#id#)
+                </isNotEmpty>
+                )
+            </isNotEmpty>
+            <isEmpty prepend=" "   property="name">
+                <isNotEmpty prepend="and"   property="id">
+                    (t.id=#id#)
+                </isNotEmpty>
+            </isEmpty>
+        </isNotEmpty>
+
+        <isNotEmpty prepend=""   property="accurate">
+            <isNotEmpty prepend="and"   property="name">
+                ((t.name  = #name#)
+                <isNotEmpty prepend="or"   property="id">
+                    (t.id=#id#)
+                </isNotEmpty>
+                )
+            </isNotEmpty>
+            <isEmpty prepend=""   property="name">
+                <isNotEmpty prepend="and"   property="id">
+                    (t.id=#id#)
+                </isNotEmpty>
+            </isEmpty>
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="checkValues">
+            ($checkValues$)
+        </isNotEmpty>
+    </select>
+    <select id = "searchAuthConfigByKeyName.select" parameterClass="map" resultClass="mapBean">
+        select *
+        from ( select name,objectName,tableType,objectType,authcontent from ( select t.name,
+        decode(qname, null, appbindname, qname) as objectName,
+        tableType,
+        decode(qname, null, '应用绑定', '表单查询') as objectType,
+        authcontent
+        from (select f.name as name,
+        extractvalue(xmltype(f.query_info),
+        '/QueryList/Query[SystemCondition="' ||
+        f1.id || '"]/@name') qname,
+        extractvalue(xmltype(f.appbind_info),
+        '/Bind/FormBindAuthList/FormBindAuth/AuthList[Colum[@name="formula"]/@value="' ||
+        f1.id ||
+        '"]/Colum[@name="authName"]/@value') as appbindname,
+        decode(f.form_type, 1, '流程表单', 2, '信息底表') as tableType,
+        to_char(f1.expression) as authcontent
+        from form_definition f
+        left join CTP_FORMULA f1
+        on f.id = f1.owner_id
+        where f1.id is not null) t ) o where o.objectName  is not null
+        union all
+        select fm.name as name,
+        extractvalue(xmltype(fm.query_info),
+        '/QueryList/Query[@id="' || f2.module_id ||
+        '"]/@name') as objectName,
+        decode(f2.module_type, 0, '流程表单', '信息底表') as tableType,
+        '应用绑定' as objectType,
+        to_char(f2.org_id) as authcontent
+        from form_definition fm
+        left join form_module_auth f2
+        on fm.id = f2.form_id
+        union all
+        select t.subject as name,
+        t.subject as objectName,
+        '流程表单' as tableType,
+        '应用绑定' as objectType,
+        to_char(a.auth_id) as authcontent
+        from ctp_template_auth a
+        left join ctp_template t
+        on a.module_id = t.id
+        union all
+        select w.processname as name,
+        w.processname as objectName,
+        '流程表单' as tableType,
+        '流程参与人' as objectType,
+        substr(t.column_value, 0, 4000) as authcontent
+        from wf_process_templete w,
+        <![CDATA[table(xmlsequence(extract(xmltype(nvl(w.workflow, '<a></a>'))]]> , '/ps/p/n/a/@f'))) t
+        where t.column_value not like '%空节点%'
+        and t.column_value not like '%f=""%'
+        and t.column_value not like '%WF_SUPER_NODE%'
+
+        ) t
+        where 1 = 1
+        <isNotEmpty prepend="AND"   property="paramStr">
+            ($paramStr$)
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"   property="checkValues">
+            ($checkValues$)
+        </isNotEmpty>
+        order by name,objecttype
+    </select>
+    <select id = "memberCanChangeInfo.select" resultClass="java.util.HashMap">
+        select c.ref_enumid,showvalue,enumvalue from ctp_enum_item c
+        where
+        c.ref_enumid in (select id from ctp_enum s where s.enumname in('办公地点'，'证件类型'))
+    </select>
+
+
+    <update id="orgMember.update" parameterClass="java.util.HashMap">
+        update org_member set
+        EXT_ATTR_11 = #gender#,
+        EXT_ATTR_22 = to_date(#joinDate#, 'yyyy-mm-dd')
+        where id = #userId#
+    </update>
+
+    <insert id="addressBookByMemberId.insert">
+        insert into addressbook
+        (
+        id,
+        member_id,
+        create_date,
+        update_date
+        )
+        select util_common.getAbsID,
+        id,
+        sysdate,
+        sysdate
+        from org_member c where c.id not in(select member_id from addressbook where member_id is not null)
+    </insert>
+    <insert id="addressBook.insert" parameterClass="java.util.HashMap">
+        insert into ADDRESSBOOK
+        (
+        id,
+        member_id,
+        create_date,
+        update_date,
+        ext_attr_1,
+        ext_attr_2,
+        ext_attr_3,
+        ext_attr_4,
+        ext_attr_5,
+        ext_attr_6,
+        EXT_ATTR_11,
+        ext_attr_21
+        )values (
+        util_common.getAbsID,
+        #userId#,
+        sysdate,
+        sysdate,
+        #certType#,
+        #certNo#,
+        #workPlace#,
+        #empStatus#,
+        #empType#,
+        #hrBadge#,
+        #age#,
+        to_date(#leaveDate#, 'yyyy-mm-dd'))
+    </insert>
+
+    <update id="addressBook.update" parameterClass="java.util.HashMap">
+        update addressBook set
+        update_date  =  sysdate,
+        ext_attr_1   =  #certType#,
+        ext_attr_2   =  #certNo#,
+        ext_attr_3   =  #workPlace#,
+        ext_attr_4   =  #empStatus#,
+        ext_attr_5   =  #empType#,
+        ext_attr_6   =  #hrBadge#,
+        EXT_ATTR_11   =  #age#,
+        ext_attr_21  =  to_date(#leaveDate#, 'yyyy-mm-dd')
+        where member_id = #userId#
+    </update>
+    <select id="allOrgMemberInfo.select" resultClass="mapBean">
+        select to_char(id) as  id, to_char(code) as code from org_member where code is not null
+    </select>
+
+    <select id="oaMemberResource.select" parameterClass="java.util.HashMap" resultClass="com.seeyon.apps.kk.org.model.MemberModel">
+        select
+        ol.code as levelCode,
+        om.code as memberCode,
+        util_common.getEnumValueById(util_common.getEnumIdByShow('-6813491134100848299',
+        ab.ext_attr_1)) as certType,
+        ab.ext_attr_2 as certNo,
+        util_common.getEnumValueById(util_common.getEnumIdByShow('4660073417407942090',
+        ab.ext_attr_3)) as officePlace,
+        util_common.getEnumValueById(util_common.getEnumIdByShow('5543612524301798252',
+        ab.ext_attr_4)) as memberStatus,
+        util_common.getEnumValueById(util_common.getEnumIdByShow('-8502381049250430350',
+        ab.ext_attr_5)) as memberType,
+        ab.ext_attr_6 as hrNo,
+        to_char(ab.EXT_ATTR_11) as age,
+        to_char(ab.ext_attr_21, 'yyyy-mm-dd') as leaveDate， om.ext_attr_1 as phone,
+        '' as type,
+        om.name as memberName,
+        util_user.getLoginNameByMemId(om.id) as memberAccount,
+        om.EXT_ATTR_22 as joinDate,
+        om.EXT_ATTR_11 as sex,
+        util_org.getDeptCodeByDeptId(om.org_account_id) as companyCode,
+        util_org.getDeptNameByDeptId(om.org_account_id) as companyName,
+        util_org.getDeptCodeByDeptId(om.org_department_id) as departCode,
+        util_org.getDeptNameByDeptId(om.org_department_id) as departName,
+        ab.ext_attr_7 posJob,
+        '' highLevel,
+        '' highDegree
+        from org_member om
+        left join addressbook ab
+        on om.id = ab.member_id
+        left join org_level ol
+        on om.org_level_id = ol.id
+        where om.is_admin = 0
+        and om.is_internal = 1
+        and om.code is not null
+        <isNotEmpty prepend = "AND" property = "departCode" >
+            util_org.getDeptCodeByDeptId(om.org_department_id) =
+            #departCode#
+        </isNotEmpty >
+        <isNotEmpty prepend = "AND" property = "endDate">
+            om.EXT_ATTR_22 <![CDATA[<=]]> to_date(#endDate#, 'yyyy-mm-dd')
+        </isNotEmpty >
+        <isNotEmpty prepend = "AND" property = "company" >
+            om.org_account_id =
+            decode(#company#,
+            1,
+            97839079791739420,
+            2,
+            -2948740806339441327,
+            '3',
+            -8906103683992302519)
+        </isNotEmpty >
+    </select>
+    <select id="staffInfoResource.select" resultClass="com.seeyon.apps.kk.org.model.StaffInfoModel" parameterClass="java.util.HashMap">
+        select
+        id,
+        loginName,
+        code,
+        name,
+        realName,
+        mobileNo,
+        officeTel,
+        email,
+        deptCode,
+        deptName,
+        companyName,
+        companyCode,
+        staffStatus,
+        entryDate,
+        exitDate,
+        workPlaceName,
+        workPlaceCode,
+        createTime,
+        modifyTime,
+        state,
+        teamName,
+        teamCode,
+        lineName,
+        lineCode,
+        gender,
+        photoUrl,
+        idCardType,
+        idCardNo,
+        hrCode,
+        posJob
+        from
+        vm_staffInfo_cache 
+        where 1=1
+        <isNotEmpty prepend="AND"  property="state">
+            state = #state#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"  property="companyCode">
+            companyCode = #companyCode#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"  property="modifyTime">
+            modifyTime >= #modifyTime#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"  property="staffStatus">
+            staffStatus = #staffStatus#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"  property="loginName">
+            loginName not in   ($loginName$)
+        </isNotEmpty>
+        order by modifyTime
+    </select>
+
+    <select id="departInfoResource.select" resultClass="com.seeyon.apps.kk.org.model.DepartInfoModel" parameterClass="java.util.HashMap">
+        select
+        type,
+        unitCode,
+        unitName,
+        parentUnitCode,
+        parentUnitName,
+        managerCode,
+        managerLoginName,
+        managerName,
+        lineLeaderName,
+        lineLeaderCode,
+        lineDirectorName,
+        lineDirectorCode,
+        companyCode,
+        createTime,
+        modifyTime,
+        isDeleted,
+        isEnable
+        from
+        vm_org_unit_cache vouc
+        where 1=1
+        <isNotEmpty prepend="AND"  property="companyCode">
+            vouc.companyCode = #companyCode#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"  property="modifyTime">
+            vouc.modifyTime >= #modifyTime#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"  property="isDeleted">
+            isDeleted = #isDeleted#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"  property="isEnable">
+            isEnable = #isEnable#
+        </isNotEmpty>
+    </select>
+
+    <!--<select id="departInfoResource.select" resultClass="com.seeyon.apps.kk.org.model.DepartInfoModel" parameterClass="java.util.HashMap">
+        select
+        type,
+        unitCode,
+        UnitName,
+        parentUnitCode,
+        parentUnitName,
+        managercode,
+        managerLoginName,
+        managername,
+        companyCode,
+        createTime,
+        modifyTime
+        from
+        (select
+        (case when f1."CODE" like 'Line%'
+        then '2'
+        else '3'
+        end) type,
+        f1."CODE"      unitCode,
+        f1."NAME" UnitName,
+        f1.parent_code parentUnitCode,
+        f1.parent_name parentUnitName,
+        util_user.getMemCodeByMemId(util_org.getLeaderMemIdByDeptId(f1."ID")) managercode,
+        util_user.getLoginNameByMemId(util_org.getLeaderMemIdByDeptId(f1.id)) managerLoginName,
+        util_user.getMemberNameByMemId(util_org.getLeaderMemIdByDeptId(f1.id)) managername,
+        util_org.getAccountCodeByDeptId(f1.id) companyCode,
+        to_char(f1.create_time, 'yyyy-mm-dd HH24:mi:ss') createTime,
+        to_char(f1.update_time, 'yyyy-mm-dd HH24:mi:ss') modifyTime
+        from
+        vm_org_unit   f1  where f1.parent_id is not null
+        and code is not null
+        and f1.IS_INTERNAL = 1
+        union all
+        select
+        '0' type,
+        f.code unitCode,
+        f.name UnitName,
+        '' parentUnitCode,
+        '' parentUnitName,
+        '' managercode,
+        '' managerLoginName,
+        ''managername,
+        ''companyCode,
+        to_char(f.create_time, 'yyyy-mm-dd HH24:mi:ss') createTime,
+        to_char(f.update_time, 'yyyy-mm-dd HH24:mi:ss') modifyTime
+        from org_unit f where f.is_group = 1
+        union all
+        select
+        '1' type,
+        code unitCode,
+        name UnitName,
+        parent_code parentUnitCode,
+        parent_name  parentUnitName,
+        '' managercode,
+        '' managerLoginName,
+        ''managername,
+        ''companyCode,
+        to_char(create_time, 'yyyy-mm-dd HH24:mi:ss') createTime,
+        to_char(update_time, 'yyyy-mm-dd HH24:mi:ss') modifyTime
+        from (SELECT u1."ID",
+        u1."NAME",
+        u1."SECOND_NAME",
+        u1."CODE",
+        u1."SHORT_NAME",
+        u1."TYPE",
+        u1."IS_GROUP",
+        u1."PATH",
+        u1."IS_INTERNAL",
+        u1."SORT_ID",
+        u1."IS_ENABLE",
+        u1."IS_DELETED",
+        u1."STATUS",
+        u1."LEVEL_SCOPE",
+        u1."ORG_ACCOUNT_ID",
+        u1."CREATE_TIME",
+        u1."UPDATE_TIME",
+        u2.id               as parent_id,
+        u2.name             as parent_name,
+        u2.code             as parent_code,
+        u2.type             as parent_type
+        FROM (select *
+        from org_unit u
+        where u.is_deleted = 0
+        and u.is_enable = 1) u1
+        left join (select *
+        from org_unit u
+        where u.is_deleted = 0
+        and u.is_enable = 1) u2
+        on (u2.path = substr(u1.path, 1, LENGTH(u1.path) - 4) or
+        u1.path is null)
+        and u1.type = 'Account'
+        and u2.type = 'Account'
+        order by u1.path) t
+        where t.parent_type = 'Account'
+        and t.is_internal = 1
+        union all
+        select
+        '4' type,
+        vd.bussinessdepartcode unitCode,
+        vd.businessname UnitName,
+        util_org.getDeptCodeByDeptId(vd.bussinessdepart) parentUnitCode,
+        util_org.getDeptNameByDeptId(vd.bussinessdepart) parentUnitName,
+        util_user.getMemCodeByMemId(vd.bussinessleader) managercode,
+        util_user.getLoginNameByMemId(vd.bussinessleader) managerLoginName,
+        util_user.getMemberNameByMemId(vd.bussinessleader) managername,
+        util_org.getAccountCodeByDeptId(vd.bussinessdepart) companyCode,
+        to_char(vd.start_date, 'yyyy-mm-dd HH24:mi:ss') createTime,
+        to_char(vd.modify_date, 'yyyy-mm-dd HH24:mi:ss') modifyTime
+        from
+        VM_DEPTBUSIGROUP_definition vd where vd.businesstype = -2012331098492612991
+        ) t
+        where 1=1
+        <isNotEmpty prepend="AND"  property="companyCode">
+            t.companyCode = #companyCode#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND"  property="modifyTime">
+            t.modifyTime >= #modifyTime#
+        </isNotEmpty>
+    </select>-->
+    <select id="orgMemberBase.select" resultClass="java.util.HashMap">
+        select to_char(id) id,code,to_char(f.ext_attr_1) telNumber,f.ext_attr_2 emailAddress, f.ext_attr_3 officeNum, to_char(f.ext_attr_11) gender,to_char(f.ext_attr_22, 'yyyy-mm-dd') joinDate,f.is_internal   from org_member f
+        where f.code is not null and f.is_admin = 0
+    </select>
+    <insert id="insertStaffNoCacheData.insert" parameterClass="java.util.HashMap">
+        insert into  vm_staffInfo_cache
+        (
+        id,
+        vm_state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        loginName,
+        code,
+        name,
+        realName,
+        mobileNo,
+        officeTel,
+        email,
+        deptCode,
+        deptName,
+        companyName,
+        companyCode,
+        staffStatus,
+        entryDate,
+        exitDate,
+        workPlaceName,
+        workPlaceCode,
+        createTime,
+        modifyTime,
+        oamodifyTime,
+        state,
+        linecode,
+        linename,
+        gender,
+        photoUrl,
+        idCardType,
+        idCardNo,
+        hrCode,
+        posJob
+        )
+        select
+        id,
+        1,
+        -6760911671874597139,
+        sysdate,
+        0,
+        null,
+        0,
+        0,
+        null,
+        null,
+        loginName,
+        code,
+        name,
+        realName,
+        mobileNo,
+        officeTel,
+        email,
+        deptCode,
+        deptName,
+        companyName,
+        companyCode,
+        staffStatus,
+        entryDate,
+        exitDate,
+        workPlaceName,
+        workPlaceCode,
+        createTime,
+        modifyTime,
+        modifyTime,
+        state,
+        util_org.getLineCodeByDeptId(departId),
+        util_org.getLineNameByDeptId(departId),
+        gender,
+        photoUrl,
+        idCardType,
+        idCardNo,
+        "hrCode",
+        posJob
+        from
+        (select
+        f1.departId,
+        f2.id,
+        nvl(util_user.getLoginNameByMemId(f2.id), substr(f2.ext_attr_2,1,instr(f2.ext_attr_2, '@')-1)) loginName,
+        f2.code code,
+        util_user.getMemberNameByMemId(f2.id) name,
+        nvl(f1.chnname, util_user.getMemberNameByMemId(f2.id)) realName,
+        f2.ext_attr_1 mobileNo,
+        f2.ext_attr_3 officeTel,
+        f2.ext_attr_2 email,
+        util_org.getDeptCodeByDeptId(f2.org_department_id) deptCode,
+        util_org.getDeptNameByDeptId(f2.org_department_id) deptName,
+        util_org.getDeptNameByDeptId(f2.org_account_id) companyName,
+        util_org.getDeptCodeByDeptId(f2.org_account_id) companyCode,
+        decode(f3.ext_attr_4, null,decode(f2.state, '1','1','2'),  decode (f3.ext_attr_4, '在职','1','2')) staffStatus,
+        to_char(f2.ext_attr_22, 'yyyy-mm-dd') entryDate,
+        to_char(f3.ext_attr_21, 'yyyy-mm-dd') exitDate,
+        f3.ext_attr_3 workPlaceName,
+        util_common.getEnumValueById(util_common.getEnumIdByShow('4660073417407942090', f3.ext_attr_3)) workPlaceCode,
+        to_char(f2.create_time, 'yyyy-mm-dd hh24:mi:ss') createTime,
+        (case when f2.update_time is null  and f3.update_date is not null then to_char(f3.update_date,'yyyy-mm-dd hh24:mi:ss')
+        when f2.update_time is not null and f3.update_date is null then to_char(f2.update_time, 'yyyy-mm-dd hh24:mi:ss')
+        when f2.update_time is null and f3.update_date is null then to_char(sysdate,'yyyy-mm-dd hh24:mi:ss')
+        when f2.update_time > f3.update_date    then to_char(f2.update_time, 'yyyy-mm-dd hh24:mi:ss')
+        else to_char(f3.update_date,'yyyy-mm-dd hh24:mi:ss')
+        end) modifyTime,
+        decode(f2.state, '1','1','2') state,
+        f2.ext_attr_11 gender,
+        '' photoUrl,
+        f3.ext_attr_1 idCardType,
+        f3.ext_attr_2 idCardNo,
+        nvl(f3.ext_attr_6, f1.hrCode) "hrCode",
+        f3.ext_attr_7 posJob
+        from
+        org_member f2
+        left join addressbook f3
+        on f2.id=f3.member_id
+        left join vm_basememberinfo f1
+        on f1.memberId = f3.member_id
+        where f2.is_admin=0 and f2.is_internal=1 and f2.type <![CDATA[<>]]> 2 and f2.is_virtual=0 and f2.is_deleted=0) f
+        where f.id not in (select id from vm_staffInfo_cache)
+        <isNotEmpty prepend="AND"  property="loginName">
+            (f.loginName not in   ($loginName$)  or  f.loginName is null)
+        </isNotEmpty>
+    </insert>
+
+    <insert id="insertDepartNoCacheData.insert" parameterClass="java.util.HashMap">
+    insert into  vm_org_unit_cache
+        (
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        type,
+        unitCode,
+        unitName,
+        parentUnitCode,
+        parentUnitName,
+        managerCode,
+        managerLoginName,
+        managerName,
+        lineLeaderCode,
+        lineLeaderName,
+        lineDirectorCode,
+        lineDirectorName,
+        companyCode,
+        createTime,
+        modifyTime,
+        isDeleted,
+        isEnable
+        )
+        select
+        id,
+        1,
+        -6760911671874597139,
+        sysdate,
+        0,
+        sysdate,
+        0,
+        0,
+        0,
+        null,
+        0,
+        -6760911671874597139,
+        sysdate,
+        type,
+        unitCode,
+        unitName,
+        parentUnitCode,
+        parentUnitName,
+        managerCode,
+        managerLoginName,
+        managerName,
+        lineLeaderCode,
+        lineLeaderName,
+        lineDirectorCode,
+        lineDirectorName,
+        companyCode,
+        createTime,
+        modifyTime,
+        "isDeleted",
+        "isEnable"
+        from (select f1.id,
+        (case when f1."CODE" like 'Line%' then
+        '2'
+        else
+        '3'
+        end) type,
+        f1."CODE" unitCode,
+        f1."NAME" unitName,
+        f1.parent_code parentUnitCode,
+        f1.parent_name parentUnitName,
+        util_user.getMemCodeByMemId(util_org.getLeaderMemIdByDeptId(f1."ID")) managerCode,
+        util_user.getLoginNameByMemId(util_org.getLeaderMemIdByDeptId(f1.id)) managerLoginName,
+        util_user.getMemberNameByMemId(util_org.getLeaderMemIdByDeptId(f1.id)) managerName,
+        util_user.getMemCodeByMemId(util_org.getLineLeaderMemIdByDeptId(f1."ID")) lineLeaderCode,
+        util_user.getMemberNameByMemId(util_org.getLineLeaderMemIdByDeptId(f1.id)) lineLeaderName,
+        util_user.getMemCodeByMemId(util_org.getLineDirectorMemIdByDeptId(f1."ID")) lineDirectorCode,
+        util_user.getMemberNameByMemId(util_org.getLineDirectorMemIdByDeptId(f1.id)) lineDirectorName,
+        util_org.getAccountCodeByDeptId(f1.id) companyCode,
+        to_char(f1.create_time, 'yyyy-mm-dd HH24:mi:ss') createTime,
+        to_char(f1.update_time, 'yyyy-mm-dd HH24:mi:ss') modifyTime,
+        to_char(f1.IS_DELETED) "isDeleted",
+        to_char(f1.IS_ENABLE) "isEnable"
+        from vm_org_unit_all f1
+        where f1.parent_id is not null
+        and code is not null
+        and f1.IS_INTERNAL = 1
+        union all
+        select f.id,
+        '0' type,
+        f.code unitCode,
+        f.name unitName,
+        '' parentUnitCode,
+        '' parentUnitName,
+        '' managerCode,
+        '' managerLoginName,
+        '' managerName,
+        '' lineLeaderCode,
+        '' lineLeaderName,
+        '' lineDirectorCode,
+        '' lineDirectorName,
+        '' companyCode,
+        to_char(f.create_time, 'yyyy-mm-dd HH24:mi:ss') createTime,
+        to_char(f.update_time, 'yyyy-mm-dd HH24:mi:ss') modifyTime,
+        to_char(f.IS_DELETED) "isDeleted",
+        to_char(f.IS_ENABLE) "isEnable"
+        from org_unit f
+        where f.is_group = 1
+        union all
+        select id,
+        '1' type,
+        code unitCode,
+        name unitName,
+        parent_code parentUnitCode,
+        parent_name parentUnitName,
+        '' managerCode,
+        '' managerLoginName,
+        '' managerName,
+        '' lineLeaderCode,
+        '' lineLeaderName,
+        '' lineDirectorCode,
+        '' lineDirectorName,
+        '' companyCode,
+        to_char(create_time, 'yyyy-mm-dd HH24:mi:ss') createTime,
+        to_char(update_time, 'yyyy-mm-dd HH24:mi:ss') modifyTime,
+        to_char(IS_DELETED) "isDeleted",
+        to_char(IS_ENABLE) "isEnable"
+        from (SELECT u1."ID",
+        u1."NAME",
+        u1."SECOND_NAME",
+        u1."CODE",
+        u1."SHORT_NAME",
+        u1."TYPE",
+        u1."IS_GROUP",
+        u1."PATH",
+        u1."IS_INTERNAL",
+        u1."SORT_ID",
+        u1."IS_ENABLE",
+        u1."IS_DELETED",
+        u1."STATUS",
+        u1."LEVEL_SCOPE",
+        u1."ORG_ACCOUNT_ID",
+        u1."CREATE_TIME",
+        u1."UPDATE_TIME",
+        u2.id               as parent_id,
+        u2.name             as parent_name,
+        u2.code             as parent_code,
+        u2.type             as parent_type
+        FROM (select *
+        from org_unit u
+        ) u1
+        left join (select *
+        from org_unit u
+        ) u2
+        on (u2.path = substr(u1.path, 1, LENGTH(u1.path) - 4) or
+        u1.path is null)
+        and u1.type = 'Account'
+        and u2.type = 'Account'
+        order by u1.path) t
+        where t.parent_type = 'Account'
+        and t.is_internal = 1
+        union all
+        select vd.id,
+        '4' type,
+        vd.bussinessdepartcode unitCode,
+        vd.businessname unitName,
+        util_org.getDeptCodeByDeptId(vd.bussinessdepart) parentUnitCode,
+        util_org.getDeptNameByDeptId(vd.bussinessdepart) parentUnitName,
+        util_user.getMemCodeByMemId(vd.bussinessleader) managerCode,
+        util_user.getLoginNameByMemId(vd.bussinessleader) managerLoginName,
+        util_user.getMemberNameByMemId(vd.bussinessleader) managerName,
+        '' lineLeaderCode,
+        '' lineLeaderName,
+        '' lineDirectorCode,
+        '' lineDirectorName,
+        util_org.getAccountCodeByDeptId(vd.bussinessdepart) companyCode,
+        to_char(vd.start_date, 'yyyy-mm-dd HH24:mi:ss') createTime,
+        to_char(vd.modify_date, 'yyyy-mm-dd HH24:mi:ss') modifyTime,
+        '0' "isDeleted",
+        '1' "isEnable"
+        from VM_DEPTBUSIGROUP_definition vd
+        where vd.businesstype = -2012331098492612991) f
+        where f.id not in (select id from vm_org_unit_cache)
+    </insert>
+
+    <insert id="staffCacheCTPContent.insert" >
+        insert into ctp_content_all
+        (ID,
+        CREATE_ID,
+        CREATE_DATE,
+        MODIFY_ID,
+        MODIFY_DATE,
+        MODULE_TYPE,
+        MODULE_ID,
+        MODULE_TEMPLATE_ID,
+        CONTENT_TYPE,
+        CONTENT,
+        CONTENT_DATA_ID,
+        CONTENT_TEMPLATE_ID,
+        TITLE,
+        SORT)
+        select
+        util_common.getAbsID,
+        '-6760911671874597139',
+        sysdate,
+        '-6760911671874597139',
+        sysdate,
+        37,
+        id,
+        '-3565710345498770709',
+        '20',
+        '',
+        id,
+        '-117082064185637281',
+        '人员信息缓存表',
+        '0'
+        from vm_staffInfo_cache vm where id not  in(select content_data_id from ctp_content_all c where c.content_template_id = -117082064185637281 and content_data_id is not null)
+    </insert>
+
+    <insert id="departCacheCTPContent.insert" >
+        insert into ctp_content_all
+        (ID,
+        CREATE_ID,
+        CREATE_DATE,
+        MODIFY_ID,
+        MODIFY_DATE,
+        MODULE_TYPE,
+        MODULE_ID,
+        MODULE_TEMPLATE_ID,
+        CONTENT_TYPE,
+        CONTENT,
+        CONTENT_DATA_ID,
+        CONTENT_TEMPLATE_ID,
+        TITLE,
+        SORT)
+        select
+        util_common.getAbsID,
+        '-6760911671874597139',
+        sysdate,
+        '-6760911671874597139',
+        sysdate,
+        42,
+        id,
+        '-2616892709252546191',
+        '20',
+        '',
+        id,
+        '-4042909002876630545',
+        '组织机构查询',
+        '0'
+        from vm_org_unit_cache vm where id not  in(select content_data_id from ctp_content_all c where c.content_template_id = -4042909002876630545 and content_data_id is not null)
+    </insert>
+
+    <insert id="insertCtpContentAllInfoByTable.insert" parameterClass="java.util.HashMap">
+        insert into ctp_content_all
+        (ID,
+        CREATE_ID,
+        CREATE_DATE,
+        MODIFY_ID,
+        MODIFY_DATE,
+        MODULE_TYPE,
+        MODULE_ID,
+        MODULE_TEMPLATE_ID,
+        CONTENT_TYPE,
+        CONTENT,
+        CONTENT_DATA_ID,
+        CONTENT_TEMPLATE_ID,
+        TITLE,
+        SORT)
+        select
+        util_common.getAbsID,
+        '-6760911671874597139',
+        sysdate,
+        '-6760911671874597139',
+        sysdate,
+        37,
+        id,
+        #moduleTemplateId#,
+        '20',
+        '',
+        id,
+        #contentTemplateId#,
+        #title#,
+        '0'
+        from $tableName$ vm where id not  in(select content_data_id from ctp_content_all c where c.content_template_id = #contentTemplateId# and content_data_id is not null)
+    </insert>
+
+    <select id="findUpdateTimeChange.select" resultClass="com.seeyon.apps.kk.org.model.StaffInfoModel">
+        select
+        f.id,
+        f.loginName,
+        f.code,
+        f.name,
+        f.realName,
+        f.mobileNo,
+        f.officeTel,
+        f.email,
+        f.deptCode,
+        f.deptName,
+        f.companyName,
+        f.companyCode,
+        f.staffStatus,
+        f.entryDate,
+        f.exitDate,
+        f.workPlaceName,
+        f.workPlaceCode,
+        f.createTime,
+        f.modifyTime,
+        f.modifyTime as oaModifyTime,
+        f.state,
+        util_org.getLineCodeByDeptId(departId) lineCode,
+        util_org.getLineNameByDeptId(departId) lineName,
+        f.gender,
+        f.photoUrl,
+        f.idCardType,
+        f.idCardNo,
+        f."hrCode",
+        f.posJob
+        from
+        (select
+        f1.departId,
+        f2.id,
+        nvl(util_user.getLoginNameByMemId(f2.id), substr(f2.ext_attr_2,1,instr(f2.ext_attr_2, '@')-1)) loginName,
+        f2.code code,
+        util_user.getMemberNameByMemId(f2.id) name,
+        nvl(f1.chnname, util_user.getMemberNameByMemId(f2.id)) realName,
+        f2.ext_attr_1 mobileNo,
+        f2.ext_attr_3 officeTel,
+        f2.ext_attr_2 email,
+        util_org.getDeptCodeByDeptId(f2.org_department_id) deptCode,
+        util_org.getDeptNameByDeptId(f2.org_department_id) deptName,
+        util_org.getDeptNameByDeptId(f2.org_account_id) companyName,
+        util_org.getDeptCodeByDeptId(f2.org_account_id) companyCode,
+        decode(f3.ext_attr_4, null,decode(f2.state, '1','1','2'),  decode (f3.ext_attr_4, '在职','1','2')) staffStatus,
+        to_char(f2.ext_attr_22, 'yyyy-mm-dd') entryDate,
+        to_char(f3.ext_attr_21, 'yyyy-mm-dd') exitDate,
+        f3.ext_attr_3 workPlaceName,
+        util_common.getEnumValueById(util_common.getEnumIdByShow('4660073417407942090', f3.ext_attr_3)) workPlaceCode,
+        to_char(f2.create_time, 'yyyy-mm-dd hh24:mi:ss') createTime,
+        TO_CHAR(
+        GREATEST(
+        NVL(f2.update_time, TO_DATE('0001-01-01', 'yyyy-mm-dd')),
+        NVL(f3.update_date, TO_DATE('0001-01-01', 'yyyy-mm-dd')),
+        NVL(f4.update_time, TO_DATE('0001-01-01', 'yyyy-mm-dd'))
+        ),
+        'yyyy-mm-dd hh24:mi:ss'
+        ) modifyTime,
+        decode(f2.state, '1','1','2') state,
+        f2.ext_attr_11 gender,
+        '' photoUrl,
+        f3.ext_attr_1 idCardType,
+        f3.ext_attr_2 idCardNo,
+        nvl(f3.ext_attr_6, f1.hrCode) "hrCode",
+        f3.ext_attr_7 posJob
+        from
+        org_member f2
+        left join addressbook f3
+        on f2.id=f3.member_id
+        left join vm_basememberinfo f1
+        on f1.memberId = f3.member_id
+        left join org_unit f4 on f2.org_department_id = f4.id
+        left join vm_staffInfo_cache f5 on f2.id = f5.id
+        where f2.is_admin=0 and f2.is_internal=1 and f2.type=1 and f2.is_virtual=0 and f2.is_deleted=0) f
+        left join vm_staffInfo_cache f2
+        on f.id = f2.id
+        where f.modifyTime  >  f2.oaModifyTime  or f.realName != f2.realname 
+        or f."hrCode" != f2.hrCode or (f."hrCode" is not null and f2.hrCode is null)
+    </select>
+
+    <select id="findUpdateTimeDepartInfoChange.select" resultClass="com.seeyon.apps.kk.org.model.DepartInfoModel">
+        select
+        id,
+        type,
+        unitCode,
+        unitName,
+        parentUnitCode,
+        parentUnitName,
+        managerCode,
+        managerLoginName,
+        managerName,
+        lineLeaderCode,
+        lineLeaderName,
+        lineDirectorCode,
+        lineDirectorName,
+        companyCode,
+        createTime,
+        modifyTime,
+        "isDeleted",
+        "isEnable"
+        from (select f1.id,
+        (case when f1."CODE" like 'Line%' then
+        '2'
+        else
+        '3'
+        end) type,
+        f1."CODE" unitCode,
+        f1."NAME" unitName,
+        f1.parent_code parentUnitCode,
+        f1.parent_name parentUnitName,
+        util_user.getMemCodeByMemId(util_org.getLeaderMemIdByDeptId(f1."ID")) managerCode,
+        util_user.getLoginNameByMemId(util_org.getLeaderMemIdByDeptId(f1.id)) managerLoginName,
+        util_user.getMemberNameByMemId(util_org.getLeaderMemIdByDeptId(f1.id)) managerName,
+        util_user.getMemCodeByMemId(util_org.getLineLeaderMemIdByDeptId(f1."ID")) lineLeaderCode,
+        util_user.getMemberNameByMemId(util_org.getLineLeaderMemIdByDeptId(f1.id)) lineLeaderName,
+        util_user.getMemCodeByMemId(util_org.getLineDirectorMemIdByDeptId(f1."ID")) lineDirectorCode,
+        util_user.getMemberNameByMemId(util_org.getLineDirectorMemIdByDeptId(f1.id)) lineDirectorName,
+        util_org.getAccountCodeByDeptId(f1.id) companyCode,
+        to_char(f1.create_time, 'yyyy-mm-dd HH24:mi:ss') createTime,
+        to_char(f1.update_time, 'yyyy-mm-dd HH24:mi:ss') modifyTime,
+        to_char(f1.IS_DELETED) "isDeleted",
+        to_char(f1.IS_ENABLE) "isEnable"
+        from vm_org_unit_all f1
+        inner join vm_org_unit_cache f2 on f2.id = f1.id
+        where f1.parent_id is not null
+        and code is not null
+        and f1.IS_INTERNAL = 1
+        and to_char(f1.update_time, 'yyyy-mm-dd HH24:mi:ss') > f2.modifyTime
+        union all
+        select
+        f.id,
+        '0' type,
+        f.code unitCode,
+        f.name unitName,
+        '' parentUnitCode,
+        '' parentUnitName,
+        '' managerCode,
+        '' managerLoginName,
+        '' managerName,
+        '' lineLeaderCode,
+        '' lineLeaderName,
+        '' lineDirectorCode,
+        '' lineDirectorName,
+        '' companyCode,
+        to_char(f.create_time, 'yyyy-mm-dd HH24:mi:ss') createTime,
+        to_char(f.update_time, 'yyyy-mm-dd HH24:mi:ss') modifyTime,
+        to_char(f.IS_DELETED) "isDeleted",
+        to_char(f.IS_ENABLE) "isEnable"
+        from org_unit f
+        inner join vm_org_unit_cache f2 on f2.id = f.id
+        where f.is_group = 1
+        and  to_char(f.update_time, 'yyyy-mm-dd HH24:mi:ss') > f2.modifyTime
+        union all
+        select
+        t.id,
+        '1' type,
+        code unitCode,
+        name unitName,
+        parent_code parentUnitCode,
+        parent_name parentUnitName,
+        '' managerCode,
+        '' managerLoginName,
+        '' managerName,
+        '' lineLeaderCode,
+        '' lineLeaderName,
+        '' lineDirectorCode,
+        '' lineDirectorName,
+        '' companyCode,
+        to_char(create_time, 'yyyy-mm-dd HH24:mi:ss') createTime,
+        to_char(update_time, 'yyyy-mm-dd HH24:mi:ss') modifyTime,
+        to_char(IS_DELETED) "isDeleted",
+        to_char(IS_ENABLE) "isEnable"
+        from (SELECT u1."ID",
+        u1."NAME",
+        u1."SECOND_NAME",
+        u1."CODE",
+        u1."SHORT_NAME",
+        u1."TYPE",
+        u1."IS_GROUP",
+        u1."PATH",
+        u1."IS_INTERNAL",
+        u1."SORT_ID",
+        u1."IS_ENABLE",
+        u1."IS_DELETED",
+        u1."STATUS",
+        u1."LEVEL_SCOPE",
+        u1."ORG_ACCOUNT_ID",
+        u1."CREATE_TIME",
+        u1."UPDATE_TIME",
+        u2.id               as parent_id,
+        u2.name             as parent_name,
+        u2.code             as parent_code,
+        u2.type             as parent_type
+        FROM (select *
+        from org_unit u
+        ) u1
+        left join (select *
+        from org_unit u
+        ) u2
+        on (u2.path = substr(u1.path, 1, LENGTH(u1.path) - 4) or
+        u1.path is null)
+        and u1.type = 'Account'
+        and u2.type = 'Account'
+        order by u1.path) t
+        inner join vm_org_unit_cache f2 on f2.id = t.id
+        where t.parent_type = 'Account'
+        and t.is_internal = 1
+        and  to_char(update_time, 'yyyy-mm-dd HH24:mi:ss') > f2.modifyTime
+        union all
+        select
+        vd.id,
+        '4' type,
+        vd.bussinessdepartcode unitCode,
+        vd.businessname unitName,
+        util_org.getDeptCodeByDeptId(vd.bussinessdepart) parentUnitCode,
+        util_org.getDeptNameByDeptId(vd.bussinessdepart) parentUnitName,
+        util_user.getMemCodeByMemId(vd.bussinessleader) managerCode,
+        util_user.getLoginNameByMemId(vd.bussinessleader) managerLoginName,
+        util_user.getMemberNameByMemId(vd.bussinessleader) managerName,
+        '' lineLeaderCode,
+        '' lineLeaderName,
+        '' lineDirectorCode,
+        '' lineDirectorName,
+        util_org.getAccountCodeByDeptId(vd.bussinessdepart) companyCode,
+        to_char(vd.start_date, 'yyyy-mm-dd HH24:mi:ss') createTime,
+        to_char(vd.modify_date, 'yyyy-mm-dd HH24:mi:ss') modifyTime,
+        '0' "isDeleted",
+        '1' "isEnable"
+        from VM_DEPTBUSIGROUP_definition vd
+        inner join vm_org_unit_cache f2 on f2.id = vd.id
+        where vd.businesstype = -2012331098492612991
+        and  to_char(vd.modify_date, 'yyyy-mm-dd HH24:mi:ss') > f2.modifyTime
+        ) f
+    </select>
+
+    <update id="oaStaffInfo.update" parameterClass="com.seeyon.apps.kk.org.model.StaffInfoModel">
+        update vm_staffInfo_cache
+        set
+        loginName = #loginName#,
+        code = #code#,
+        name = #name#,
+        realName = #realName#,
+        mobileNo = #mobileNo#,
+        officeTel = #officeTel#,
+        email = #eMail#,
+        deptCode = #deptCode#,
+        deptName = #deptName#,
+        companyName = #companyName#,
+        companyCode = #companyCode#,
+        staffStatus = #staffStatus#,
+        entryDate = #entryDate#,
+        exitDate = #exitDate#,
+        workPlaceName = #workPlaceName#,
+        workPlaceCode = #workPlaceCode#,
+        createTime = #createTime#,
+        modifyTime = #oaModifyTime#,
+        oamodifyTime = #oaModifyTime#,
+        state = #state#,
+        lineName = #lineName#,
+        lineCode = #lineCode#,
+        gender = #gender#,
+        photoUrl = #photoUrl#,
+        idCardType = #idCardType#,
+        idCardNo = #idCardNo#,
+        hrCode = #hrCode#,
+        posJob = #posJob#
+        where id=#id#
+    </update>
+    <update id="departInfo.update" parameterClass="com.seeyon.apps.kk.org.model.DepartInfoModel">
+        update vm_org_unit_cache
+        set
+        unitName = #unitName#,
+        unitCode = #unitCode#,
+        parentUnitName = #parentUnitName#,
+        parentUnitCode = #parentUnitCode#,
+        type = #type#,
+        managerLoginName = #managerLoginName#,
+        managerName = #managerName#,
+        managerCode = #managerCode#,
+        lineLeaderName = #lineLeaderName#,
+        lineLeaderCode = #lineLeaderCode#,
+        lineDirectorName = #lineDirectorName#,
+        lineDirectorCode = #lineDirectorCode#,
+        companyCode = #companyCode#,
+        createTime = #createTime#,
+        modifyTime = #modifyTime#,
+        isDeleted = #isDeleted#,
+        isEnable = #isEnable#
+        where id=#id#
+    </update>
+    <update id="staffInfoTeamNoData.update">
+        update vm_staffinfo_cache vm
+        set (teamName, teamCode, modifyTime) =
+        (select f.businessname,
+        f.bussinessdepartcode,
+        to_char(sysdate, 'yyyy-mm-dd hh24:mi:ss')
+        from VM_DEPTBUSIGROUP f
+        where vm.id = f.businessmember)
+        where
+        exists(
+        select 'x'
+        from VM_DEPTBUSIGROUP f
+        where vm.id = f.businessmember and (vm.teamName is  null or vm.teamCode is null)
+        )
+    </update>
+    <update id="staffInfoValidateTeam.update">
+        update vm_staffinfo_cache vm
+        set teamName = null,
+        teamCode = null,
+        modifyTime = to_char(sysdate, 'yyyy-mm-dd hh24:mi:ss')
+        where  vm.id not in (
+        select f.businessmember from VM_DEPTBUSIGROUP f where f.businessmember is not null
+        )  and    (teamName is not null or teamCode is not null)
+    </update>
+    <select id="allTeamInfo.select" resultClass="com.seeyon.apps.kk.org.model.TeamInfoModel">
+        select f.modify_date as modifyTime,  f.businessmember as id, f.businessname as teamName, f.bussinessdepartcode teamCode  from VM_DEPTBUSIGROUP f
+    </select>
+
+    <select id="staffAllTeamInfo.select" resultClass="com.seeyon.apps.kk.org.model.TeamInfoModel">
+        select
+        id,
+        teamName,
+        teamCode
+        from
+        vm_staffinfo_cache where teamName is not null or teamCode is not null
+    </select>
+    <update id="staffInfoTeam.update" parameterClass="com.seeyon.apps.kk.org.model.TeamInfoModel">
+        update vm_staffinfo_cache f
+        set teamName = #teamName#,
+        teamCode = #teamCode#,
+        modifyTime =
+        case when to_date(f.modifyTime, 'yyyy-mm-dd hh24:mi:ss') > #modifyTime# then f.modifyTime else  to_char(#modifyTime#, 'yyyy-mm-dd hh24:mi:ss') end
+        where id = #id#
+    </update>
+    <insert id="careRegisterTask.insert" parameterClass="java.util.HashMap">
+        insert into vm_carRegisterTask
+        (id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        writer,
+        writeDate,
+        pushMember,
+        pushDepart,
+        planPushDate,
+        pushState,
+        oldJobGrade,
+        newJobGrade,
+        jobGradeChangeDate,
+        serialNum)
+        values
+        (#id#,
+        1,
+        -6760911671874597139,
+        sysdate,
+        0,
+        sysdate,
+        0,
+        0,
+        0,
+        null,
+        0,
+        -6760911671874597139,
+        sysdate,
+        -6760911671874597139,
+        sysdate,
+        #pushMember#,
+        util_user.getDeptIdByMemId(#pushMember#),
+        sysdate + 1,
+        7727549772789403399,
+        #oldJobGrade#,
+        #newJobGrade#,
+        sysdate,
+        #id#)
+    </insert>
+    <insert id="careRegister.insert" parameterClass="java.util.HashMap">
+        insert into vm_carRegisterInfo
+        (id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        writer,
+        writeDate,
+        userId,
+        userDepart,
+        userAccount
+        )
+        values
+        (#id#,
+        1,
+        -6760911671874597139,
+        sysdate,
+        0,
+        sysdate,
+        0,
+        0,
+        0,
+        null,
+        0,
+        -6760911671874597139,
+        sysdate,
+        -6760911671874597139,
+        sysdate,
+        #pushMember#,
+        util_user.getDeptIdByMemId(#pushMember#),
+        util_user.getAccountIdByMemId(#pushMember#)
+        )
+    </insert>
+    <select id="departCodeToDepartIdRelation.select" resultClass="java.util.HashMap">
+        select to_char(id) id, code from org_unit f where f.code is not null
+    </select>
+    <select id="departIdToOrgIDRelation.select" resultClass="java.util.HashMap">
+        select to_char(id) id, to_char(f.org_account_id) orgId from org_unit f where f.code is not null
+    </select>
+    <select id="departExtendInfo.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select departInfo from vm_departextendinfo where depart = #id#
+    </select>
+    <select id="baseMemberNote.select"  resultClass="java.util.HashMap">
+        select memberid,memberNote from vm_basememberinfo c where c.memberState = '在职' and memberNote is  not null
+    </select>
+    <!-- 查询cap4员工基本信息 -->
+    <select id="findCap4EmployeeByUserId.select"  resultClass="com.seeyon.apps.kk.org.model.EhrEmployeeModel">
+        select
+        to_char(id) as id,
+        name,
+        userId,
+        company,
+        department,
+        depKMCode,
+        workPlace,
+        workfloor,
+        certType,
+        job,
+        jobGrade,
+        startDate,
+        updateDate,
+        cyear
+        from VM_CAP4_EMPLOYEE
+    </select>
+    <!-- 新增cap4员工信息数据 -->
+    <insert id="insertCap4EmployeeInfo.insert" parameterClass="java.util.HashMap">
+        insert into VM_CAP4_EMPLOYEE(
+        ID,
+        STATE,
+        START_MEMBER_ID,
+        START_DATE,
+        APPROVE_MEMBER_ID,
+        APPROVE_DATE,
+        FINISHEDFLAG,
+        RATIFYFLAG,
+        RATIFY_MEMBER_ID,
+        RATIFY_DATE,
+        SORT,
+        MODIFY_MEMBER_ID,
+        MODIFY_DATE,
+        name,
+        userId,
+        company,
+        department,
+        depKMCode,
+        workPlace,
+        workfloor,
+        certType,
+        job,
+        jobGrade,
+        startDate,
+        updateDate,
+        cyear
+        ) VALUES(
+        #id#,
+        1,
+        null,
+        sysdate,
+        null,
+        sysdate,
+        0,
+        0,
+        0,
+        sysdate,
+        0,
+        null,
+        sysdate,
+        #name#,
+        #userId#,
+        #company#,
+        #department#,
+        #depKMCode#,
+        #workPlace#,
+        #workfloor#,
+        #certType#,
+        #job#,
+        #jobGrade#,
+        to_date(#startDate#,'yyyy-MM-dd'),
+        to_date(#updateDate#,'yyyy-MM-dd'),
+        #cyear#
+        )
+    </insert>
+
+    <!-- 更新cap4员工信息数据 -->
+    <update id="updateCap4EmployeeInfo.update" parameterClass="java.util.HashMap" >
+        update VM_CAP4_EMPLOYEE
+        set
+        name = #name#,
+        userId = #userId#,
+        company = #company#,
+        department = #department#,
+        depKMCode = #depKMCode#,
+        workPlace = #workPlace#,
+        workfloor = #workfloor#,
+        certType = #certType#,
+        job = #job#,
+        jobGrade = #jobGrade#,
+        updateDate = to_date(#updateDate#,'yyyy-MM-dd'),
+        cyear = #cyear#
+        where id = #id#
+    </update>
+
+    <!-- 查询人员信息表中hr账号和人员id -->
+    <select id="hrCodeToOAMemberInfo.select" resultClass="mapBean">
+        select member_id as  "memberId", EXT_ATTR_6 as "hrCode" from addressbook where EXT_ATTR_6 is not null
+    </select>
+
+    <!-- 查询需推送记录 -->
+    <select id="getMemberMqInfoByUserCode.select" resultClass="java.util.HashMap"  parameterClass="java.util.HashMap">
+        select
+        to_char(sysdate,'yyyy-mm-dd') as "changeDate",
+        '' as "changeInfo",
+        'EHR' as "changeSource",
+        '1' as "changeType",
+        p.login_name as "loginName",
+        m.code as "code",
+        m.name as "name",
+        to_char(m.ext_attr_11) as "gender",
+        case when m.state=1 then '在职'
+        when m.state=2 then '离职'
+        end as "state",
+        to_char(m.ext_attr_22,'yyyy-mm-dd') as "entryDate",
+        b.ext_attr_21 as "leaveDate",
+        o1.name as "companyName",
+        o2.code as "deptCode",
+        o2.name as "deptName",
+        util_org.getLineCodeByDeptId(o2.id) as "lineCode",
+        util_org.getLineNameByDeptId(o2.id) as "lineName",
+        vd.businessname as "teamName",
+        vd.bussinessdepartcode as "teamCode",
+        m.ext_attr_2 as "email",
+        m.ext_attr_1 as "mobileNo",
+        m.ext_attr_3 as "officeTel",
+        b.ext_attr_2 as "idCardNo",
+        b.ext_attr_1 as "idCardType",
+        b.ext_attr_3 as "workPlaceName",
+        b.ext_attr_6 as "hrCode",
+        b.ext_attr_7 as "posJob",
+        b.ext_attr_9 as "jobGrade",
+        o1.code as "companyCode",
+        ''  as "certTypeCode",
+        ''  as "workPlaceCode"
+        from org_member m
+        left join org_principal p on p.member_id = m.id
+        left join addressbook b on b.member_id = m.id
+        left join org_unit o1 on o1.id = m.org_account_id
+        left join org_unit o2 on o2.id = m.org_department_id
+        left join VM_DEPTBUSIGROUP vd on vd.businessmember = m.id
+        where m.code = #code#
+    </select>
+
+    <!-- 获取OA名册表数据  -->
+    <select id="formalEmployeeMap.select" resultClass="java.util.HashMap"  parameterClass="java.util.HashMap">
+        select
+        loginName as "loginName",
+        code as "code",
+        name as "name",
+        gender "gender",
+        mobileNo as "mobileNo",
+        officeTel as "officeTel",
+        email as "email",
+        deptCode as "deptCode",
+        deptName as "deptName",
+        companyName as "companyName",
+        companyCode as "companyCode",
+        entryDate as "entryDate",
+        exitDate as "exitDate",
+        workPlaceName as "workPlaceName",
+        workPlaceCode as "workPlaceCode",
+        createTime as "createTime",
+        modifyTime as "modifyTime",
+        teamName as "teamName",
+        teamCode as "teamCode",
+        lineName as "lineName",
+        lineCode as "lineCode",
+        gender as "gender",
+        hrCode as "hrCode",
+        idCardType as "idCardType",
+        idCardNo as "idCardNo",
+        case when state=1 then '在职'
+        when state=2 then '离职'
+        end as "state",
+        posJob as "posJob"
+        from
+        vm_staffInfo_cache
+        where code = #code#
+    </select>
+
+    <!-- 获取OA名册表增量数据  -->
+    <select id="getUserIdByNoStaffInfo.select" resultClass="java.lang.String" >
+        select
+        id
+        from
+        (select
+        f2.id
+        from
+        org_member f2
+        where f2.is_admin=0 and f2.is_internal=1 and f2.type <![CDATA[<>]]> 2 and f2.is_virtual=0 and f2.is_deleted=0) f
+        where f.id not in (select id from vm_staffInfo_cache)
+    </select>
+
+    <!-- 指定人员插入OA名册数据  -->
+    <insert id="insertDesignStaffNoCacheData.insert" parameterClass="java.util.HashMap">
+        insert into  vm_staffInfo_cache
+        (
+        id,
+        vm_state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        loginName,
+        code,
+        name,
+        realName,
+        mobileNo,
+        officeTel,
+        email,
+        deptCode,
+        deptName,
+        companyName,
+        companyCode,
+        staffStatus,
+        entryDate,
+        exitDate,
+        workPlaceName,
+        workPlaceCode,
+        createTime,
+        modifyTime,
+        oamodifyTime,
+        state,
+        linecode,
+        linename,
+        teamName,
+        teamCode,
+        gender,
+        photoUrl,
+        idCardType,
+        idCardNo,
+        hrCode,
+        posJob
+        )
+        select
+        id,
+        1,
+        -6760911671874597139,
+        sysdate,
+        0,
+        null,
+        0,
+        0,
+        null,
+        null,
+        loginName,
+        code,
+        name,
+        realName,
+        mobileNo,
+        officeTel,
+        email,
+        deptCode,
+        deptName,
+        companyName,
+        companyCode,
+        staffStatus,
+        entryDate,
+        exitDate,
+        workPlaceName,
+        workPlaceCode,
+        createTime,
+        modifyTime,
+        modifyTime,
+        state,
+        util_org.getLineCodeByDeptId(departId),
+        util_org.getLineNameByDeptId(departId),
+        teamName,
+        teamCode,
+        gender,
+        photoUrl,
+        idCardType,
+        idCardNo,
+        "hrCode",
+        posJob
+        from
+        (select
+        f1.departId,
+        f2.id,
+        nvl(util_user.getLoginNameByMemId(f2.id), substr(f2.ext_attr_2,1,instr(f2.ext_attr_2, '@')-1)) loginName,
+        f2.code code,
+        util_user.getMemberNameByMemId(f2.id) name,
+        nvl(f1.chnname, util_user.getMemberNameByMemId(f2.id)) realName,
+        f2.ext_attr_1 mobileNo,
+        f2.ext_attr_3 officeTel,
+        f2.ext_attr_2 email,
+        util_org.getDeptCodeByDeptId(f2.org_department_id) deptCode,
+        util_org.getDeptNameByDeptId(f2.org_department_id) deptName,
+        util_org.getDeptNameByDeptId(f2.org_account_id) companyName,
+        util_org.getDeptCodeByDeptId(f2.org_account_id) companyCode,
+        decode(f3.ext_attr_4, null,decode(f2.state, '1','1','2'),  decode (f3.ext_attr_4, '在职','1','2')) staffStatus,
+        to_char(f2.ext_attr_22, 'yyyy-mm-dd') entryDate,
+        to_char(f3.ext_attr_21, 'yyyy-mm-dd') exitDate,
+        f3.ext_attr_3 workPlaceName,
+        util_common.getEnumValueById(util_common.getEnumIdByShow('4660073417407942090', f3.ext_attr_3)) workPlaceCode,
+        to_char(f2.create_time, 'yyyy-mm-dd hh24:mi:ss') createTime,
+        (case when f2.update_time is null  and f3.update_date is not null then to_char(f3.update_date,'yyyy-mm-dd hh24:mi:ss')
+        when f2.update_time is not null and f3.update_date is null then to_char(f2.update_time, 'yyyy-mm-dd hh24:mi:ss')
+        when f2.update_time is null and f3.update_date is null then to_char(sysdate,'yyyy-mm-dd hh24:mi:ss')
+        when f2.update_time > f3.update_date    then to_char(f2.update_time, 'yyyy-mm-dd hh24:mi:ss')
+        else to_char(f3.update_date,'yyyy-mm-dd hh24:mi:ss')
+        end) modifyTime,
+        decode(f2.state, '1','1','2') state,
+        vd.businessname as teamName,
+        vd.bussinessdepartcode as teamCode,
+        f2.ext_attr_11 gender,
+        '' photoUrl,
+        f3.ext_attr_1 idCardType,
+        f3.ext_attr_2 idCardNo,
+        nvl(f3.ext_attr_6, f1.hrCode) "hrCode",
+        f3.ext_attr_7 posJob
+        from
+        org_member f2
+        left join addressbook f3
+        on f2.id=f3.member_id
+        left join vm_basememberinfo f1
+        on f1.memberId = f3.member_id
+        left join VM_DEPTBUSIGROUP vd on vd.businessmember = f2.id
+        where f2.is_admin=0 and f2.is_internal=1 and f2.type <![CDATA[<>]]> 2 and f2.is_virtual=0 and f2.is_deleted=0) f
+        where f.id not in (select id from vm_staffInfo_cache)
+        and  f.code = #code#
+    </insert>
+
+    <!-- 指定人员g更新OA名册数据  -->
+    <update id="designUpdateStaffInfo.update" parameterClass="java.util.HashMap">
+        update vm_staffInfo_cache
+        set
+        loginName = #loginName#,
+        code = #code#,
+        name = #name#,
+        realName = #realName#,
+        mobileNo = #mobileNo#,
+        officeTel = #officeTel#,
+        email = #eMail#,
+        deptCode = #deptCode#,
+        deptName = #deptName#,
+        companyName = #companyName#,
+        companyCode = #companyCode#,
+        staffStatus = #staffStatus#,
+        entryDate = #entryDate#,
+        exitDate = #exitDate#,
+        workPlaceName = #workPlaceName#,
+        workPlaceCode = #workPlaceCode#,
+        createTime = #createTime#,
+        modifyTime = #oaModifyTime#,
+        oamodifyTime = #oaModifyTime#,
+        state = #state#,
+        lineName = #lineName#,
+        lineCode = #lineCode#,
+        teamName = #teamName#,
+        teamCode = #teamCode#,
+        gender = #gender#,
+        photoUrl = #photoUrl#,
+        idCardType = #idCardType#,
+        idCardNo = #idCardNo#,
+        hrCode = #hrCode#,
+        posJob = #posJob#
+        where id=#id#
+    </update>
+
+    <select id="findDesignMemberChange.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        f.id as "id",
+        f.loginName as "loginName",
+        f.code as "code",
+        f.name as "name",
+        f.realName as "realName",
+        f.mobileNo as "mobileNo",
+        f.officeTel as "officeTel",
+        f.email as "eMail",
+        f.deptCode as "deptCode",
+        f.deptName as "deptName",
+        f.companyName as "companyName",
+        f.companyCode as "companyCode",
+        f.staffStatus as "staffStatus",
+        f.entryDate as "entryDate",
+        f.exitDate as "exitDate",
+        f.workPlaceName as "workPlaceName",
+        f.workPlaceCode as "workPlaceCode",
+        f.createTime as "createTime",
+        f.modifyTime as "modifyTime",
+        f.modifyTime as "oaModifyTime",
+        f.state as "state",
+        util_org.getLineCodeByDeptId(departId)  as "lineCode",
+        util_org.getLineNameByDeptId(departId)  as "lineName",
+        f.teamName as "teamName",
+        f.teamCode as "teamCode",
+        f.gender as "gender",
+        f.photoUrl as "photoUrl",
+        f.idCardType as "idCardType",
+        f.idCardNo as "idCardNo",
+        f."hrCode" as "hrCode",
+        f.posJob as "posJob"
+        from
+        (select
+        f1.departId,
+        f2.id,
+        nvl(util_user.getLoginNameByMemId(f2.id), substr(f2.ext_attr_2,1,instr(f2.ext_attr_2, '@')-1)) loginName,
+        f2.code code,
+        util_user.getMemberNameByMemId(f2.id) name,
+        nvl(f1.chnname, util_user.getMemberNameByMemId(f2.id)) realName,
+        f2.ext_attr_1 mobileNo,
+        f2.ext_attr_3 officeTel,
+        f2.ext_attr_2 email,
+        vd.businessname as teamName,
+        vd.bussinessdepartcode as teamCode,
+        util_org.getDeptCodeByDeptId(f2.org_department_id) deptCode,
+        util_org.getDeptNameByDeptId(f2.org_department_id) deptName,
+        util_org.getDeptNameByDeptId(f2.org_account_id) companyName,
+        util_org.getDeptCodeByDeptId(f2.org_account_id) companyCode,
+        decode(f3.ext_attr_4, null,decode(f2.state, '1','1','2'),  decode (f3.ext_attr_4, '在职','1','2')) staffStatus,
+        to_char(f2.ext_attr_22, 'yyyy-mm-dd') entryDate,
+        to_char(f3.ext_attr_21, 'yyyy-mm-dd') exitDate,
+        f3.ext_attr_3 workPlaceName,
+        util_common.getEnumValueById(util_common.getEnumIdByShow('4660073417407942090', f3.ext_attr_3)) workPlaceCode,
+        to_char(f2.create_time, 'yyyy-mm-dd hh24:mi:ss') createTime,
+        TO_CHAR(
+        GREATEST(
+        NVL(f2.update_time, TO_DATE('0001-01-01', 'yyyy-mm-dd')),
+        NVL(f3.update_date, TO_DATE('0001-01-01', 'yyyy-mm-dd')),
+        NVL(f4.update_time, TO_DATE('0001-01-01', 'yyyy-mm-dd'))
+        ),
+        'yyyy-mm-dd hh24:mi:ss'
+        ) modifyTime,
+        decode(f2.state, '1','1','2') state,
+        f2.ext_attr_11 gender,
+        '' photoUrl,
+        f3.ext_attr_1 idCardType,
+        f3.ext_attr_2 idCardNo,
+        nvl(f3.ext_attr_6, f1.hrCode) "hrCode",
+        f3.ext_attr_7 posJob
+        from
+        org_member f2
+        left join addressbook f3
+        on f2.id=f3.member_id
+        left join vm_basememberinfo f1
+        on f1.memberId = f3.member_id
+        left join org_unit f4 on f2.org_department_id = f4.id
+        left join vm_staffInfo_cache f5 on f2.id = f5.id
+        left join VM_DEPTBUSIGROUP vd on vd.businessmember = f2.id
+        where f2.is_admin=0 and f2.is_internal=1 and f2.type=1 and f2.is_virtual=0 and f2.is_deleted=0) f
+        left join vm_staffInfo_cache f2
+        on f.id = f2.id
+        where f.code = #code# and
+        f.modifyTime  >  f2.oaModifyTime  or f.realName != f2.realname
+        or f.teamName != f2.teamName or f.teamCode != f2.teamCode
+        or f."hrCode" != f2.hrCode or (f."hrCode" is not null and f2.hrCode is null)
+    </select>
+</sqlMap>

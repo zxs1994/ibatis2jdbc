@@ -219,4 +219,12 @@
 			</isNotEmpty>
 		</dynamic>
 	</delete>
+	<!-- 测试异常场景：引用不存在的sql片段 -->
+	<select id="brokenInclude">
+		SELECT * FROM users <include refid="missingFragment"/>
+	</select>
+	<!-- 测试异常场景：引用不存在的resultMap -->
+	<select id="brokenResultMap" resultMap="notExists">
+		SELECT id FROM users
+	</select>
 </sqlMap>

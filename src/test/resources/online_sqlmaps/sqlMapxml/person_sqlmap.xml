@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+
+	<!-- 当只插入人员时，重复表的插入操作 -->
+	<insert id="personSonOnlyPerSon.insert" parameterClass="map">
+		insert into  $table_name$
+		(
+			id,formmain_id,sort,$subField$
+		)
+		values
+		(
+			util_common.getAbsID,#formmain_id#,#sort#,#person#
+		)
+		
+	</insert>
+	
+	<!-- 当只插入人员和类型时，重复表的插入操作 -->
+	<insert id="personSonNoDepart.insert" parameterClass="map">
+		insert into  $table_name$
+		(
+			id,formmain_id,sort,$subField$,$typeField$
+		)
+		values
+		(
+			util_common.getAbsID,#formmain_id#,#sort#,#person#,#type#
+		)
+		
+	</insert>
+	
+	<!-- 当只插入人员和部门时，重复表的插入操作 -->
+	<insert id="personSonNoType.insert" parameterClass="map">
+		insert into  $table_name$
+		(
+			id,formmain_id,sort,$subField$,$departField$
+		)
+		values
+		(
+			util_common.getAbsID,#formmain_id#,#sort#,#person#,#depart#
+		)
+		
+	</insert>
+	
+	<!-- 插入重复表的三个字段 -->
+	<insert id="personSonAll.insert" parameterClass="map">
+		insert into  $table_name$
+		(
+			id,formmain_id,sort,$subField$,$departField$,$typeField$
+		)
+		values
+		(
+			util_common.getAbsID,#formmain_id#,#sort#,#person#,#depart#,#type#
+		)
+		
+	</insert>
+	
+	<!-- 初始化重复表数据 -->
+	<insert id="personSon.insert" parameterClass="map">
+		insert into  $table_name$
+		(
+			id,formmain_id,sort
+		)
+		values
+		(
+			util_common.getAbsID,#formmain_id#,1
+		)
+		
+	</insert>
+	
+	<!-- 当只插入人员时，重复表的更新操作 -->
+	<update id="personSonOnlyPerSon.update"  parameterClass="map">
+		update $table_name$ set $subField$ = #person# where formmain_id = #formmain_id# AND sort = #sort#
+	</update>
+	
+	<!-- 当只插入人员和类型时，重复表的更新操作 -->
+	<update id="personSonNoDepart.update"  parameterClass="map">
+		update $table_name$ set $subField$ = #person#,$typeField$ = #type# where formmain_id = #formmain_id# AND sort = #sort#
+	</update>
+	
+	<!-- 当只插入人员和部门时，重复表的更新操作 -->
+	<update id="personSonNoType.update"  parameterClass="map">
+		update $table_name$ set $subField$ = #person#,$departField$ = #depart# where formmain_id = #formmain_id# AND sort = #sort#
+	</update>
+	
+	<!-- 重复表的更新操作 -->
+	<update id="personSonAll.update"  parameterClass="map">
+		update $table_name$ set $subField$ = #person#,$departField$ = #depart#,$typeField$ = #type# where formmain_id = #formmain_id# AND sort = #sort#
+	</update>
+	
+	<!-- 检查重复表中的有效数据 -->
+	<select id="personSon.select.count"  parameterClass="map" resultClass="long">
+        SELECT count(*) FROM $table_name$ WHERE formmain_id = #formmain_id# AND $subField$ is not null
+    </select>
+    
+    <!-- 当只插入人员时，检查重复表中是否已经存在该人员 -->
+    <select id="personSonOnlyPerSon.select.count"  parameterClass="map" resultClass="long">
+        SELECT count(*) FROM $table_name$ WHERE formmain_id = #formmain_id# AND $subField$ = #person#
+    </select>
+    
+    <!-- 当只插入人员和类型时，检查重复表中是否已经存在该同类型人员 -->
+    <select id="personSonNoDepart.select.count"  parameterClass="map" resultClass="long">
+        SELECT count(*) FROM $table_name$ 
+        WHERE formmain_id = #formmain_id# 
+        AND $subField$ = #person#
+        AND $typeField$ = #type#
+    </select>
+    
+    <!-- 对子表进行删除操作 -->
+    <delete id="personSon.delete"  parameterClass="map">
+        delete $table_name$ where formmain_id = #formmain_id# 
+    </delete>
+    
+</sqlMap>

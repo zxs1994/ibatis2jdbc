@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+
+
+<select id="voteById.select" resultClass="com.seeyon.apps.kk.vote.model.VoteInfoModel" parameterClass="java.lang.String">
+select id,
+voteStatus,
+        accountIds,
+       employeeSupervisorNumber,
+       util_user.getMemCodeByMemId(sendUser) as sendUserNo,
+       sendDepart,
+       sendDate,
+       beginDate,
+       endDate,
+       voter,
+       voteTopic,
+       voteSelectedNote,
+       maxChoices,
+       minChoices,
+       voteNote
+  from vm_employeeSupervisorVote where id = #id#
+</select>
+       <select id="memberByAccount.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+select id from org_member m
+where  m.is_deleted = 0 and m.state=1 and m.org_department_id != -1 and
+ m.is_internal = 1 and m.org_account_id in($accountIds$)
+
+       </select>
+
+       <insert id="wfvote.insert" parameterClass="java.lang.String" >
+        insert into vm_wfselectvoteson (id,formmain_id,sort,selected,selectContent,line)
+ select util_common.getAbsID,
+        v1.id,
+        v2.sort,
+        v2.selected,
+        v2.selectContent,
+        v2.line
+   from vm_wfselectvote v1
+   left join vm_employeeSupervisorVote v3
+   on v1.voteFlag = v3.id || v3.voteTopic
+   left join vm_employeeSupervisorVoteSon v2
+     on v2.formmain_id = v3.id
+  where  v3.id = #id#
+       </insert>
+    <delete id="voteByFlg.delete" >
+        delete vm_wfselectvoteson vm where vm.selectContent is null
+    </delete>
+
+</sqlMap>

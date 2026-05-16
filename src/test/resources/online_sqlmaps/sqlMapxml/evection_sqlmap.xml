@@ -1,0 +1,188 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+	<!-- 导出出差信息-->
+	<select id="exportEevcationInfo.select" resultClass="java.util.HashMap">
+		select code KM工号_1, to_char(begindate, 'yyyy-mm-dd') 出差开始日期_2, to_char(enddate, 'yyyy-mm-dd') 出差结束日期_3, origin 出差事由_4, evectiontype 备注_5
+		from (select ev.*, m2.code, m2.name staffName
+		from (select t1.proposercode, t1.origin , t1.evectiontype, t1.begindate, t1.enddate, t2.column_value partID
+		from vm_evations t1,
+		table (select util_common.split(t1.man || ',' || t1.son, ',') from dual) t2) ev
+		left join org_member m on ev.proposercode = m.id
+		left join org_member m2 on ev.partID = m2.id) info order by KM工号_1,出差开始日期_2
+	</select>
+
+	<update id="stateByid.update" parameterClass="java.lang.String">
+		update vm_predimission set predimissionuserstate=1 where id =#id#
+	</update>
+
+	<!-- 向出差表中插入调研信息 -->
+	<insert id="addReptionspect.insert" parameterClass="evection">
+		insert into vm_evations
+		(reqid,
+		state,
+		createmember,
+		createdate,
+		approvemember,
+		approvedate,
+		finishedflag,
+		ratifyflag,
+		ratify_member_id,
+		ratify_date,
+		sort,
+		modify_member_id,
+		modify_date,
+		MAN,
+		BEGINDATE,
+		ENDDATE,
+		DAYS,
+		ORIGIN,
+		DEPARTCODE,
+		PROPOSERCODE,
+		APPLYTIME,
+		KMRECID,
+		type)
+		values
+		(util_common.getID,
+		1,
+		util_user.getMemIdByLoginName('flowbot'),
+		sysdate,
+		0,
+		sysdate,
+		0,
+		0,
+		0,
+		null,
+		0,
+		util_user.getMemIdByLoginName('flowbot'),
+		sysdate,
+		#staffID#,
+		to_date(substr(#beginDate#, 1, 10), 'yyyy-mm-dd'),
+		to_date(substr(#endDate#, 1, 10), 'yyyy-mm-dd'),
+		#days#,
+		#origin#,
+		#departCode#,
+		#staffID#,
+		to_date(substr(#applytime#, 1, 10), 'yyyy-mm-dd'),
+		#kmRecid#,
+		util_common.getEnumIdByRefName('出差类型', '调研'))
+
+	</insert>
+
+	<!-- 从出差虚拟表（vm_evations）查询出差表中的调研信息的做大记录值 -->
+	<select id="maxInspectRecid.select" resultClass="java.lang.String">
+		select max(to_number(kmrecid)) from  vm_evations
+	</select>
+
+	<!-- 出差接口-->
+	<select id="evectionInfo.select" resultClass="com.seeyon.apps.kk.evection.model.Evection" parameterClass="map">
+		select
+		reqID,staffID,exitReviewEndMarker,staffName,department,destination,to_char(begindate,'yyyy-mm-dd')
+		beginDate,to_char(enddate,'yyyy-mm-dd') endDate,days,origin,evectiontype,to_char(applytime,'yyyy-mm-dd') applytime,propose,proposercode,abroadFlag,flowSerialNo,applyStatus,
+		currentState,
+		refSerialNo,flowUrl,inspStates,backFlowUrl
+		from (select ev.*, m.name propose,m.code proposercode,m2.code staffID, m2.name staffName
+		from
+		(select t1.reqid,
+		t1.department,
+		t1.origin,
+		t1.evectiontype,
+		t1.enddate,
+		t1.begindate,
+		t1.destination,
+		t1.proposercode proposercodes,
+		t1.days,
+		t1.applytime,
+		t1.abroadflag,
+		t2.column_value partID,
+		t1.includehk,
+		t1.flowSerialNo,
+		t1.applyStatus,
+		nvl(t1.ifrefund, '0') exitReviewEndMarker,
+		currentState,
+		refSerialNo,
+		flowUrl,
+		inspStates,
+		backFlowUrl
+		from vm_evations t1,
+		table (select
+		util_common.split(t1.man ||
+		',' ||
+		t1.son,
+		',')
+		from dual) t2
+		where
+		(includehk =0 or includehk is null
+		<isNotEmpty prepend="or" property="includeHK">
+			t1.includeHK =
+			#includeHK#
+		</isNotEmpty>
+		)
+		<!--判断是否关联至财务报销 Shkk.do 2023-03-20 whx-->
+		<!--出差情況下: 空 则代表是往期数据 1 则代表非出境出差流程结束或者出境出差回顾流程结束 0 则代表出境出差结束而回顾未结束 -->
+		<!--在mustLookBack为0时候无需判断是否回顾完成-->
+		and ((decode （t1.evectiontype ,'出差',1,0) = 1 and
+		<isNotEmpty  property="mustLookback">
+		('0' = #mustLookback# or
+		</isNotEmpty>
+		(t1.ifrefund = 1 or t1.ifrefund is null))
+		<isNotEmpty  property="mustLookback">
+		)
+		</isNotEmpty>
+		or decode（t1.evectiontype ,'出差',1,0) = 0)
+		<isNotEmpty prepend="and" property="evectionType">
+			t1.evectiontype =
+			#evectionType#
+		</isNotEmpty>
+		<isNotEmpty prepend="and" property="department">
+			t1.department like
+			'%'|| #department# || '%'
+		</isNotEmpty>
+		<isNotEmpty prepend="and" property="hasApplied">
+			(t1.applyStatus = #hasApplied# or t1.applyStatus is null)
+		</isNotEmpty>
+		<isNotEmpty prepend="and" property="hasRevoked">
+			t1.applyStatus = #hasRevoked#
+		</isNotEmpty>
+		and
+		to_date(to_char(t1.modify_date, 'yyyy-mm-dd'), 'yyyy-mm-dd') between   to_date(#beginDate#, 'yyyy-mm-dd') and  to_date(#endDate#,  'yyyy-mm-dd')
+		) ev
+		left join org_member m
+		on
+		ev.proposercodes = m.id
+		left
+		join org_member
+		m2
+		on ev.partID = m2.id)
+		info
+		where 1=1
+		<isNotEmpty prepend="and" property="staffID">
+			staffID in ($staffID$)
+		</isNotEmpty>
+	</select>
+	<!-- 根据调研信息获取调研信息recid-->
+	<select id = "queryReptionsByRecid.select" resultClass="com.seeyon.apps.kk.evection.model.Evection" parameterClass="string">
+		select
+		id,
+		kmrecid,
+		to_char(beginDate, 'yyyy-mm-dd') beginDate,
+		to_char(endDate, 'yyyy-mm-dd') endDate,
+		inspStates
+		from vm_evations v where v.kmrecid = #recid#
+	</select>
+	<!-- 查询已经在库的调研数据的ID -->
+	<select id="findResearchRecordsInLibrary.select" resultClass="com.seeyon.apps.kk.evection.model.Evection" parameterClass="java.util.HashMap">
+		select
+		id,
+		kmRecid,
+		to_char(beginDate, 'yyyy-mm-dd') beginDate,
+		to_char(endDate, 'yyyy-mm-dd') endDate,
+		inspStates
+		from vm_cap4Evation
+		where evationtype = -1018115749788758189
+		and kmrecid in
+		<iterate conjunction="," open="(" close=")" property="recids">
+			#recids[]#
+		</iterate>
+	</select>
+</sqlMap>

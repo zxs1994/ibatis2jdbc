@@ -1,0 +1,577 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+    <select id="curentNoSignPolling.select" resultClass="java.lang.String">
+        select to_char(id) from vm_fullpollingNoSignUpDoc c where c.pollingYare = to_number(to_char(sysdate, 'yyyy'))
+    </select>
+
+    <insert id="currentNoSignPolling.insert" parameterClass="java.util.HashMap">
+        insert into
+        vm_fullpollingNoSignUpDoc
+        (
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        serialNo,
+        writerMember,
+        writeDepart,
+        writeDate,
+        pollingYare,
+        note
+        )
+        values
+        (
+        #id#,
+        1,
+        -6760911671874597139,
+        sysdate,
+        0,
+        sysdate,
+        0,
+        0,
+        0,
+        null,
+        0,
+        '-6760911671874597139',
+        sysdate,
+        #serialNum#,
+        #userId#,
+        util_user.getDeptIdByMemId(#userId#),
+        sysdate,
+        to_char(sysdate, 'yyyy'),
+        '')
+    </insert>
+    <select id="allInvaliData.select" resultClass="java.util.HashMap">
+        select  to_char(id) as id, c.ext_attr_22 as joinDate, c.org_department_id as departMent from org_member c where c.is_internal = 1 and c.is_admin = 0 and  c.is_enable = 1 and c.is_deleted = 0
+    </select>
+    <select id="currentSignUpInfo.select" resultClass="com.seeyon.apps.kk.fullpolling.model.FullPollingBatchModel">
+        select f2.id,
+        f2.formmain_id,
+        serialNo,
+        writer,
+        writerDate,
+        writeDepart,
+        pollingYear,
+        yearBatch,
+        departureDate,
+        destination,
+        batchState,
+        signUpMember,
+        belongDepart,
+        joinDate,
+        signUpDate,
+        isSignUpValidate,
+        note,
+        isIncAdjust,
+        f2.sort
+        from vm_fullpollingBatchDoc f1
+        left join vm_fullpollingBatchSignup f2
+        on f1.id = f2.formmain_id where f2.isSignUpValidate = -3841538853571705149 and f1.pollingYear = to_number(to_char(sysdate, 'yyyy'))
+    </select>
+
+    <delete id="noSignUpmember.delete" parameterClass="java.lang.String">
+        delete from vm_fullpollingnosignupdoc
+    </delete>
+
+    <insert id="insertNoSignUpMember" parameterClass="java.util.HashMap">
+        insert into vm_fullpollingnosignupdoc
+        (
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        writeDate,
+        pollingYare,
+        note,
+        noSignUpMember,
+        belongDepart,
+        joinDate)
+        select
+        util_common.getAbsID,
+        1,
+        -6760911671874597139,
+        sysdate,
+        0,
+        sysdate,
+        0,
+        0,
+        0,
+        null,
+        0,
+        '-6760911671874597139',
+        sysdate,
+        sysdate,
+        to_number(to_char(sysdate, 'yyyy')),
+        '',
+        to_char(id) as id,
+        c.org_department_id as departMent,
+        c.ext_attr_22 as joinDate
+        from org_member c
+        where      c.is_internal = 1
+        and c.is_loginable = 1
+        and c.is_virtual = 0
+        and c.is_admin =0
+        and c.is_assigned = 1
+        and c.type = 1
+        and c.state = 1
+        and c.is_enable = 1
+        and c.is_deleted = 0
+        and c.status = 1
+        and id is not null
+        and id not in
+        (SELECT F2.signUpMember
+        from vm_fullpollingBatchDoc f1
+        left join vm_fullpollingBatchSignup f2
+        on f1.id = f2.formmain_id
+        where f2.isSignUpValidate = -3841538853571705149
+        and f1.pollingYear = to_number(to_char(sysdate, 'yyyy'))
+        AND F1.batchState != 4845015860421214524)
+    </insert>
+
+
+
+    <insert id="insertNoSignUpMemberCount">
+        insert into ctp_content_all c
+        (
+        id                  ,
+        create_id           ,
+        create_date         ,
+        modify_id           ,
+        modify_date         ,
+        module_type         ,
+        module_id           ,
+        module_template_id  ,
+        content_type        ,
+        content             ,
+        content_data_id     ,
+        content_template_id ,
+        title
+
+        )
+        select
+        util_common.getID,
+        -6760911671874597139,
+        sysdate,
+        -6760911671874597139,
+        sysdate,
+        37,
+        c.id,
+        -6150285474670555896,
+        20,
+        '',
+        c.id,
+        2460746423235071531,
+        '轮训未报名管理'
+        from vm_fullpollingnosignupdoc c
+
+    </insert>
+    <!--  增补流程 -->
+    <select id="wfFullPolingAdd.select" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.fullpolling.model.FullPollingBatchModel">
+        select
+        f1.pollingYear,
+        f2.yearBatch,
+        f2.serialNo as batchSerialNum,
+        signUpMember,
+        belongDepart，
+        joinDate，
+        signUpDate
+        from vm_wf_fullpollingAddNM f1
+        left join vm_wf_fullpollingAddNMsom f2
+        on f1.id = f2.formmain_id
+        where f1.serialNum = #serialNum#
+    </select>
+    <!-- 调整流程 -->
+    <select id="wfFullPolingAdJust.select" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.fullpolling.model.FullPollingBatchModel">
+        select
+        serialNum,
+        sendUser     signUpMember,
+        sendDepart    belongDepart,
+        joinDate,
+        pollingYear,
+        newBatch   yearBatch ,
+        batchFlow batchSerialNum
+        from vm_wf_fullpollingadjust f where f.serialNum = #serialNum#
+    </select>
+    <select id="fullPollingBatchByBAANDAY.select" parameterClass="java.util.HashMap" resultClass="com.seeyon.apps.kk.fullpolling.model.FullPollingBatchModel">
+        select
+        f1.id,
+        f2.formmain_id,
+        f2.signUpMember
+        from vm_fullpollingBatchDoc  f1
+        left join
+        vm_fullpollingBatchSignup  f2
+        on f1.id = f2.formmain_id
+        where f1.pollingYear = #analYear#
+        and f1.yearBatch = #yearBatch#
+        and f2.signUpMember = #signUpMember#
+    </select>
+
+    <!--全员轮训盘点批次子表更新 -->
+    <update id="fullPolingBatchNo.update" parameterClass="com.seeyon.apps.kk.fullpolling.model.FullPollingBatchModel">
+        update vm_fullpollingBatchSignup vm
+        set vm.joinDate     = #joinDate#,
+        vm.signUpDate       = sysdate,
+        vm.belongDepart     = #belongDepart#,
+        vm.isSignUpValidate = #isSignUpValidate#,
+        vm.isIncAdjust      = #isIncAdjust#
+        where vm.signUpMember = #signUpMember#
+        and id = #id#
+    </update>
+
+    <!--全员轮训盘点批次子表插入 -->
+    <insert id="fullPolingBatchNo.insert" parameterClass="com.seeyon.apps.kk.fullpolling.model.FullPollingBatchModel">
+        insert into vm_fullpollingBatchSignup
+        (id,
+        formmain_id,
+        joinDate,
+        signUpDate,
+        belongDepart， isSignUpValidate， isIncAdjust, signUpMember)
+        values
+        (util_common.getAbsID,
+        #formmain_id#,
+        #joinDate#,
+        #signUpDate#,
+        #belongDepart#,
+        #isSignUpValidate#,
+        #isIncAdjust#, #signUpMember#)
+    </insert>
+
+    <select id="fullPollingBatchInfo" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.fullpolling.model.FullPollingBatchModel">
+        select id  from
+        vm_fullpollingBatchDoc f where f.serialNo = #serialNo#
+    </select>
+
+    <!-- 轮训批次调整更新 -->
+    <select id="fullPollingBatchAdjust.select" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.fullpolling.model.FullPollingAdjustModel">
+        select
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        serialNum,
+        sendUser,
+        sendDepart,
+        sendDate,
+        sendAccount,
+        joinDate,
+        pollingYear,
+        oldBatch,
+        newBatch,
+        batchFlow,
+        departureDate,
+        destination,
+        note
+        from vm_wf_fullpollingadjust f where f.serialNum = #serialNum#
+    </select>
+
+    <select id="findSendFullPollingById.select"  resultClass="java.util.HashMap" parameterClass="java.lang.String">
+        select
+        id as "id",
+        serialNo as "serialNo",
+        writeDepart as "writeDepart",
+        writeAccount as "writeAccount",
+        writerDate as "writerDate",
+        pollingYear as "pollingYear",
+        collectorType as "collectorType",
+        lastEntryDate as "lastEntryDate",
+        sendAccount as "sendAccount",
+        sendDept as "sendDept",
+        removeDept as "removeDept",
+        writeExpireLimit as "writeExpireLimit",
+        signComment as "signComment",
+        attachFile as "attachFile"
+        from
+        vm_fullpollingSendFlow where id = #id#
+    </select>
+
+    <select id="findSendFullPollingDeptSonByFormmainId.select"  resultClass="java.util.HashMap" parameterClass="java.lang.String">
+        select
+        id as "id",
+        department as "department",
+        sendState as "sendState"
+        from
+        vm_fullpollingSendFlow_son  where formmain_Id = #formmanId# and department is not null
+    </select>
+
+    <select id="findSendFullPollingDept.select"  resultClass="java.util.HashMap" parameterClass="java.util.HashMap">
+        select id as "deptId" from org_unit
+        where (1=0
+        <isNotEmpty  property="sendAccount">
+            or org_account_id in(SELECT id
+            FROM (select substr(u.path, 1, length(u.path) - 4) parentPath, u.*
+            from org_unit u
+            where is_enable = 1 and is_deleted = 0
+            and is_internal = 1) u
+            START WITH path in (select path from org_unit u
+            where u.id in($sendAccount$))
+            CONNECT BY parentPath = PRIOR path
+            and type != 'Account')
+        </isNotEmpty>
+        <isNotEmpty  property="sendDept">
+            or id in($sendDept$)
+        </isNotEmpty>
+        )
+        <isNotEmpty  property="removeDept">
+            and id not in($removeDept$)
+        </isNotEmpty>
+        and type='Department' and id in (
+        select om.org_department_id from org_member om where om.is_internal=1 and om.is_virtual=0 and om.is_enable=1 and om.is_deleted=0 and om.type = 1 and om.state = 1)
+        order by path
+    </select>
+
+    <select id="findSendFullPollingGroup.select"  resultClass="java.util.HashMap" parameterClass="java.util.HashMap">
+        select id as "deptId" from org_unit
+        where  (1=0
+        <isNotEmpty  property="sendAccount">
+            or org_account_id in(SELECT id
+            FROM (select substr(u.path, 1, length(u.path) - 4) parentPath, u.*
+            from org_unit u
+            where is_enable = 1 and is_deleted = 0
+            and is_internal = 1) u
+            START WITH path in (select path from org_unit u
+            where u.id in($sendAccount$))
+            CONNECT BY parentPath = PRIOR path)
+        </isNotEmpty>
+        <isNotEmpty  property="sendDept">
+            or id in($sendDept$)
+        </isNotEmpty>
+        )
+        <isNotEmpty  property="removeDept">
+            and id not in($removeDept$)
+        </isNotEmpty>
+        and type='Department' and id in (
+        select om.org_department_id from org_member om where om.is_internal=1 and om.is_virtual=0 and om.is_enable=1 and om.is_deleted=0 and om.type = 1 and om.state = 1)
+        order by path
+    </select>
+    <insert id="initSendFullPollingSendDeptSon.insert"
+            parameterClass="java.util.HashMap">
+        insert into vm_fullpollingSendFlow_son  (id,formmain_Id,department,sendState )
+        values(
+        util_common.getAbsID,
+        #formmainId#,
+        #department#,
+        1231833455121088919
+        )
+    </insert>
+
+    <update id="updateFullPollingSendDeptSon.update"
+            parameterClass="java.util.HashMap">
+        update vm_fullpollingSendFlow_son  set sendState = -4223597634433956603
+        where formmain_Id = #formmainId# and  department = #sendDepts#
+
+    </update>
+
+
+    <delete id="deleteFullPollingBlankRecordDept.delete">
+        delete vm_fullpollingSendFlow_son  where department is null
+    </delete>
+
+
+    <select id="findFullPollingMembers.select"  resultClass="java.lang.String" parameterClass="java.util.HashMap">
+        select id from org_member o
+        where
+        o.is_internal = 1
+        and o.is_loginable = 1
+        and o.is_virtual = 0
+        and o.is_admin =0
+        and o.is_assigned = 1
+        and o.type = 1
+        and o.state = 1
+        and o.is_enable = 1
+        and o.is_deleted = 0
+        and o.status = 1
+        and o.org_department_id = #deptId#
+    </select>
+
+    <select id="findFullPollingSignBatchList.select"  resultClass="java.util.HashMap" parameterClass="java.lang.String">
+        select
+        signMember as "signMember",
+        yearBatch as "yearBatch",
+        batchSerialNo AS "batchSerialNo",
+        util_common.getEnumValueById(yearBatch) AS "enum_value"
+        from
+        vm_fullpollingSign_son
+        WHERE
+        formmain_Id = (SELECT id FROM vm_fullpollingSign WHERE serialNo = #serialNo#)
+        UNION ALL
+        SELECT
+        signMember AS "signMember",
+        yearBatch AS "yearBatch",
+        batchSerialNo AS "batchSerialNo",
+        util_common.getEnumValueById(yearBatch) AS "enum_value"
+        FROM
+        vm_cap4fullpollingSign_son
+        WHERE
+        formmain_Id = (SELECT id FROM vm_cap4fullpollingSign WHERE serialNo = #serialNo#)
+        ORDER BY
+        "enum_value" ASC
+    </select>
+
+    <select id="findTrainBatchCollectorByDept.select"  resultClass="java.lang.String" parameterClass="java.lang.String">
+        select trainBatchCollector from vm_deptAffairRole where roleDept = #deptId#
+    </select>
+
+    <delete id="memberOldFullPollingBatch" parameterClass="java.util.HashMap">
+        delete from vm_fullpollingBatchSignup f
+        where f.formmain_id =
+        (select id
+        from vm_fullpollingBatchDoc f1
+        where f1.pollingYear = to_number(to_char(sysdate, 'yyyy'))
+        and f1.yearBatch = #oldBatch#)
+        and f.signUpMember = #sendUser#
+    </delete>
+
+
+    <select id="queryTrainBatchApplyInfo.select"  resultClass="java.util.HashMap" parameterClass="java.util.HashMap">
+        select
+        signUpMember as "signUpMember",
+        belongDepart as "belongDepart",
+        isSignUpValidate as "isSignUpValidate"
+
+        from vm_fullpollingBatchSignup  where formmain_id =
+        (select id from vm_fullpollingbatchdoc where pollingYear = #pollingYear# and util_common.getEnumValueById(yearBatch) = #yearBatch#
+        and batchState != 4845015860421214524)
+        <isNotEmpty property="kmDeptCode">
+            and belongDepart = (select id from org_unit where code = #kmDeptCode#)
+        </isNotEmpty>
+    </select>
+
+
+    <update id="updateFullPollingJoinState.update" parameterClass="java.util.HashMap">
+        merge into vm_fullpollingBatchSignup  a
+        using
+        (select #batchId# as batchId,#memberId# as memberId from dual) c
+        on ( a.formmain_id = c.batchId and a.signUpMember=c.memberId)
+        when not matched   then
+        insert(
+        id,
+        formmain_id,
+        signUpMember,
+        belongDepart,
+        joinDate,
+        signUpDate,
+        isSignUpValidate,
+        note,
+        isIncAdjust,
+        isAttend
+        )
+        values(util_common.getAbsID,
+        #batchId#,
+        #memberId#,
+        util_org.getDeptIdByDeptCode(#kmDeptCode#),
+        #joinDate#,
+        sysDate,
+        -773383727967156351,
+        to_char(sysDate,'yyyy-mm-dd')||':EHR回传已出勤，增补报名记录。',
+        -773383727967156351,
+        -773383727967156351
+        )
+
+        when matched   then
+        update set isAttend = -773383727967156351,
+        note = to_char(sysDate,'yyyy-mm-dd')||':EHR回传已出勤。'
+    </update>
+
+
+
+    <select id="qryTrainBatchInfoByYearAndBatch.select"  resultClass="java.util.HashMap" parameterClass="java.util.HashMap">
+        select
+        id as "id",
+        serialNo as "serialNo",
+        writer as "writer",
+        writerDate as "writerDate",
+        writeDepart as "writeDepart",
+        pollingYear as "pollingYear",
+        yearBatch as "yearBatch",
+        departureDate as "departureDate",
+        destination as "destination",
+        batchState as "batchState"
+        from vm_fullpollingbatchdoc
+        where util_common.getEnumValueById(yearBatch) = #yearBatch# and pollingYear = #pollingYear#
+        and batchState != 4845015860421214524
+    </select>
+
+    <delete id="fullpollingContentData.delete">
+        delete  from  ctp_content_all c where  c.module_template_id = -6150285474670555896 and c.content_template_id = 2460746423235071531
+    </delete>
+
+
+
+    <update id="resetTrainBatchJoinState.update"
+            parameterClass="java.lang.String">
+        update vm_fullpollingBatchSignup set isAttend = 6217529297725901496,
+        note = to_char(sysDate,'yyyy-mm-dd')||':EHR回传未出勤。'
+        where formmain_id = #batchId#
+
+    </update>
+
+
+
+    <select id="qryLastTrainBatchByYear.select"  resultClass="java.lang.String" parameterClass="java.lang.String">
+        select * from (select
+        util_common.getEnumValueById(yearBatch)
+        from vm_fullpollingbatchdoc
+        where  pollingYear = #pollingYear#
+        and batchState != 4845015860421214524
+
+        order by util_common.getEnumValueById(yearBatch) desc
+        )
+        where rownum = 1
+    </select>
+    <insert id="updateFullPollingAddNMSon.insert"
+            parameterClass="java.util.HashMap">
+    insert into  VM_WF_FULLPOLLINGADDNMSOM
+    (
+    id,
+    formmain_id,
+    signUpMember,
+    belongDepart,
+    joinDate
+    ) values
+    (
+    util_common.getAbsID,
+    (select form_recordId from col_summary where id = #colId#),
+    #signUpMember#,
+    util_user.getDeptIdByMemId(#signUpMember#),
+    (select ext_attr_22 from org_member where id = #signUpMember#)
+    )
+    </insert>
+
+    <delete id="deleteFullPollingAddNMSon.delete"
+            parameterClass="java.util.HashMap">
+        delete from VM_WF_FULLPOLLINGADDNMSOM where signUpMember is null
+    </delete>
+
+
+    <select id="getUserEntryDateByUserId.select"  resultClass="java.util.Date" parameterClass="java.lang.String">
+        select EXT_ATTR_22 from  org_member where id = #id#
+    </select>
+</sqlMap>

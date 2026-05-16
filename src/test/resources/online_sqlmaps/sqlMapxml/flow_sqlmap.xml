@@ -1,0 +1,61 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+
+	<!-- 查询阻塞节点信息  Shkk.do 2019-11-29 wendong -->
+	<select id="getBlockToken.select" resultClass="com.seeyon.apps.kk.flow.model.NodeInformation" parameterClass="map">
+		select sc.id, to_char(sc.invoke_time,'yyyy-MM-dd HH24:mi:ss') time,
+			   sc.form_app_id formid,de.name name
+		from wf_supernode_control sc
+		LEFT JOIN WF_SUPERNODE_CONTROL_DETAIL scson on SC.ID=SCSON.CONTROL_ID
+		left join form_definition de on de.id =sc.form_app_id
+		where process_id = (select process_id from col_summary where id = #summaryid#)
+		  and scson.data_id like chr(60)||'data%'
+		  and xmltype(nvl(scson.data_id,chr(60)||'data/'||chr(62))).extract('/data/init/nodecode/text()').getStringVal() in ($dataid$)
+		order by time asc
+	</select>
+
+	<!-- 通过部门ID查询部门下的所有部门 -->
+	<select id="getDeptPath.select" resultClass="java.lang.String" parameterClass="map">
+		select path from org_unit where id in ($depart$)
+	</select>
+
+	<!-- 通过路径查所有部门 -->
+	<select id="getDepId.select" resultClass="java.lang.String" parameterClass="string">
+		select id from org_unit
+		where path like '$path$%' and org_unit.is_enable = 1
+		  and org_unit.is_internal = 1
+	</select>
+
+	<!-- 通过部门ID查询部门下的所有人 -->
+	<select id="getMemberId.select" resultClass="java.lang.String" parameterClass="string">
+		select id from org_member where is_enable = 1 and  org_department_id in ($deptids$)
+	</select>
+
+	<!-- 通过人员ID查询人员登录名 -->
+	<select id="getMemberName.select" resultClass="java.lang.String" parameterClass="string">
+		select login_name from org_principal where member_id in ($memberid$)
+	</select>
+
+	<!-- 查询数据库里阻塞状态为阻塞中的任务 -->
+	<select id="getBlockIngNodeInfo.select"  parameterClass="map" resultClass="java.util.HashMap">
+		select
+		formName as "formName",
+		tableName as "tableName",
+		templateNo as "templateNo",
+		token as "token",
+		flowId as "flowId"
+		from vm_blockAndActiveInfo
+		where isOpen != #isOpen# and blockType = #blockType#
+	</select>
+
+	<!-- 查询阻塞节点配置信息 -->
+	<select id="getBlockNodeConfig.select"  resultClass="java.util.HashMap">
+		select
+		templateNo as "templateNo",
+		activeConditions as "activeConditions"
+		from vm_blockAndActiveConfig
+	</select>
+
+</sqlMap>
+

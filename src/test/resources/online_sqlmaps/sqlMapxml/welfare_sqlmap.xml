@@ -1,0 +1,2458 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+
+    <select id="getWelfareTemplateInfo.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        writer as "writer",
+        writeDate as "writeDate",
+        templateNo as "templateNo",
+        util_common.getEnumShowById(templateStatus) as "templateStatus",
+        welfareName as "welfareName",
+        util_common.getEnumShowById(welfareType) as "welfareType",
+        util_common.getEnumShowById(welfareProvider) as "welfareProvider",
+        welfareManager as "welfareManager",
+        welfareManageDept as "welfareManageDept",
+        publishDate as "publishDate",
+        abolishDate as "abolishDate",
+        util_common.getEnumShowById(empStatus) as "empStatus",
+        util_common.getEnumShowById(empType) as "empType",
+        util_common.getEnumShowById(jobStatus) as "jobStatus",
+        util_common.getEnumShowById(welfareAccess) as "welfareAccess",
+        provideDeclaration as "provideDeclaration",
+        welfareDeclaration as "welfareDeclaration",
+        (select welfareDetail from vm_memberwelfareanaproject  where( sysdate &gt;= userValidity and sysdate &lt; endDate )
+        and templateNo = t.templateNo
+        and welfareMember = #currentUser#) as "welfareDetail",
+        welfareDetail as "templateWelfareDetail",
+        endDate as "endDate",
+        traceUseOrNot as "traceUseOrNot",
+        notifyDayLimit as "notifyDayLimit",
+        notifyType as "notifyType",
+        expenseIndicator as "expenseIndicator",
+        autoStartOrNot as "autoStartOrNot",
+        remark as "remark",
+        welfareDetailType as "welfareDetailTypeId",
+        util_common.getEnumShowById(welfareDetailType) as "welfareDetailType",
+        (select to_char(wmsys.wm_concat(id)) from vm_memberwelfareanaproject  where( to_char(launchDate,'yyyy') = to_char(sysdate,'yyyy')
+        or to_char(endDate,'yyyy') = to_char(sysdate,'yyyy') )
+        and templateNo = t.templateNo
+        and welfareMember = #currentUser#) as "multiWelfareProjectId"
+        from vm_welfareTemplate t where 1=1
+        and welfareType = '4352357452840780248'
+        <isNotEmpty prepend="AND" property="welfareDetailType">
+            welfareDetailType in ($welfareDetailType$)
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="templateNo">
+            templateNo = #templateNo#
+        </isNotEmpty>
+        <isEmpty prepend="AND" property="welfareTemplateManager">
+            templateStatus = -3961934677530555788
+        </isEmpty>
+        <isNotEmpty prepend="AND" property="welfareAccess">
+            welfareAccess = #welfareAccess#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="welfareAccessNotSalary">
+            welfareAccess is not null and welfareAccess != 1329023841482722599
+        </isNotEmpty>
+        order by
+        chartSeqNo asc,
+        util_common.getEnumValueById(welfareDetailType) asc,
+        templateStatus desc,
+        welfareManageDept desc,
+        welfareManager desc
+
+
+    </select>
+
+    <select id="getMemberWelfareProjectByIdArea.select" parameterClass="java.lang.String"
+            resultClass="com.seeyon.apps.kk.welfare.model.WelfareAnaMemberProjectModel">
+        select * from vm_memberWelfareAnaProject where id in $ids$
+    </select>
+
+
+    <select id="generateWelfareOwnerSendFlowList.select" parameterClass="java.util.HashMap"
+            resultClass="com.seeyon.apps.kk.welfare.model.WelfareNoticeDTO">
+        select
+        #id# as "sendId",
+        util_common.getAbsID() as "flowId",
+        'HR_welfare_T001' as "flowType",
+        #currentUser# as "sendUserNo",
+        sysdate as "writeDate",
+        mwp.projectCode as "projectCode",
+        mwp.annual as "annual",
+        mwp.welfareName as "welfareName",
+        #noticeType# as "noticeType",
+        #noticeAccess# as "noticeAccess",
+        om.id as "receiver",
+        util_user.getDeptIdByMemId(om.id) as "memberDept",
+        #noticeContent# as "noticeContent",
+        #noticeFile# as "noticeFile",
+        #validityPeriod# as "validityPeriod",
+        #noticeTitle# as "noticeTitle",
+        mwp.customCollectShow as "customOptions"
+        from (select * from org_member where is_virtual=0 and is_admin=0 and is_enable = 1 and is_deleted = 0 and
+        IS_INTERNAL = 1 and STATE = 1 and type = 1) om right join vm_memberWelfareAnaProject mwp
+        on om.id = mwp.welfareMember
+        where mwp.projectCode in (#projectCode#)
+    </select>
+
+    <select id="generateDeptContactorSendFlowList.select" parameterClass="java.util.HashMap"
+            resultClass="com.seeyon.apps.kk.welfare.model.WelfareNoticeDTO">
+        select
+        #id# as "sendId",
+        util_common.getAbsID() as "flowId",
+        'HR_welfare_T001' as "flowType",
+        #currentUser# as "sendUserNo",
+        sysdate as "writeDate",
+        mwp.projectCode as "projectCode",
+        mwp.annual as "annual",
+        mwp.welfareName as "welfareName",
+        #noticeType# as "noticeType",
+        #noticeAccess# as "noticeAccess",
+        om.role_member as "receiver",
+        util_user.getDeptIdByMemId(om.role_member) as "memberDept",
+        #noticeContent# as "noticeContent",
+        #noticeFile# as "noticeFile",
+        #validityPeriod# as "validityPeriod",
+        #noticeTitle# as "noticeTitle",
+        mwp.customCollectShow as "customOptions"
+        from (select distinct(department_id),role_member  from vm_f_deptrole r where r.role_code = 'DeptLiasion') om
+        right join (select distinct(belongdepart) as "deptlimit", t.* from vm_memberWelfareAnaProject t) mwp
+        on om.department_id = mwp.belongdepart
+        where mwp.projectCode in (#projectCode#)
+        and om.role_member is not null
+    </select>
+
+    <select id="generateMainAccountSendFlowList.select" parameterClass="java.util.HashMap"
+            resultClass="com.seeyon.apps.kk.welfare.model.WelfareNoticeDTO">
+        select
+        #id# as "sendId",
+        util_common.getAbsID() as "flowId",
+        'HR_welfare_T001' as "flowType",
+        #currentUser# as "sendUserNo",
+        sysdate as "writeDate",
+        #projectCode# as "projectCode",
+        #annual# as "annual",
+        #welfareName# as "welfareName",
+        #noticeType# as "noticeType",
+        #noticeAccess# as "noticeAccess",
+        om.id as "receiver",
+        util_user.getDeptIdByMemId(om.id) as "memberDept",
+        #noticeContent# as "noticeContent",
+        #noticeFile# as "noticeFile",
+        #validityPeriod# as "validityPeriod",
+        #noticeTitle# as "noticeTitle",
+        (select t.customCollectShow from vm_memberWelfareAnaProject t where t.projectCode = #projectCode# and t.welfareMember = #welfareMember#) as "customOptions"
+        from (select * from org_member where org_account_id = 97839079791739420
+        and is_virtual=0 and is_admin=0 and is_enable = 1 and is_deleted = 0 and
+        IS_INTERNAL = 1 and STATE = 1 and type = 1
+        ) om
+    </select>
+
+
+    <select id="getAllMemberCode.select" resultClass="java.lang.String">
+
+        select code from org_member where is_virtual=0 and is_admin=0 and is_enable = 1 and is_deleted = 0 and
+        IS_INTERNAL = 1 and STATE = 1 and type = 1
+
+    </select>
+
+
+    <select id="generateExceptHKSendFlowList.select" parameterClass="java.util.HashMap"
+            resultClass="com.seeyon.apps.kk.welfare.model.WelfareNoticeDTO">
+        select
+        #id# as "sendId",
+        util_common.getAbsID() as "flowId",
+        'HR_welfare_T001' as "flowType",
+        #currentUser# as "sendUserNo",
+        sysdate as "writeDate",
+        #projectCode# as "projectCode",
+        #annual# as "annual",
+        #welfareName# as "welfareName",
+        #noticeType# as "noticeType",
+        #noticeAccess# as "noticeAccess",
+        om.id as "receiver",
+        util_user.getDeptIdByMemId(om.id) as "memberDept",
+        #noticeContent# as "noticeContent",
+        #noticeFile# as "noticeFile",
+        #validityPeriod# as "validityPeriod",
+        #noticeTitle# as "noticeTitle",
+        (select t.customCollectShow from vm_memberWelfareAnaProject t where t.projectCode = #projectCode# and t.welfareMember = #welfareMember#) as "customOptions"
+        from (select * from org_member where org_account_id != -2948740806339441327 and org_account_id is not null
+        and is_virtual=0 and is_admin=0 and is_enable = 1 and is_deleted = 0 and
+        IS_INTERNAL = 1 and STATE = 1 and type = 1
+        ) om
+    </select>
+
+    <select id="generateAllAccountSendFlowList.select" parameterClass="java.util.HashMap"
+            resultClass="com.seeyon.apps.kk.welfare.model.WelfareNoticeDTO">
+        select
+        #id# as "sendId",
+        util_common.getAbsID() as "flowId",
+        'HR_welfare_T001' as "flowType",
+        #currentUser# as "sendUserNo",
+        sysdate as "writeDate",
+        #projectCode# as "projectCode",
+        #annual# as "annual",
+        #welfareName# as "welfareName",
+        #noticeType# as "noticeType",
+        #noticeAccess# as "noticeAccess",
+        om.id as "receiver",
+        util_user.getDeptIdByMemId(om.id) as "memberDept",
+        #noticeContent# as "noticeContent",
+        #noticeFile# as "noticeFile",
+        #validityPeriod# as "validityPeriod",
+        #noticeTitle# as "noticeTitle",
+        (select t.customCollectShow from vm_memberWelfareAnaProject t where t.projectCode = #projectCode# and t.welfareMember = #welfareMember#) as "customOptions"
+        from (select * from org_member where is_virtual=0 and is_admin=0 and is_enable = 1 and is_deleted = 0 and
+        IS_INTERNAL = 1 and STATE = 1 and type = 1
+        ) om
+    </select>
+
+    <select id="generateCustomSendFlowList.select" parameterClass="java.util.HashMap"
+            resultClass="com.seeyon.apps.kk.welfare.model.WelfareNoticeDTO">
+        select
+        #id# as "sendId",
+        util_common.getAbsID() as "flowId",
+        'HR_welfare_T001' as "flowType",
+        #currentUser# as "sendUserNo",
+        sysdate as "writeDate",
+        #projectCode# as "projectCode",
+        #annual# as "annual",
+        #welfareName# as "welfareName",
+        #noticeType# as "noticeType",
+        #noticeAccess# as "noticeAccess",
+        om.id as "receiver",
+        util_user.getDeptIdByMemId(om.id) as "memberDept",
+        #noticeContent# as "noticeContent",
+        #noticeFile# as "noticeFile",
+        #validityPeriod# as "validityPeriod",
+        #noticeTitle# as "noticeTitle",
+        (select t.customCollectShow from vm_memberWelfareAnaProject t where t.projectCode = #projectCode# and t.welfareMember = #welfareMember#) as "customOptions"
+        from (select * from org_member where id in ($customReceiver$)
+        ) om
+    </select>
+
+    <update id="updateMemberWelfare.update" parameterClass="java.util.HashMap">
+        update VM_MEMBERWELFAREANAPROJECT t set t.welfareDetail = #welfareDetail#,t.kind=#kind#,
+        t.paperVoucher=#paperVoucher#,
+        t.electCert = #electCert#,
+        t.other=#other#,
+        t.allowance=#allowance#,
+        t.refund=#refund#
+
+        where t.templateNo =
+        (select projectCode from vm_welfareanaproject where id = #id#)
+    </update>
+
+    <update id="updateMemberNoticeSign.update" parameterClass="java.util.HashMap">
+        update VM_MEMBERWELFAREANAPROJECT t set t.expireNoticeSign = #expireNoticeSign# where t.id = #id#
+    </update>
+
+    <insert id="addWelfareNoticeSon.insert" parameterClass="java.util.HashMap">
+        insert into vm_welfareNoticeSend_son(id,formmain_id,memberDept, receivedMembers )
+        values(util_common.getAbsID,
+        #formmain_id#,
+        #memberDept#,
+        #receivedMembers#
+        )
+
+    </insert>
+
+
+    <select id="findSendNoticeBySendId.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        writer as "writer",
+        writeDate as "writeDate",
+        projectCode as "projectCode",
+        annual as "annual",
+        welfareName as "welfareName",
+        noticeAccess as "noticeAccess",
+        noticeType as "noticeType",
+        receiverType as "receiverType",
+        customReceiver as "customReceiver",
+        removeMember as "removeMember",
+        noticeTitle as "noticeTitle",
+        noticeContent as "noticeContent",
+        noticeFile as "noticeFile"
+        from vm_welfareNoticeSend
+        where id = #id#
+    </select>
+
+    <delete id="deleteWelfareNoticeSonEmpty.delete">
+        delete from vm_welfareNoticeSend_son where memberDept is null
+    </delete>
+
+    <delete id="deleteWelfareNoticeSonByFormmainId.delete">
+        delete from vm_welfareNoticeSend_son where formmain_id = #formmainId#
+    </delete>
+
+
+    <select id="getSendFlowBySendId.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        writer as "writer",
+        writeDate as "writeDate",
+        projectCode as "projectCode",
+        annual as "annual",
+        welfareName as "welfareName",
+        noticeAccess as "noticeAccess",
+        noticeType as "noticeType",
+        receiver as "receiver",
+        memberDept as "memberDept",
+        noticeContent as "noticeContent",
+        customOptions as "customOptions",
+        noticeFile as "noticeFile",
+        validityPeriod as "validityPeriod",
+        noticeTitle as "noticeTitle",
+        sendId as "sendId"
+        from vm_wf_welfareNotice
+        where sendId = #sendId#
+    </select>
+
+    <select id="getSendSonByFormmainId.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        memberDept as "memberDept",
+        receivedMembers as "receivedMembers"
+        from vm_welfareNoticeSend_son
+        where formmain_id = #formmain_id#
+    </select>
+
+    <!-- 查询底表原始信息 -->
+    <select id="getWelfareTemplateManager.select" resultClass="java.lang.String">
+        select objective0_id from org_relationship where source_id =
+        (select id from org_team where name = 'DP-用工管理-福利项目模板管理员')
+        and type = 'Team_Member'
+    </select>
+    <!-- 查询年度福利项目信息的发放状态 -->
+    <select id="welfarePublish.select" resultClass="java.util.HashMap" parameterClass="java.lang.String">
+        select projectStatus from vm_welfareanaproject where projectStatus = 3414263659243327335
+        and projectCode = #welfareCode# and annual = #welfareYear#
+    </select>
+
+    <!-- 根据福利模板和当前年度查询年度福利项目信息 -->
+    <select id="selectAnaWelfareProject.select" resultClass="java.util.HashMap" parameterClass="java.util.HashMap">
+        select
+        writer as "writer",
+        writeDate as "writeDate",
+        projectCode as "projectCode",
+        templateNo as "templateNo",
+        annual as "annual",
+        projectStatus as "projectStatus",
+        launchDate as "launchDate",
+        endDate as "endDate",
+        welfareName as "welfareName",
+        welfareType as "welfareType",
+        welfareProvider as "welfareProvider",
+        welfareManager as "welfareManager",
+        welfareManageDept as "welfareManageDept",
+        welfareAccess as "welfareAccess",
+        welfareScope as "welfareScope",
+        welfareDeclaration as "welfareDeclaration",
+        welfareDetail as "welfareDetail",
+        publishDate as "publishDate",
+        userValidity as "userValidity",
+        notifyDayLimit as "notifyDayLimit",
+        notifyType as "notifyType",
+        expenseIndicator as "expenseIndicator",
+        traceUseOrNot as "traceUseOrNot",
+        sendCredential as "sendCredential",
+        otherAttachment as "otherAttachment",
+        note as "note",
+        welfareDetailType as "welfareDetailType",
+        refund as "refund",
+        kind as "kind",
+        paperVoucher as "paperVoucher",
+        electCert as "electCert",
+        other as "other",
+        allowance as "allowance",
+        welfareLaunchParamCode as "welfareLaunchParamCode",
+        welfareLimit as "welfareLimit"
+        from vm_welfareanaproject where templateNo = #templateNo# and annual = #year#
+    </select>
+
+
+    <!-- 根据模板编号查询福利模板信息 -->
+    <select id="welfareTemplateByTemplateCode.select" parameterClass="java.lang.String"
+            resultClass="com.seeyon.apps.kk.welfare.model.WelfareTemplateModel">
+        select
+        writer, /*填写人*/
+        writeDate, /*填写日期*/
+        templateNo, /*模板编号*/
+        templateStatus, /*模板状态*/
+        welfareName, /*福利名称*/
+        welfareType, /*项目类型*/
+        welfareProvider, /*福利来源*/
+        welfareManager, /*项目负责人*/
+        welfareManageDept, /*项目负责部门*/
+        publishDate, /*发布日期*/
+        abolishDate, /*废止日期*/
+        empStatus, /*员工状态*/
+        empType, /*员工类别*/
+        welfareAccess, /*获取方式*/
+        provideDeclaration, /*发放说明*/
+        welfareDeclaration, /*享有说明*/
+        welfareDetail, /*福利内容*/
+        endDate, /*结束日期*/
+        traceUseOrNot, /*是否跟踪使用情况*/
+        notifyDayLimit, /*到期前第N天提醒*/
+        notifyType, /*到期提醒方式*/
+        expenseIndicator, /*报销指标*/
+        autoStartOrNot, /*是否自动启动年度福利项目*/
+        remark, /*备注*/
+        welfareDetailType, /*福利细项分类*/
+        autoUpdateWelfareScope, /*是否自动更新福利享有人范围*/
+        jobstatus
+        from vm_welfaretemplate where templateNo = #templateNo#
+    </select>
+
+
+    <select id="findAnaWelfareTemplate.select" parameterClass="java.lang.String"
+            resultClass="com.seeyon.apps.kk.welfare.model.WelfareanaProjectModel">
+        select
+        util_common.getID,
+        f.state,f.start_member_id,f.start_date,f.approve_member_id,f.approve_date,f.finishedflag,f.ratifyflag,f.ratify_member_id,f.ratify_date,f.sort,f.modify_member_id,f.modify_date,
+        writer, /*填写人 */
+        writeDate, /*填写日期*/
+        templateNo, /*模板编号*/
+        '5820848606789060598' projectStatus, /*项目状态*/
+        launchDate, /*启动日期*/
+        abolishDate as endDate, /*结束日期*/
+        f.welfareName, /*福利名称*/
+        welfareType, /*项目类型*/
+        welfareProvider, /*福利来源*/
+        welfareManager, /*项目负责人*/
+        welfareManageDept, /*项目负责部门*/
+        welfareAccess, /*福利获取方式*/
+        f.welfareScope, /*享有范围说明*/
+        welfareDeclaration, /*享有说明*/
+        f.welfareDetail, /*福利内容*/
+        publishDate, /*发放时间*/
+        endDate as userValidity,
+        notifyDayLimit, /*到期前N天提醒*/
+        notifyType, /*到期提醒方式*/
+        expenseIndicator, /*报销指标*/
+        traceUseOrNot, /*是否跟踪使用情况*/
+        welfareDetailType, /*福利细项分类*/
+        refund, /*报销*/
+        kind, /*福利发放形式_实物 */
+        paperVoucher,/*福利发放形式_纸质提取凭证 */
+        electCert, /*福利发放形式_电子提取凭证 */
+        other, /*福利发放形式_其他 */
+        allowance,/*津贴*/
+        welfareLaunchParamCode,
+        util_common.getEnumShowById(annual) annual
+        from vm_welfareLaunchParam f
+        left join vm_welfaretemplate f2
+        on f.welfareTemplateNo = f2.templateNo
+        where f.id = #id#
+    </select>
+
+    <!-- 向年度福利项目中插入数据 -->
+    <insert id="anaWelfareTemplate.insert" parameterClass="com.seeyon.apps.kk.welfare.model.WelfareanaProjectModel">
+        insert into vm_welfareanaproject
+        (id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        writer,
+        writeDate,
+        projectCode,
+        templateNo,
+        annual,
+        projectStatus,
+        launchDate,
+        endDate,
+        welfareName,
+        welfareType,
+        welfareProvider,
+        welfareManager,
+        welfareManageDept,
+        welfareAccess,
+        welfareScope,
+        welfareDeclaration,
+        welfareDetail,
+        publishDate,
+        userValidity,
+        notifyDayLimit,
+        notifyType,
+        expenseIndicator,
+        traceUseOrNot,
+        sendCredential,
+        otherAttachment,
+        note,
+        welfareDetailType,
+        refund,
+        kind,
+        paperVoucher,
+        electCert,
+        other,
+        allowance,
+        welfareLaunchParamCode)
+        values(
+        #id#,
+        #state#,
+        #start_member_id#,
+        #start_date#,
+        #approve_member_id#,
+        #approve_date#,
+        #finishedflag#,
+        #ratifyflag#,
+        #ratify_member_id#,
+        #ratify_date#,
+        #writer#,
+        #writeDate#,
+        #projectCode#,
+        #templateNo#,
+        #annual#,
+        #projectStatus#,
+        #launchDate#,
+        #endDate#,
+        #welfareName#,
+        #welfareType#,
+        #welfareProvider#,
+        #welfareManager#,
+        #welfareManageDept#,
+        #welfareAccess#,
+        #welfareScope#,
+        #welfareDeclaration#,
+        #welfareDetail#,
+        #publishDate#,
+        #userValidity#,
+        #notifyDayLimit#,
+        #notifyType#,
+        #expenseIndicator#,
+        #traceUseOrNot#,
+        #sendCredential#,
+        #otherAttachment#,
+        #note#,
+        #welfareDetailType#,
+        #refund#,
+        #kind#,
+        #paperVoucher#,
+        #electCert#,
+        #other#,
+        #allowance#,
+        #welfareLaunchParamCode#
+        )
+    </insert>
+
+    <select id="welfareLaunchParam.select" parameterClass="java.lang.String"
+            resultClass="com.seeyon.apps.kk.welfare.model.WelfareLaunchParamModel">
+        select * from vm_welfareLaunchParam c where c.id = #id#
+    </select>
+
+    <select id="findWelfareLaunchParamByParamCode.select"
+            parameterClass="com.seeyon.apps.kk.welfare.model.WelfareanaProjectModel"
+            resultClass="com.seeyon.apps.kk.welfare.model.WelfareLaunchParamModel">
+        select * from vm_welfareLaunchParam c where c.welfareLaunchParamCode = #welfareLaunchParamCode#
+        and c.welfareTemplateNo = #templateNo# and c.launchDate = #launchDate#
+    </select>
+
+    <select id="findAllWelfareMembers.select" resultClass="java.util.HashMap" parameterClass="java.util.HashMap">
+        select
+        name,
+        to_char(id) as memberId,
+        decode(om.EXT_ATTR_11,1,'7239782878276897215',2,'8220392701272345167') sex,
+        EXT_ATTR_22 entryDate,
+        to_char(certType) certType,
+        to_char(officePlace) officePlace,
+        to_char(empType) empType,
+        to_char(empStatus) empStatus,
+        to_char(certNo) certNo,
+        jobNo,
+        age,
+        to_char(om.org_department_id) departId,
+        to_char(om.EXT_ATTR_1) phone
+        from org_member om
+        left join
+        (select
+        member_id as memberId,
+        util_common.getEnumIdByShow('-6813491134100848299', EXT_ATTR_1) as certType,
+        EXT_ATTR_2 as certNo,
+        util_common.getEnumIdByShow('4660073417407942090', EXT_ATTR_3) as officePlace,
+        EXT_ATTR_3 as officePlaceStr,
+        EXT_ATTR_21 leavedate,
+        util_common.getEnumIdByShow('5543612524301798252', EXT_ATTR_4) as empStatus,
+        util_common.getEnumIdByShow('-8502381049250430350', EXT_ATTR_5) as empType,
+        EXT_ATTR_6 jobNo,
+        to_char(EXT_ATTR_11) age,
+        util_common.getEnumIdByShow('550588585453240646', EXT_ATTR_8) as jobStatus
+        from addressbook) oc
+        on om.id = oc.memberId
+        where
+        om.code is not null
+        <isNotEmpty prepend="AND" property="empStatus">
+            empStatus = #empStatus#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="empType">
+            empType = #empType#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="candidate">
+            id in ($candidate$)
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="jobStatus">
+            jobStatus = #jobStatus#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="entryAfter">
+            EXT_ATTR_22 is not null and om.EXT_ATTR_22 <![CDATA[<]]> #entryAfter#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="leaveBefore">
+            leavedate is not null and leavedate > #leaveBefore#
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="sex">
+            om.EXT_ATTR_11 = util_common.getEnumValueById(#sex#)
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="accounts">
+            om.org_account_id in ($accounts$)
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="departs">
+            om.org_department_id in ($departs$)
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="parentCompany">
+            om.org_account_id = 97839079791739420
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="otherTown">
+            util_common.getEnumShowById(officePlace) not like '%上海%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="shangHai">
+            util_common.getEnumShowById(officePlace) like '%上海%'
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="allMember">
+            om.org_account_id ！= 6044972620703879047
+        </isNotEmpty>
+    </select>
+    <!-- 向年度福利档案中插入数据   -->
+    <insert id="welfareMemberProject.insert"
+            parameterClass="com.seeyon.apps.kk.welfare.model.WelfareAnaMemberProjectModel">
+        insert into vm_memberWelfareAnaProject
+        (
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        writer,
+        writeDate,
+        welfareMember,
+        belongDepart,
+        certType,
+        certNo,
+        sex,
+        age,
+        phone,
+        officePlace,
+        jobNo,
+        projectCode,
+        templateNo,
+        memberProTemNo,
+        annual,
+        projectStatus,
+        launchDate,
+        endDate,
+        welfareName,
+        welfareType,
+        welfareProvider,
+        welfareManager,
+        welfareManageDept,
+        welfareAccess,
+        provideDeclaration,
+        welfareDetail,
+        publishDate,
+        userValidity,
+        useState,
+        useDesc,
+        note,
+        welfareDetailType,
+        refund,
+        allowance,
+        kind,
+        paperVoucher,
+        electCert,
+        other
+        ) values
+        (
+        #id#,
+        #state#,
+        #start_member_id#,
+        #start_date#,
+        #approve_member_id#,
+        #approve_date#,
+        #finishedflag#,
+        #ratifyflag#,
+        #ratify_member_id#,
+        #ratify_date#,
+        #writer#,
+        #writeDate#,
+        #welfareMember#,
+        #belongDepart#,
+        #certType#,
+        #certNo#,
+        #sex#,
+        #age#,
+        #phone#,
+        #officePlace#,
+        #jobNo#,
+        #projectCode#,
+        #templateNo#,
+        #memberProTemNo#,
+        #annual#,
+        #projectStatus#,
+        #launchDate#,
+        #endDate#,
+        #welfareName#,
+        #welfareType#,
+        #welfareProvider#,
+        #welfareManager#,
+        #welfareManageDept#,
+        #welfareAccess#,
+        #provideDeclaration#,
+        #welfareDetail#,
+        #publishDate#,
+        #userValidity#,
+        #useState#,
+        #useDesc#,
+        #note#,
+        #welfareDetailType#,
+        #refund#,
+        #allowance#,
+        #kind#,
+        #paperVoucher#,
+        #electCert#,
+        #other#
+        )
+    </insert>
+
+    <select id="getExpiredAnnualProject.select"
+            resultClass="com.seeyon.apps.kk.welfare.model.WelfareanaProjectModel">
+        select * from vm_welfareanaproject t
+        where t.notifyDayLimit is not null
+        and (sysdate + t.notifyDayLimit) > t.userValidity
+    </select>
+
+    <select id="getAnnualProjectById.select" parameterClass="java.lang.String"
+            resultClass="com.seeyon.apps.kk.welfare.model.WelfareanaProjectModel">
+        select * from vm_welfareanaproject t
+        where id = #id#
+    </select>
+
+    <select id="getExpiredMemberProjectByProjectCode.select" parameterClass="java.lang.String"
+            resultClass="com.seeyon.apps.kk.welfare.model.WelfareAnaMemberProjectModel">
+        select * from vm_memberWelfareAnaProject where projectCode = #projectCode#
+        and (useState != 2782513347324168557
+        or useState is null)
+        and expireNoticeSign is null
+    </select>
+
+    <select id="getMemberProjectByProjectCode.select" parameterClass="java.lang.String"
+            resultClass="com.seeyon.apps.kk.welfare.model.WelfareAnaMemberProjectModel">
+        select * from vm_memberWelfareAnaProject where projectCode = #projectCode#
+    </select>
+
+    <select id="welfareComBo.select" parameterClass="java.lang.String"
+            resultClass="com.seeyon.apps.kk.welfare.model.WelfareCustomComBoModel">
+        select welfareName,
+        welfareProjectNo,
+        welfareTemplateNo,
+        decode(welfareCollectType,'-5882605069132150577','simpleName','666523131850541020','fullName')
+        welfareCollectType,
+        comBoSimpleName,
+        comBoFullName ,
+        comBoDesc ,
+        comSort
+        from vm_welfareCustomMain f1
+        left join vm_welfareCustomComBoInfo f2
+        on f1.id = f2.formmain_id where f1.id = #queryId# order by f2.comSort
+    </select>
+
+    <select id="welfareComBoAttr.select" parameterClass="java.lang.String"
+            resultClass="com.seeyon.apps.kk.welfare.model.WelfareCustomComBoAttrModel">
+        select
+        id,
+        comSort,
+        comBoSimpleName,
+        attrName,
+        attrShowType,
+        attrSpecification,
+        attrCollectType,
+        attrSort,
+        attrDesc
+        from ( select
+        f3.id,
+        f1.comSort,
+        f2.comBoSimpleName,
+        f2.attrName,
+        decode(f2.attrShowType,'-3366012584125707175','checkbox','941334865640966317','select-one','-1251546937502316657','radio','3300527163351321836','text')
+        attrShowType,
+        f2.attrSpecification,
+        decode(f2.attrCollectType,
+        '2149214062505119170','attrValue','-7323070633672619194','all','7437882944470139590','attrText' )
+        attrCollectType,
+        f2.attrSort,
+        f2.attrDesc
+        from vm_welfareCustomComBoInfo f1
+        left join vm_welfareCustomComBoAttr f2
+        on f1.formmain_id = f2.formmain_id and f1.combosimplename = f2.comBoSimpleName
+        left join vm_welfareCustomMain f3
+        on f3.id = f2.formmain_id
+        union all
+        select distinct
+        f2.formmain_id id,
+        f1.comSort,
+        f1.comBoSimpleName,
+        f2.attrName,
+        decode(f2.attrShowType,'-3366012584125707175','checkbox','941334865640966317','select-one','-1251546937502316657','radio','3300527163351321836','text')
+        attrShowType,
+        f2.attrSpecification,
+        decode(f2.attrCollectType,
+        '2149214062505119170','attrValue','-7323070633672619194','all','7437882944470139590','attrText' )
+        attrCollectType,
+        f2.attrSort,
+        f2.attrDesc
+        from
+        vm_welfareCustomComBoInfo f1
+        left join vm_welfareCustomcommonAttr f2
+        on 1 = 1
+        where f2.attrShowType is not null) t
+        where t.id = #queryId# order by comsort , attrSort
+    </select>
+
+    <select id="queryTemplate.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select id from(
+        select * from vm_welfareCustomMain f where f.welfareTemplateNo = #templateNo# order by start_date desc) where
+        rownum =1
+    </select>
+
+    <select id="existMemberWelfareProject.select"
+            parameterClass="com.seeyon.apps.kk.welfare.model.WelfareAnaMemberProjectModel"
+            resultClass="java.lang.Integer">
+
+        select count(1) from vm_memberWelfareAnaProject where ((projectCode = #projectCode#) or (annual = #annual# and templateNo = #templateNo#)) and welfareMember =
+        #welfareMember#
+    </select>
+
+    <select id="queryAutoStartWelfareTemplate.select"
+            resultClass="com.seeyon.apps.kk.welfare.model.WelfareTemplateModel">
+
+        select
+        writer, /*填写人*/
+        writeDate, /*填写日期*/
+        templateNo, /*模板编号*/
+        templateStatus, /*模板状态*/
+        welfareName, /*福利名称*/
+        welfareType, /*项目类型*/
+        welfareProvider, /*福利来源*/
+        welfareManager, /*项目负责人*/
+        welfareManageDept, /*项目负责部门*/
+        publishDate, /*发布日期*/
+        abolishDate, /*废止日期*/
+        empStatus, /*员工状态*/
+        empType, /*员工类别*/
+        welfareAccess, /*获取方式*/
+        provideDeclaration, /*发放说明*/
+        welfareDeclaration, /*享有说明*/
+        welfareDetail, /*福利内容*/
+        endDate, /*结束日期*/
+        traceUseOrNot, /*是否跟踪使用情况*/
+        notifyDayLimit, /*到期前第N天提醒*/
+        notifyType, /*到期提醒方式*/
+        expenseIndicator, /*报销指标*/
+        autoStartOrNot, /*是否自动启动年度福利项目*/
+        remark, /*备注*/
+        welfareDetailType, /*福利细项分类*/
+        autoUpdateWelfareScope /*是否自动更新福利享有人范围*/
+
+        from vm_welfaretemplate wft
+        where (wft.templateNo in (select templateNo
+        from (select wfp.templateNo as templateNo,
+        (months_between(sysdate, wfp.endDate) / 12) as overYears,
+        row_number() over(partition by wfp.templateNo order by wfp.enddate desc) as rowno
+        from vm_welfareanaproject wfp)
+        where rowno = 1
+        and overYears > 0
+        )
+        or wft.templateNo not in (select distinct templateNo from vm_welfareanaproject)
+        )
+        and wft.autoStartOrNot = -3841538853571705149
+        and wft.welfareType = 4352357452840780248
+
+    </select>
+
+    <select id="queryAutoStartWelfareProject.select"
+            parameterClass="java.lang.String"
+            resultClass="com.seeyon.apps.kk.welfare.model.WelfareanaProjectModel">
+
+        select
+        util_common.getID,
+        state,start_member_id,start_date,approve_member_id,approve_date,finishedflag,ratifyflag,ratify_member_id,ratify_date,sort,modify_member_id,modify_date,
+        writer, /*填写人 */
+        writeDate, /*填写日期*/
+        templateNo, /*模板编号*/
+        '5820848606789060598' projectStatus, /*项目状态*/
+        sysdate as launchDate, /*启动日期*/
+        abolishDate as endDate, /*结束日期*/
+        welfareName, /*福利名称*/
+        welfareType, /*项目类型*/
+        welfareProvider, /*福利来源*/
+        welfareManager, /*项目负责人*/
+        welfareManageDept, /*项目负责部门*/
+        welfareAccess, /*福利获取方式*/
+        empStatus, /*人员状态*/
+        empType,/*人员类型*/
+        welfareDeclaration, /*享有说明*/
+        welfareDetail, /*福利内容*/
+        endDate as userValidity,
+        publishDate, /*发放时间*/
+        notifyDayLimit, /*到期前N天提醒*/
+        notifyType, /*到期提醒方式*/
+        expenseIndicator, /*报销指标*/
+        traceUseOrNot, /*是否跟踪使用情况*/
+        welfareDetailType, /*福利细项分类*/
+        to_char(sysdate,'yyyy') annual
+        from vm_welfaretemplate
+        where templateNo = #templateNo#
+    </select>
+    <select id="queryWelfareCollectMember.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        id,
+        welfareCustomSendNo,
+        util_user.getMemCodeByMemId(writer)  as senUserNo,
+        writeDate ,
+        anaTemplateNo ,
+        welfareYear,
+        welfareName ,
+        templateNo ,
+        customSelectDesc ,
+        to_char(isExportLastResult) isExportLastResult,
+        attachmentId,
+        collectName,
+        collectCode,
+        onlySendMember,
+        filterMember
+        from vm_welfareCustomCollectSend where id = #id#
+    </select>
+
+    <select id="customCollectMember.select" parameterClass="java.util.HashMap" resultClass="com.seeyon.apps.kk.welfare.model.WelfareCustomCollectModel">
+        select
+        nvl(#ATTACHMENTID#, ' ') AS attachmentId,
+        #ID# as  welfareCollectSendKeyId,
+        id as welfareMemberDocId,
+        'WF_CUSTOMCOLLECT_T01' flowType,
+        #SENUSERNO#      as sendUserNo,
+        to_char(sysdate, 'yyyy-mm-dd') as sendDate,
+        projectCode as anaTemplateNo,
+        annual as welfareYear,
+        welfareName as welfareName,
+        templateNo as templateNo,
+        welfareMember as welfareMember,
+        belongDepart as   welfareMemberDepart,
+        #CUSTOMSELECTDESC# as  customSelectDesc,
+        #WELFARECUSTOMSENDNO# ||  welfareMember as flowId,
+        #COLLECTNAME# collectName,
+        #COLLECTCODE# collectCode,
+        #WELFARECUSTOMSENDNO# sendFlowId
+        from
+        vm_memberwelfareanaproject f
+        where  f.projectCode = #ANATEMPLATENO#
+        <isNotEmpty prepend="AND" property="ONLYSENDMEMBER">
+            f.welfareMember in   ($ONLYSENDMEMBER$)
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="FILTERMEMBER">
+            f.welfareMember not in   ($FILTERMEMBER$)
+        </isNotEmpty>
+    </select>
+
+    <select id="welfareLastCollectResult" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select t.welfareMember,t.customCollectJson
+        from (select f.*,
+        row_number() over(partition by f.welfareMember order by annual desc) rn
+        from vm_memberwelfareanaproject f
+        where  templateNo = #template# and f.customCollectJson is not null) t where t.rn=1
+    </select>
+
+
+    <!-- 删除福利收集推送子表的空白记录-->
+    <delete id="customCollectDepartMemberSend.delete" parameterClass="java.lang.String">
+        delete  from vm_welfareCustomCollectSendSon  where belongDepart is null
+    </delete>
+    <select id="welfareSendDoc.select" parameterClass="java.lang.String" resultClass="java.lang.Integer">
+        select count('x') from vm_welfareCustomMain  c where c.welfareTemplateNo = #templateNo#
+    </select>
+    <!--查询福利收集推送子表是否已推送过 -->
+    <select id="customCollectSendDepartMember.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select id,formmain_id,belongDepart,nofeedback,feedBackEmp  from vm_welfareCustomCollectSendSon c where c.formmain_id = #id# and c.belongDepart = #depart#
+    </select>
+    <!--福利收集推送子表插入 -->
+    <insert id="customCollectSendDepartMember.insert" parameterClass="java.util.HashMap">
+        insert into vm_welfareCustomCollectSendSon f
+        (f.id,
+        f.formmain_id,
+        f.belongDepart,
+        f.nofeedback
+        )
+        values
+        (
+        util_common.getAbsID,
+        #id#,
+        #depart#,
+        #members#
+        )
+    </insert>
+    <!--福利收集推送子表更新 -->
+    <update id="customCollectSendDepartMember.update" parameterClass="java.util.HashMap">
+        update vm_welfareCustomCollectSendSon c
+        set nofeedback = #members#
+        where c.formmain_id = #id# and c.belongDepart = #depart#
+    </update>
+    <!--年度福利项目状态更新 -->
+    <update id="analProjectStatus.update" parameterClass="java.util.HashMap">
+        update   vm_welfareanaproject
+        set projectStatus = #projectStatus#
+        <isNotEmpty  property="publishDate">
+            ,publishDate = to_date(#publishDate#,'yyyy-mm-dd')
+        </isNotEmpty>
+        <isNotEmpty  property="userValidity">
+            ,userValidity = to_date(#userValidity#,'yyyy-mm-dd')
+        </isNotEmpty>
+        where projectCode = #projectCode#
+    </update>
+    <!--员工年度福利项目状态更新 -->
+    <update id="memberProjectStatus.update" parameterClass="java.util.HashMap">
+        update   vm_memberwelfareanaproject
+        set projectStatus = #projectStatus#
+        <isNotEmpty  property="publishDate">
+            ,publishDate = to_date(#publishDate#,'yyyy-mm-dd')
+        </isNotEmpty>
+        <isNotEmpty property="userValidity">
+            ,userValidity = to_date(#userValidity#,'yyyy-mm-dd')
+        </isNotEmpty>
+        where projectCode = #projectCode#
+    </update>
+
+    <update id="updateWelfareUseStatus.update" parameterClass="java.util.HashMap">
+        update   vm_memberwelfareanaproject t
+        set t.useState = #useState#,t.useDesc=#useDesc#
+        where t.projectCode = (select projectCode from vm_welfareanaproject where id = #welfareId#) and (t.welfareMember = (select id from org_member o where o.Ext_Attr_1 = #userPhone#) or t.welfareMember = #userId#)
+    </update>
+
+
+    <!--查询福利收集推送子表是否已推送过 -->
+    <select id="getWelfareRefundRelationList.select"  resultClass="java.util.HashMap">
+        select
+
+        welfareName as "welfareName",
+        interfaceProvider as "interfaceProvider",
+        oaWelfareCode as "oaWelfareCode",
+        interfaceWelfareCode as "interfaceWelfareCode",
+        interfaceSonCode as "interfaceSonCode"
+        from
+        vm_welfareRefundRelation
+    </select>
+
+    <insert id="addWelfareRefundLog.insert"
+            parameterClass="java.util.HashMap">
+        insert into vm_welfareRefundDataLog
+        (
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        taskDate,
+        welfareName,
+        interfaceProvider,
+        oaWelfareCode,
+        interfaceWelfareCode,
+        interfaceSonCode,
+        year,
+        memberId,
+        memberCode,
+        welfareState,
+        welfareDetail,
+        welfareAccess,
+        useState,
+        useDesc,
+        limit,
+        projectCode,
+        userValidity,
+        endDate
+
+        ) values
+        (
+        util_common.getAbsID,
+        1,
+        -6760911671874597139,
+        sysdate,
+        0,
+        sysdate,
+        0,
+        0,
+        0,
+        null,
+        0,
+        -6760911671874597139,
+        sysdate,
+        sysdate,
+        (select welfareName from vm_welfaretemplate where templateNo = #templateNo#) ,
+        #interfaceProvider#,
+        #templateNo#,
+        '',
+        #interfaceSonCode#,
+        #year#,
+        #memberId#,
+        #memberCode#,
+        #welfareState#,
+        #welfareDetail#,
+        #welfareAccess#,
+        #useState#,
+        #useDesc#,
+        #limit#,
+        #projectCode#,
+        #userValidity#,
+        #endDate#
+        )
+    </insert>
+
+    <update id="updateMemberWelfareLimit.update">
+        merge into vm_memberWelfareAnaProject t using (select
+        distinct
+        wrl.welfareName as welfareName,
+        wrl.interfaceProvider as interfaceProvider,
+        wrl.oaWelfareCode as oaWelfareCode,
+        wrl.interfaceWelfareCode as interfaceWelfareCode,
+        wrl.interfaceSonCode as interfaceSonCode,
+        wrl.year as year,
+        wrl.memberId as memberId,
+        wrl.memberCode as memberCode,
+        wrl.welfareState as welfareState,
+        wrl.limit as limit,
+        mwi.sex as sex,
+        mwi.entryDate as entryDate,
+        mwi.certType as certType,
+        mwi.officePlace as officePlace,
+        mwi.empType as empType,
+        mwi.empStatus as empStatus,
+        mwi.certNo as certNo,
+        mwi.jobNo as jobNo,
+        mwi.age as age,
+        mwi.departId as departId,
+        mwi.phone as phone,
+        wrl.welfareDetail as welfareDetail,
+        wrl.welfareAccess as welfareAccess,
+        wrl.useState as useState,
+        wrl.useDesc as useDesc,
+        wrl.projectCode as projectCode,
+        wrl.userValidity as userValidity,
+        wrl.endDate as endDate
+
+        from vm_welfareRefundDataLog wrl left join
+        vm_memberWholeInfo mwi
+        on wrl.memberId = mwi.memberId
+        where to_char(sysdate,'yyyy-mm-dd') = to_char(wrl.taskDate,'yyyy-mm-DD')
+        ) r
+        on(
+        r.year = t.annual
+        and t.templateNo = r.oaWelfareCode
+        and r.memberId = t.welfareMember
+        and t.annual is not null
+        and t.templateNo is not null
+        and t.welfareMember is not null
+
+        )
+        when matched then
+        update set t.consumedLimit = r.limit,
+        t.useDesc = r.useDesc,
+        t.useState = r.useState,
+        t.welfareDetail = r.welfareDetail,
+        t.welfareLimit = r.limit
+
+        when not matched then
+        insert(id,
+        state             ,
+        start_member_id   ,
+        start_date        ,
+        approve_member_id ,
+        approve_date      ,
+        finishedflag      ,
+        ratifyflag        ,
+        ratify_member_id  ,
+        ratify_date       ,
+        sort              ,
+        modify_member_id  ,
+        modify_date       ,
+        certType    ,
+        certNo    ,
+        sex    ,
+        age    ,
+        phone,
+        officePlace   ,
+        jobNo   ,
+        projectCode,
+        templateNo    ,
+        memberProTemNo    ,
+        annual  ,
+        projectStatus   ,
+        launchDate  ,
+        welfareName ,
+        welfareDetail,
+        welfareMember,
+        welfareAccess,
+        useState,
+        useDesc,
+        userValidity,
+        endDate,
+        welfarelimit
+        )
+        values
+        (util_common.getAbsID,
+        1,
+        -6760911671874597139,
+        sysdate,
+        0,
+        sysdate,
+        0,
+        0,
+        0,
+        null,
+        0,
+        -6760911671874597139,
+        sysdate,
+        -r.certType,
+        r.certNo,
+        r.sex,
+        r.age,
+        r.phone,
+        r.officePlace,
+        r.jobNo,
+        r.projectCode,
+        r.oaWelfareCode,
+        '',
+        r.year,
+        '3414263659243327335',
+        sysdate,
+        r.welfareName,
+        r.welfareDetail,
+        r.memberId,
+        r.welfareAccess,
+        r.useState,
+        r.useDesc,
+        r.userValidity,
+        r.endDate,
+        r.limit
+        )
+    </update>
+
+    <delete id="deleteExpiredRefundData.delete" parameterClass="java.lang.String">
+        delete
+
+        from vm_welfareRefundDataLog
+
+        where taskDate &lt; sysdate - #limitDay#
+
+    </delete>
+
+
+    <select id="findSendAllowanceBySerialNum.select"  resultClass="java.util.HashMap" parameterClass="java.lang.String">
+        select
+        id as "id",
+        serialNo as "serialNo",
+        writer as "writer",
+        writeDate as "writeDate",
+        writeDept as "writeDept",
+        sendAccount as "sendAccount",
+        sendDept as "sendDept",
+        removeDept as "removeDept",
+        title as "title",
+        applyEndDate as "applyEndDate"
+        from
+        vm_welfareAllowanceSend where serialNo = #serialNum#
+    </select>
+
+    <select id="findSendAllowanceById.select"  resultClass="java.util.HashMap" parameterClass="java.lang.String">
+        select
+        id as "id",
+        serialNo as "serialNo",
+        writer as "writer",
+        writeDate as "writeDate",
+        writeDept as "writeDept",
+        sendAccount as "sendAccount",
+        sendDept as "sendDept",
+        removeDept as "removeDept",
+        title as "title",
+        applyEndDate as "applyEndDate"
+        from
+        vm_welfareAllowanceSend where id = #id#
+    </select>
+
+    <select id="findSendAllowanceDeptSonBySerialNum.select"  resultClass="java.util.HashMap" parameterClass="java.lang.String">
+        select
+        id as "id",
+        sendDepts as "sendDepts",
+        sendState as "sendState"
+        from
+        vm_welfareAllowanceSend_dept where formmain_Id = #formmanId# and sendDepts is not null
+    </select>
+
+    <select id="findSendAllowanceDept.select"  resultClass="java.util.HashMap" parameterClass="java.util.HashMap">
+        select util_org.getLeaderMemIdByDeptId(id) as "leaderId",id as "deptId" from org_unit
+        where id not in (select org_departMent_id org_departMent_id from org_member where is_enable =1 group by org_departMent_id having  count(1) = 1 )
+        and (1=0
+        <isNotEmpty  property="sendAccount">
+            or org_account_id in(SELECT id FROM vm_org_unit START WITH ID in ($sendAccount$) CONNECT BY parent_Id = PRIOR ID)
+        </isNotEmpty>
+        <isNotEmpty  property="sendDept">
+            or id in($sendDept$)
+        </isNotEmpty>
+        )
+        <isNotEmpty  property="removeDept">
+            and id not in($removeDept$)
+        </isNotEmpty>
+        and util_org.getLeaderMemIdByDeptId(id) is not null and is_enable = 1 and is_deleted=0 and is_internal =1
+    </select>
+
+    <insert id="initAllowanceSendDeptSon.insert"
+            parameterClass="java.util.HashMap">
+        insert into vm_welfareAllowanceSend_dept (id,formmain_Id,sendDepts,sendState )
+        values(
+        util_common.getAbsID,
+        #formmainId#,
+        #sendDepts#,
+        -1089048568118490234
+        )
+    </insert>
+
+    <update id="updateAllowanceSendDeptSon.update"
+            parameterClass="java.util.HashMap">
+        update vm_welfareAllowanceSend_dept set sendState = -3841538853571705149
+        where formmain_Id = #formmainId# and  sendDepts = #sendDepts#
+
+    </update>
+
+    <select id="findProceedingAllowanceBySerialNum.select"  resultClass="java.util.HashMap" parameterClass="java.lang.String">
+        select * from col_summary where form_recordId in (select id from vm_welfareAllowanceApply where sendSerialNo = #sendSerialNo#) and  state = 0
+    </select>
+
+    <select id="findAllowanceApplyBySerialNum.select"  resultClass="java.util.HashMap" parameterClass="java.lang.String">
+        select
+        id as "id",
+        serialNo as "serialNo",
+        writer as "writer",
+        writeDate as "writeDate",
+        writeDept as "writeDept",
+        writeAccount as "writeAccount",
+        title as "title",
+        applyDept as "applyDept",
+        welfareTemplateNo as "welfareTemplateNo",
+        anual as "anual",
+        appplyOrNot as "appplyOrNot",
+        executor as "executor",
+        sendSerialNo as "sendSerialNo",
+        applyEndDate as "applyEndDate"
+        from vm_welfareAllowanceApply  where serialNo = #serialNo#
+    </select>
+
+    <select id="findAllowanceApplySonByFormmainId.select"  resultClass="java.util.HashMap" parameterClass="java.lang.String">
+        select
+        applyMember as "applyMember",
+        applyDept as "applyDept",
+        applyReason as "applyReason"
+        from vm_welfareAllowanceApply_son  where formmain_id = #formmainId#
+    </select>
+
+    <insert id="insertAllowanceSendMemberSon.insert"
+            parameterClass="java.util.HashMap">
+        insert into vm_welfareAllowanceSend_member  (id,formmain_Id,applyMember, applyDept, applyReason  )
+        values(
+        util_common.getAbsID,
+        #formmainId#,
+        #applyMember#,
+        #applyDept#,
+        #applyReason#
+        )
+
+    </insert>
+
+
+    <insert id="insertAllowanceMemberWelfare.insert"
+            parameterClass="java.util.HashMap">
+        insert into vm_memberWelfareAnaProject
+        (id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        certType    ,
+        certNo    ,
+        sex    ,
+        age    ,
+        phone,
+        officePlace   ,
+        jobNo   ,
+        projectCode,
+        templateNo,
+        welfareMember,
+        annual,
+        projectStatus,
+        launchDate,
+        welfareName,
+        useState)
+        values(util_common.getAbsID,
+        1,
+        -6760911671874597139,
+        sysdate,
+        0,
+        sysdate,
+        0,
+        0,
+        0,
+        null,
+        0,
+        -6760911671874597139,
+        sysdate,
+        (select certType
+        from vm_memberWholeInfo
+        where memberId = #welfareMember#),
+        (select certNo
+        from vm_memberWholeInfo
+        where memberId = #welfareMember#),
+        (select sex
+        from vm_memberWholeInfo
+        where memberId = #welfareMember#),
+        (select age
+        from vm_memberWholeInfo
+        where memberId = #welfareMember#),
+        (select phone
+        from vm_memberWholeInfo
+        where memberId = #welfareMember#),
+        (select officePlace
+        from vm_memberWholeInfo
+        where memberId = #welfareMember#),
+        (select jobNo
+        from vm_memberWholeInfo
+        where memberId = #welfareMember#),
+        (select projectCode
+        from vm_welfareanaproject
+        where templateNo = #templateNo#
+        and annual = #annual#),
+        #templateNo#,
+        #welfareMember#,
+        #annual# ,
+        3414263659243327335,
+        sysdate,
+        (select welfareName
+        from vm_welfareanaproject
+        where templateNo = #templateNo#
+        and annual = #annual#),
+        2782513347324168557
+        )
+
+    </insert>
+
+    <insert id="insertAllowanceNoticeSon.insert"
+            parameterClass="java.lang.String">
+        insert into vm_welfareAllowanceNotice_son (id,
+        formmain_id,
+        applyMember,
+        applyDept,
+        applyReason )
+
+        select
+        util_common.getAbsID,
+        #formId#,
+        applyMember,
+        applyDept,
+        applyReason
+        from vm_welfareAllowanceSend_member where formmain_id =
+        (select id from vm_welfareAllowanceSend where serialNo = (select sendSerialNo from vm_welfareAllowanceApply where id = #formId#))
+
+    </insert>
+    <delete id="deleteAllowanceBlankRecord">
+        delete vm_welfareAllowanceSend_member where applyMember is null
+    </delete>
+
+    <delete id="deleteAllowanceBlankRecordDept.delete">
+        delete vm_welfareAllowanceSend_dept where sendDepts is null
+    </delete>
+
+    <update id="closePreviousYearWelfare.update">
+        update vm_welfareanaproject  set projectStatus=8716577955139701724   where endDate &lt; sysdate
+    </update>
+
+    <update id="closePreviousYearMemberWelfare.update">
+        update vm_memberWelfareAnaProject set projectStatus=8716577955139701724   where endDate &lt; sysdate
+    </update>
+
+    <select id="welfareOffice.select" resultClass="java.util.HashMap">
+        select to_char(f.dept) dept,to_char(f.mainmember)mainmember  from vm_deptpost f where f.busimodel = 4053677126668929503 and f.questname = '工会福利干事'
+    </select>
+
+    <update id="updateWelfareRoom.update" parameterClass="java.util.HashMap">
+        update vm_deptpost a set a.submember = #submember# where a.questname = #questname#
+    </update>
+
+    <select id="queryVmWelfareRoomSend.select" parameterClass="String"  resultClass="java.util.HashMap">
+        select
+        v.id,
+        v.applyUser
+        from vm_welfare_room_send v
+        left join COL_SUMMARY c on c.form_recordid = v.id
+        where  c.state = 3 and v.applyUser = #applyUserId#
+    </select>
+
+    <select id="queryVmWelfareSubsidyAdd.select" parameterClass="String"  resultClass="java.util.HashMap">
+        select
+        v.id,
+        v.applyUser
+        from vm_welfare_subsidy_add v
+        left join COL_SUMMARY c on c.form_recordid = v.id
+        where  c.state = 3 and v.applyUser = #applyUserId#
+    </select>
+
+    <select id="getRentDataInfo.select"  parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        applyUser as "applyUser",
+        applyDepartMent as "applyDepartMent",
+        startDate as "startDate",
+        endDate as "endDate",
+        hrNoObj as "hrNoObj",
+        genderObj as "genderObj",
+        building as "building",
+        roomNumber as "roomNumber",
+        apartment as "apartment",
+        joinType as "joinType"
+        from vm_welfare_room_rentData
+        where (to_date(#payMonth#,'yyyy-mm')  >= to_date(to_char(startDate, 'yyyy-mm'), 'yyyy-mm') and endDate is  null) or
+        ((to_date(to_char(startDate, 'yyyy-mm'), 'yyyy-mm') = to_date(#payMonth#,'yyyy-mm') and
+         to_date(to_char(endDate, 'yyyy-mm'), 'yyyy-mm') = to_date(#payMonth#,'yyyy-mm')))
+    </select>
+
+    <select id="getHistoryWelfareRentData.select"  parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        startDate as "startDate",
+        endDate as "endDate"
+        from vm_welfare_room_rentData
+        where applyUser = #applyUser#
+        and to_date(#payMonth#,'yyyy-mm')  >= to_date(to_char(startDate, 'yyyy-mm'), 'yyyy-mm')
+        order by startDate
+    </select>
+
+    <select id="getHistorySubsidyDetail.select"  parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        firstSubsidyPay as "firstSubsidyPay",
+        subsidyStartDate as "subsidyStartDate",
+        subsidyEndDate as "subsidyEndDate"
+        from vm_welfare_subsidy_detail
+        where name = #name#
+        and to_date(#payMonth#,'yyyy-mm')  >= to_date(to_char(subsidyStartDate, 'yyyy-mm'), 'yyyy-mm')
+        order by subsidyStartDate
+    </select>
+
+    <select id="getRentDataInfoByApplyUserId.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        applyUser as "applyUser",
+        applyDepartMent as "applyDepartMent",
+        startDate as "startDate",
+        endDate as "endDate",
+        hrNoObj as "hrNoObj",
+        genderObj as "genderObj",
+        building as "building",
+        roomNumber as "roomNumber",
+        apartment as "apartment",
+        joinType as "joinType"
+        from vm_welfare_room_rentData
+        where endDate is  null
+        and applyUser = #applyUserId#
+        and to_date(#endDate#,'yyyy-mm-dd')  > to_date(to_char(startDate, 'yyyy-mm-dd'), 'yyyy-mm-dd')
+        order by startDate desc
+    </select>
+
+    <select id="getCheckStartDate.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        applyUser as "applyUser",
+        applyDepartMent as "applyDepartMent",
+        startDate as "startDate",
+        endDate as "endDate",
+        hrNoObj as "hrNoObj",
+        genderObj as "genderObj",
+        building as "building",
+        roomNumber as "roomNumber",
+        apartment as "apartment",
+        joinType as "joinType"
+        from vm_welfare_room_rentData
+        where endDate is not null
+        and applyUser = #applyUserId#
+        order by endDate desc
+    </select>
+
+    <select id="getCheckEndDate.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        applyUser as "applyUser",
+        applyDepartMent as "applyDepartMent",
+        startDate as "startDate",
+        endDate as "endDate",
+        hrNoObj as "hrNoObj",
+        genderObj as "genderObj",
+        building as "building",
+        roomNumber as "roomNumber",
+        apartment as "apartment",
+        joinType as "joinType"
+        from vm_welfare_room_rentData
+        where endDate is  null
+        and applyUser = #applyUserId#
+        order by startDate desc
+    </select>
+
+    <select id="getSubsidyDetailByApplyUserId.select" parameterClass="String" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        name as "name",
+        dept as "dept",
+        startDate as "startDate",
+        endDate as "endDate",
+        subsidyStartDate as "subsidyStartDate",
+        subsidyEndDate as "subsidyEndDate",
+        hrNoObj as "hrNoObj",
+        genderObj as "genderObj"
+        from vm_welfare_subsidy_detail
+        where subsidyEndDate is  null
+        and name = #applyUserId#
+        order by subsidyStartDate desc
+    </select>
+
+    <select id="getWelfareRoomRecordInfoByMonth.select"  resultClass="java.util.HashMap">
+        select
+        applyUser as "applyUser",
+        applyDepartMent as "applyDepartMent",
+        startDate as "startDate",
+        endDate as "endDate",
+        hrNoObj as "hrNoObj",
+        genderObj as "genderObj",
+        building as "building",
+        roomNumber as "roomNumber",
+        apartment as "apartment",
+        joinType as "joinType"
+        from vm_welfare_room_rentData
+        where  to_date(to_char(endDate, 'yyyy-mm'), 'yyyy-mm') = to_date(#eventDate#,'yyyy-mm')
+    </select>
+
+    <select id="getWelfareSubsidyInfo.select"  resultClass="java.util.HashMap">
+        select
+        name as "name",
+        dept as "dept",
+        startDate as "startDate",
+        endDate as "endDate",
+        subsidyStartDate as "subsidyStartDate",
+        subsidyEndDate as "subsidyEndDate",
+        hrNoObj as "hrNoObj",
+        genderObj as "genderObj"
+        from vm_welfare_subsidy_detail
+        where  to_date(#payMonth#,'yyyy-mm') >=   to_date(to_char(subsidyStartDate, 'yyyy-mm'), 'yyyy-mm')
+        and (subsidyEndDate is null or to_date(to_char(subsidyEndDate, 'yyyy-mm'), 'yyyy-mm') >= to_date(#payMonth#,'yyyy-mm'))
+    </select>
+
+    <select id="queryWelfareRoomInfo.select" parameterClass="java.util.HashMap"  resultClass="java.util.HashMap">
+        select
+        apartment as "apartment",
+        building as "building",
+        roomNumber as "roomNumber",
+        pay as "pay"
+        from vm_welfare_room_basic
+        where apartment =  #apartment# and building = #building# and roomNumber = #roomNumber#
+    </select>
+
+    <!-- 根据人员工号获取人员ID -->
+    <select id="getWelfareRoomUserIdByHrId.select" resultClass="string" parameterClass="java.util.HashMap">
+        select v.userid from vm_member v, org_principal p
+        where v.userid = p.member_id and v.hrId = #hrId#
+    </select>
+
+    <delete id="deleteWelfareRoomPay.delete" parameterClass="java.util.HashMap">
+        delete
+        from vm_welfare_room_pay
+        where month = #payMonth#
+    </delete>
+
+    <delete id="deleteWelfareSubsidyGrant.delete" parameterClass="java.util.HashMap">
+        delete
+        from vm_welfare_subsidy_grant
+        where month = #payMonth#
+    </delete>
+
+    <insert id="insertWelfareRoomPay.insert" parameterClass="java.util.HashMap">
+        insert into vm_welfare_room_pay
+        (id,
+        name,
+        dept,
+        month,
+        startDate,
+        endDate,
+        hrNoObj,
+        genderObj,
+        pay,
+        room,
+        type,
+        applyUser,
+        applyDept,
+        apartment,
+        building
+        )
+
+        values(
+        util_common.getAbsID,
+        #name#,
+        #dept#,
+        #month#,
+        to_date(substr(#startDate#,1,10),'yyyy-mm-dd'),
+        to_date(substr(#endDate#,1,10),'yyyy-mm-dd'),
+        #hrNoObj#,
+        #genderObj#,
+        #pay#,
+        #room#,
+        #type#,
+        #applyUser#,
+        #applyDept#,
+        #apartment#,
+        #building#
+        )
+    </insert>
+
+    <insert id="insertWelfareSubsidyGrant.insert" parameterClass="java.util.HashMap">
+        insert into vm_welfare_subsidy_grant
+        (id,
+        name,
+        dept,
+        month,
+        startDate,
+        endDate,
+        hrNoObj,
+        genderObj,
+        pay,
+        applyUser,
+        applyDept
+        )
+
+        values(
+        util_common.getAbsID,
+        #name#,
+        #dept#,
+        #month#,
+        to_date(substr(#startDate#,1,10),'yyyy-mm-dd'),
+        to_date(substr(#endDate#,1,10),'yyyy-mm-dd'),
+        #hrNoObj#,
+        #genderObj#,
+        #pay#,
+        #applyUser#,
+        #applyDept#
+        )
+    </insert>
+
+    <select id="welfareRoomPayResource.select" resultClass="com.seeyon.apps.kk.welfare.model.WelfareRoomWithholdModel" parameterClass="java.util.HashMap">
+        select
+        id,
+        name,
+        dept,
+        month,
+        startDate,
+        endDate,
+        hrNoObj,
+        genderObj,
+        pay,
+        room,
+        type
+        from
+        vm_welfare_room_pay v
+        where 1=1
+        <isNotEmpty prepend="AND"  property="month">
+            v.month = #month#
+        </isNotEmpty>
+    </select>
+
+    <select id="welfareSubsidyGrantResource.select" resultClass="com.seeyon.apps.kk.welfare.model.WelfareSubsidyGrantModel" parameterClass="java.util.HashMap">
+        select
+        id,
+        name,
+        dept,
+        month,
+        startDate,
+        endDate,
+        hrNoObj,
+        genderObj,
+        pay
+        from
+        vm_welfare_subsidy_grant v
+        where 1=1
+        <isNotEmpty prepend="AND"  property="month">
+            v.month = #month#
+        </isNotEmpty>
+    </select>
+
+    <update id="updateWelfareRoomSend.update" parameterClass="java.util.HashMap">
+        update vm_welfare_room_send a set a.applyAmount = #applyAmount# where a.id = #id#
+    </update>
+
+    <update id="updateWelfareSubsidyAdd.update" parameterClass="java.util.HashMap">
+        update vm_welfare_subsidy_add a set a.applyAmount = #applyAmount# where a.id = #id#
+    </update>
+
+    <update id="updateRentDataInfoById.update" parameterClass="java.util.HashMap">
+        update vm_welfare_room_rentData a set a.endDate = to_date(#endDate#,'yyyy-mm-dd') where a.id = #id#
+    </update>
+
+    <update id="updateSubsidyDetailById.update" parameterClass="java.util.HashMap">
+        update vm_welfare_subsidy_detail a set a.subsidyEndDate = to_date(#subsidyEndDate#,'yyyy-mm-dd') where a.id = #id#
+    </update>
+
+    <select id="queryAnaProjectCustomCollection.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        m.welfareMember as "welfareMember",
+        m.projectCode as "projectCode",
+        m.templateNo as "templateNo",
+        m.memberProTemNo as "memberProTemNo",
+        m.annual as "annual",
+        m.projectStatus as "projectStatus",
+        m.launchDate as "launchDate",
+        m.welfareName as "welfareName",
+        m.welfareType as "welfareType",
+        s.repeatcustomname as "repeatCustomName",
+        s.repeatcustomresult as "repeatCustomResult"
+        from vm_memberWelfareAnaProject m right join (select * from vm_welfareCustomInfo where repeatcustomname is not null and isDelete = -1089048568118490234)  s
+        on m.id = s.formmain_id
+        where collectCode = #collectCode#  order by welfaremember desc,s.repeatsort asc
+    </select>
+
+    <select id="selectCustomCollectionConfigByCode.select" parameterClass="String" resultClass="java.util.HashMap">
+        select
+        attr.id,
+        attr.formmain_id as "formmainId",
+        attr.comboSimpleName as "comboSimpleName",
+        attr.attrDesc as "attrDesc",
+        attr.attrShowType as "attrShowType",
+        attr.attrSpecification as "attrSpecification",
+        attr.attrCollectType as "attrCollectType",
+        attr.attrSort as "attrSort",
+        '0' as "attrSumAble",
+        attr.attrName as "attrName",
+        info.comBoFullName as "comboFullName",
+        info.calcAttrName as "calcAttrName"
+        from vm_welfareCustomComBoInfo info
+        left join Vm_Welfarecustomcomboattr attr on attr.formmain_id = info.formmain_id and attr.comBoSimpleName = info.combosimplename
+
+        where attr.formmain_id = (select id from vm_welfareCustomMain where serialNo = #anaProjectCode#)
+        union all
+        select
+        common.id,
+        common.formmain_id,
+        info.comBoSimpleName as "comboSimpleName",
+        common.attrDesc as "attrDesc",
+        common.attrShowType as "attrShowType",
+        common.attrSpecification as "attrSpecification",
+        common.attrCollectType as "attrCollectType",
+        common.attrSort as "attrSort",
+        common.attrSumAble as "attrSumAble",
+        common.attrName as "attrName",
+        info.comBoFullName as "comboFullName",
+        info.calcAttrName as "calcAttrName"
+        from vm_welfareCustomComBoInfo info
+        left join vm_welfareCustomcommonAttr common on info.formmain_id = common.formmain_id
+        where common.formmain_id = (select id from vm_welfareCustomMain where serialNo = #anaProjectCode#)
+    </select>
+
+
+    <select id="selectMemberPhoneByMemberId.select" parameterClass="String" resultClass="java.lang.String">
+        select
+        EXT_ATTR_1
+        from org_member
+        where id = #applyUser#
+    </select>
+
+    <select id="selectMemberCertNoByMemberId.select" parameterClass="String" resultClass="java.lang.String">
+        select
+        EXT_ATTR_2
+        from addressbook
+        where member_id = #applyUser#
+    </select>
+
+
+    <delete id="deleteTodayEhrRecord.delete">
+        delete from vm_welfareRefundDataLog where
+        to_char(sysdate,'yyyy-mm-dd') = to_char(taskDate,'yyyy-mm-dd')
+    </delete>
+
+    <select id="gethomeleaveInfo.select"  resultClass="java.util.HashMap" parameterClass="java.util.HashMap">
+        select
+        main.id as "id",
+        main.serialNo as "serialNo",
+        main.memberId as "memberId",
+        main.memberDept as "memberDept",
+        son.year as "year",
+        son.kinsfolkName as "kinsfolkName",
+        son.transportationType as "transportationType",
+        to_char(son.startDate,'yyyy-mm-dd') as "startDate",
+        to_char(son.endDate,'yyyy-mm-dd') as "endDate",
+        son.days as "days",
+        son.expectedCost as "expectedCost",
+        son.destination as "destination"
+        from vm_cap_homeleaveInfo_apply son left join vm_cap_homeleaveInfo main on main.id = son.formmain_id
+        where son.year is not null and kinsfolkName is not null
+        <isNotEmpty  property="startDate">
+            and son.startDate &gt;= #startDate#
+        </isNotEmpty>
+        <isNotEmpty  property="endDate">
+            and son.endDate &lt;= #endDate#
+        </isNotEmpty>
+    </select>
+
+
+
+    <select id="findNeedPushCar.select" parameterClass="java.util.HashMap" resultClass="com.seeyon.apps.kk.welfare.model.CarRegisterModel">
+        select
+        'CLDJ_T0001' flowType,
+        util_user.getMemberNameByMemId(pushMember) name,
+        to_char(id) id,
+        f.serialNum flowId,
+        util_user.getMemCodeByMemId(f.pushMember) sendUserNo,
+        to_char(sysdate, 'yyyy-mm-dd') pushDate,
+        f.pushDepart
+        from vm_carRegisterTask f
+        where (f.pushState = 7727549772789403399 or f.pushState is null)
+        and f.serialNum not in
+        (select flowId
+        from vm_wf_carRegister
+        where flowId is not null)  and sysdate >= f.planPushDate
+        <isNotEmpty prepend="and" property="id">
+            id in ($id$)
+        </isNotEmpty>
+
+
+    </select>
+
+    <select id="findNoPushCareRegisterInfo" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.welfare.model.CarRegisterModel">
+        select
+        'CLDJ_T0001' flowType,
+        util_user.getMemberNameByMemId(pushMember) name,
+        to_char(id) id,
+        f.serialNum flowId,
+        util_user.getMemCodeByMemId(f.pushMember) sendUserNo,
+        to_char(sysdate, 'yyyy-mm-dd') pushDate,
+        f.pushDepart
+        from vm_carRegisterTask f
+        where (f.pushState = 7727549772789403399 or f.pushState is null)
+        and f.serialNum not in
+        (select flowId
+        from vm_wf_carRegister
+        where flowId is not null) and sysdate >= f.planPushDate
+        and id = #id#
+    </select>
+
+    <select id="findKinsfolkInfoList.select" parameterClass="java.util.HashMap" resultClass="com.seeyon.apps.kk.welfare.model.CarRegisterModel">
+        select
+        kinsfolkName as "kinsfolkName",
+        kinsfolkRelation as "kinsfolkRelation",
+        liveTogether as "liveTogether",
+        liveAddress as "liveAddress",
+        addressSignDate as "addressSignDate"
+        from vm_cap_homeleaveInfo_kinsfolk
+        where formmain_id = (select id from  vm_cap_homeleaveInfo where  memberId = #applyUser# )
+        and kinsfolkName = #kinsfolkName#
+        and kinsfolkRelation = #kinsfolkRelation#
+    </select>
+    <select id="careRegisterRecord.select" parameterClass="java.util.HashMap" resultClass="com.seeyon.apps.kk.welfare.model.CarRegisterRespModel">
+
+        select
+        id,
+        code,
+        name,
+        deptCode,
+        deptName,
+        to_char(registerDate, 'yyyy-mm-dd') registerDate,
+        licensePlateNumber,
+        isValid
+        from
+        (select
+        f.id,
+        UTIL_USER.getMemCodeByMemId(userId) code,
+        UTIL_USER.getMemberNameByMemId(USERID) name,
+        UTIL_ORG.getDeptCodeByDeptId(userDepart) deptCode,
+        UTIL_ORG.getDeptNameByDeptId(userDepart) deptName,
+        registerDate,
+        licensePlateNumber,
+        decode(isValid,'-3841538853571705149',1,'-1089048568118490234',0) isValid
+        from
+        vm_carRegisterInfo f
+        left join  vm_carRegisterInfoSon f2
+        on f.id = f2.formmain_id) f3
+        where isvalid is not null
+        <isNotEmpty  property="startDate">
+            and registerDate &gt;= #startDate#
+        </isNotEmpty>
+        <isNotEmpty  property="endDate">
+            and registerDate &lt;= #endDate#
+        </isNotEmpty>
+        <isNotEmpty property="isValid">
+            and isValid = #isValid#
+        </isNotEmpty>
+
+    </select>
+
+
+
+    <select id="getCareWelfareInfo.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+
+        select
+        id as "id",
+        serialNo as "serialNo",
+        applyUser as "applyUser",
+        to_char(applyDate,'yyyy-mm-dd') as "applyDate",
+        to_char(entryDate,'yyyy-mm-dd') as "entryDate",
+        to_char(eventDate,'yyyy-mm-dd') as "eventDate",
+        '2' as "careType",
+        amount as "amount",
+        remark as "remark"
+        from
+        vm_wf_marriageCare w
+        where
+        (select state from col_summary c where c.form_recordId = w.id) = 3
+        <isNotEmpty  property="applyDateStart">
+            and applyDate &gt;= #applyDateStart#
+        </isNotEmpty>
+        <isNotEmpty  property="applyDateEnd">
+            and applyDate &lt;= #applyDateEnd#
+        </isNotEmpty>
+        <isEmpty property="careType2">
+            and 1 = 0
+        </isEmpty>
+
+        union all
+
+        select
+        id,
+        serialNo as "serialNo",
+        applyUser as "applyUser",
+        to_char(applyDate,'yyyy-mm-dd') as "applyDate",
+        to_char((select EXT_ATTR_22 from org_member o where o.id = w.applyUser ),'yyyy-mm-dd') as "entryDate",
+        to_char(hospitalizedDate,'yyyy-mm-dd') as "entryDate",
+        '3' as "careType",
+        amount as "amount",
+        remark as "remark"
+        from
+        vm_wf_sickCare w
+        where (select state from col_summary c where c.form_recordId = w.id) = 3
+        <isNotEmpty  property="applyDateStart">
+            and applyDate &gt;= #applyDateStart#
+        </isNotEmpty>
+        <isNotEmpty  property="applyDateEnd">
+            and applyDate &lt;= #applyDateEnd#
+        </isNotEmpty>
+        <isEmpty property="careType3">
+            and 1 = 0
+        </isEmpty>
+
+        union all
+
+        select
+        id,
+        serialNo as "serialNo",
+        applyUser as "applyUser",
+        to_char(applyDate,'yyyy-mm-dd') as "applyDate",
+        to_char((select EXT_ATTR_22 from org_member o where o.id = w.applyUser ),'yyyy-mm-dd') as "entryDate",
+        to_char(applyDate,'yyyy-mm-dd') as "entryDate",
+        '0' as "careType",
+        amount as "amount",
+        applyReason as "remark"
+        from
+        vm_wf_laborunionCare w
+        where (select state from col_summary c where c.form_recordId = w.id) = 3
+        <isNotEmpty  property="applyDateStart">
+            and applyDate &gt;= #applyDateStart#
+        </isNotEmpty>
+        <isNotEmpty  property="applyDateEnd">
+            and applyDate &lt;= #applyDateEnd#
+        </isNotEmpty>
+        <isEmpty property="careType0">
+            and 1 = 0
+        </isEmpty>
+    </select>
+
+    <select id="findMemberJobGradeByGrades" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select to_char(og.id) id,ab.ext_attr_9 jobGrade from org_member og
+        left join addressbook ab
+        on og.id = ab.member_id
+        where is_admin=0 and is_internal=1 and type <![CDATA[<>]]>  2 and is_virtual=0 and is_deleted=0 and state = 1
+        and og.id not in (select userId from vm_carRegisterInfo where userId  is not null) and ab.ext_attr_9 is not null
+        <isNotEmpty prepend="AND" property="JobGrade">
+            ab.ext_attr_9 in ($JobGrade$)
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="registerCarAccount">
+            og.org_account_id in ($registerCarAccount$)
+        </isNotEmpty>
+
+    </select>
+
+    <select id="getInsuranceSendRecordById.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        writer as "writer",
+        writeDept as "writeDept",
+        serialNo as "serialNo",
+        writeDate as "writeDate",
+        sendFlowAccounts as "sendFlowAccounts",
+        notSendMembers as "notSendMembers",
+        insuranceYear as "insuranceYear",
+        insuranceExplain as "insuranceExplain"
+        from vm_cap_InsuraceResearchSend
+        where id = #id#
+    </select>
+
+
+    <update id="updateInsuranceResearchFlow.update" parameterClass="java.util.HashMap">
+        update vm_cap_wf_InsuranceResearch t set
+        spouseName = #spouseName#,
+        spouseNo = #spouseNo#,
+        spouseAge = #spouseAge#,
+        spouseGender = #spouseGender#,
+        haveSpouse = #haveSpouse#,
+        haveChild = #haveChildren#
+        where id =
+        (select form_recordId from col_summary where id = #colId#)
+    </update>
+
+
+    <insert id="insertInsuranceResearchChildInfo.insert" parameterClass="java.util.HashMap">
+        insert into vm_cap_wf_InsuranceResearch_son(
+        id,
+        formmain_id,
+        childName,
+        childNo,
+        childAge,
+        childGender
+        )
+        values(
+        util_common.getAbsID,
+        (select form_recordId from col_summary where id = #colId#),
+        #childName#,
+        #childNo#,
+        #childAge#,
+        #childGender#
+        )
+    </insert>
+
+    <select id="getMemberKinsfolkInfo.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        kinsfolkIdNo as "kinsfolkIdNo",
+        kinsfolkName as "kinsfolkName",
+        kinsfolkAge as "kinsfolkAge",
+        kinsfolkType as "kinsfolkType",
+        kinsfolkGender as "kinsfolkGender"
+        from vm_basemember_kinsfolk
+        where formmain_id = (select id from vm_basememberinfo where memberId = #memberId#)
+    </select>
+
+
+    <select id="getDoneInsuranceResearchFlowBySendBatchNo.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        serialNo as "serialNo",
+        spouseName as "spouseName",
+        insuranceYear as "insuranceYear",
+        spouseNo as "spouseNo",
+        spouseInsurance as "spouseInsurance",
+        writeDept as "writeDept",
+        writer as "writer",
+        writeDate as "writeDate",
+        checkMemberId as "checkMemberId",
+        sendBatchNo as "sendBatchNo",
+        haveSpouse as "haveSpouse",
+        haveChild as "haveChild",
+        memberConfirm as "memberConfirm",
+        flowId as "flowId"
+        from vm_cap_wf_InsuranceResearch wf
+        where sendBatchNo = #sendBatchNo# and 3 = (select state from col_summary where form_recordId = wf.id)
+    </select>
+
+    <delete id="deleteInsuranceSendDeptSon.delete" parameterClass="java.lang.String">
+        delete from vm_cap_InsuraceResearchSend_son where formmain_id = (select id from vm_cap_InsuraceResearchSend where serialNo = #sendBatchNo#)
+    </delete>
+
+    <insert id="insertInsuranceSendDeptSon.insert" parameterClass="java.util.HashMap">
+        insert into vm_cap_InsuraceResearchSend_son(
+        id,
+        formmain_id,
+        memberDept,
+        unfinishedMembers,
+        finishendMembers)
+        values(
+        util_common.getAbsID,
+        (select id from vm_cap_InsuraceResearchSend where serialNo = #sendBatchNo#),
+        #deptId#,
+        #undoneMembers#,
+        #doneMembers#
+        )
+    </insert>
+
+
+    <select id="getSendInsuranceResearchMemberIdByBatchNo.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select checkMemberId from vm_cap_wf_InsuranceResearch t where t.sendBatchNo = #sendBatchNo#
+    </select>
+
+
+    <insert id="insertKinsfolkChildrenInfo.insert" parameterClass="java.util.HashMap">
+        insert into vm_basemember_kinsfolk(
+        id,
+        formmain_id,
+        kinsfolkIdNo,
+        kinsfolkName,
+        kinsfolkAge,
+        kinsfolkGender,
+        kinsfolkType
+        )
+        values(
+        util_common.getAbsID,
+        (select id from vm_basememberinfo where memberId = #memberId#),
+        #kinsfolkIdNo#,
+        #kinsfolkName#,
+        #kinsfolkAge#,
+        #kinsfolkGender#,
+        #kinsfolkType#
+        )
+    </insert>
+
+    <insert id="insertKinsfolkSpouseInfo.insert" parameterClass="java.util.HashMap">
+        insert into vm_basemember_kinsfolk(
+        id,
+        formmain_id,
+        memberDept,
+        unfinishedMembers,
+        finishendMembers)
+        values(
+        util_common.getAbsID,
+        (select id from vm_cap_InsuraceResearchSend where serialNo = #sendBatchNo#),
+        #deptId#,
+        #undoneMembers#,
+        #doneMembers#
+        )
+    </insert>
+
+
+    <delete id="deleteKinsfolkByMemberId.delete" parameterClass="java.lang.String">
+        delete from vm_basemember_kinsfolk where formmain_id = (select id from vm_basememberinfo where memberId = #memberId#)
+    </delete>
+
+    <delete id="deleteInsuranceResearchEmptySon.delete" >
+        delete from vm_cap_wf_InsuranceResearch_son where childName is null
+    </delete>
+
+    <select id="getMemberInsuranceResearchLimit.select" parameterClass="java.util.HashMap" resultClass="java.lang.String">
+        select welfarelimit from vm_memberWelfareAnaProject where templateNo = #templateNo#
+        and annual = #annual#
+        and welfareMember = #welfareMember#
+    </select>
+    <!-- kk.do fuzhiyuan 2023/09/27 EHR推送-获取OA安居宿舍员工扣缴明细-->
+    <select id="queryWelfareWithhold.select" resultClass="com.seeyon.apps.kk.welfare.model.BizData" parameterClass="java.util.HashMap">
+        select
+        to_date(v.month,'yyyy-mm') as "Term",
+        util_user.getMemCodeByMemId(v.applyUser) as "KMBadge",
+        0 as "type",
+        v.pay as "Amount"
+        from
+        vm_welfare_room_pay v
+        where 1=1
+        <isNotEmpty prepend="AND"  property="month">
+            v.month = #month#
+        </isNotEmpty>
+    </select>
+    <!-- kk.do fuzhiyuan 2023/09/27 EHR推送-获取OA安居补贴发放明细-->
+    <select id="queryWelfareSubsidy.select" resultClass="com.seeyon.apps.kk.welfare.model.BizData" parameterClass="java.util.HashMap">
+        select
+        to_date(v.month,'yyyy-mm') as "Term",
+        util_user.getMemCodeByMemId(v.applyUser) as "KMBadge",
+        1 as "type",
+        v.pay as "Amount"
+        from
+        vm_welfare_subsidy_grant v
+        where 1=1
+        <isNotEmpty prepend="AND"  property="month">
+            v.month = #month#
+        </isNotEmpty>
+    </select>
+    <select id="findContactPersonList.select" resultClass="java.util.HashMap">
+        select
+        pushDepartMent as "pushDepartMent",
+        contactPerson as "contactPerson",
+        isFirstDeptPush as "isFirstDeptPush"
+        from vm_contact_person
+    </select>
+    <!-- 根据数据ID查询困难员工推送数据 -->
+    <select id="difficultEmployeeById.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        id,
+        serialNum,
+        pushAccount,
+        pushDepart,
+        to_char(pushYear) pushYear,
+        removeDept
+        from vm_difficultEmployeeReportPush where id = #id#
+    </select>
+    <!-- 根据年份查询申报人员信息 -->
+    <select id="findDifficultEmployByYear.select" resultClass="java.util.HashMap" parameterClass="java.lang.String">
+        SELECT
+        applyUser,
+        applyDepart,
+        applySupperDepart,
+        applyReason,
+        applyDate
+        FROM (
+        SELECT
+        to_char(applyUser) AS applyUser,
+        to_char(applyDepart) AS applyDepart,
+        to_char(applySupperDepart) AS applySupperDepart,
+        applyReason,
+        applyDate,
+        ROW_NUMBER() OVER (PARTITION BY applyUser ORDER BY applyDate) AS rn
+        FROM vm_assistance_doc
+        LEFT JOIN org_member om ON applyUser = om.id
+        WHERE om.is_enable = 1 AND om.is_deleted = 0 AND STATE = 1 AND applyYear = #applyYear#
+        )
+        WHERE rn = 1
+        ORDER BY applyDate ASC
+    </select>
+    <!-- 根据推送表参数查询推送情况-->
+    <select id="difficultEmployeeByParam.Select" parameterClass="java.util.HashMap" resultClass="java.lang.String">
+        select distinct id
+        from org_unit f
+        where f.is_enable = 1and f.is_deleted = 0
+        and f.is_internal = 1 and f.type = 'Department'
+        and (
+        1=0
+        <isNotEmpty prepend="or" property="PUSHACCOUNT">
+            org_account_id in(SELECT id FROM vm_org_unit START WITH ID in ($PUSHACCOUNT$) CONNECT BY parent_Id = PRIOR ID)
+        </isNotEmpty>
+        <isNotEmpty prepend="or" property="PUSHDEPART">
+            id in($PUSHDEPART$)
+        </isNotEmpty>
+        )
+        <isNotEmpty prepend="and" property="REMOVEDEPT">
+            id not in($REMOVEDEPT$)
+        </isNotEmpty>
+    </select>
+    <!-- 根据推送流程的流水号查询是否已经推送过对应部门的流程 -->
+    <select id="pushDifficultEmployeeReportDepartBy.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select reportDepart from vm_difficultEmployeeReport where pushSerialNum = #serialNum#
+    </select>
+
+    <!-- 插入EHR福利确认流程子表信息 -->
+    <insert id="welfareEmployee.SonRecord.insert" parameterClass="java.util.HashMap" >
+        insert into vm_welfareEmployeeList_son
+        (id, formmain_id, sort, company, department, personName, hrCode, gender,
+        workplace, workFloor, phone, idCard,
+        hireDate, serviceYears, birthDate, positionLevel)
+        values(util_common.getAbsID, #formmain_id#,(select count(1) + 1 from vm_welfareEmployeeList_son vws where vws.formmain_id = #formmain_id#),
+        #company#, #department#, #personName#, #hrCode#, #gender#,
+        #workPlace#, #workFloor#, #phone#, #idCard#,
+        to_date(#hireDate#,'yyyy-MM-dd'), #serviceYears#,to_date(#birthDate#,'yyyy-MM-dd'), #positionLevel#)
+    </insert>
+
+    <!-- 查询EHR福利人员信息 -->
+    <select id="findCap4EmployeeList.select" resultClass="java.util.HashMap" parameterClass="java.util.HashMap">
+        select
+        e.company as "company",
+        e.department as "department",
+        o.code as "code",
+        e.name as "personName",
+        a.ext_attr_6 as "hrCode",
+        o.ext_attr_11 as "gender",
+        e.workPlace as "workPlace",
+        e.workfloor as "workFloor",
+        o.ext_attr_1 as "phone",
+        a.ext_attr_2 as "idCard",
+        o.ext_attr_22 as "hireDate",
+        e.cyear as "serviceYears",
+        o.ext_attr_21 as "birthDate",
+        e.jobGrade as "positionLevel"
+        from VM_CAP4_EMPLOYEE e
+        left join org_member o on o.id = e.userId
+        left join addressbook a on a.member_id = e.userId
+        where 1=1
+        <isNotEmpty prepend="and" property="lastJoinDate">
+             o.ext_attr_22 <![CDATA[<=]]> to_date(#lastJoinDate#,'yyyy-MM-dd')
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="companyScope">
+             e.company  in($companyScope$)
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="region">
+             e.workPlace in($region$)
+        </isNotEmpty>
+        <!--2026/04/07 zhangzhihui 添加出生月份的过滤和剔除预设人员 -->
+        <isNotEmpty prepend="and" property="welfareMonth">
+            to_number(to_char(o.ext_attr_21, 'MM')) = #welfareMonth#
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="memberIdStr">
+            o.id not in ($memberIdStr$)
+        </isNotEmpty>
+    </select>
+
+    <!-- 根据福利区域查询办公地点信息 -->
+    <select id="findCap4RegionList.select" parameterClass="java.util.HashMap" resultClass="java.lang.String">
+        select crs.workPlaceId from vm_wf_cap4_region_son crs
+        left join vm_wf_cap4_region cr on crs.formmainId = cr.id
+        where 1=1
+        <isNotEmpty prepend="and" property="regionId">
+            cr.regionId in ($regionId$)
+        </isNotEmpty>
+    </select>
+    
+    <!-- 查询福利名称 -->
+    <select id="getWelfareName.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select 
+            welfareName "welfareName"
+        from vm_welfare_deal_doc 
+        where id = #id#
+    </select>
+    
+    <!-- 查询福利明细信息 -->
+    <select id="getWelfareDetails.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        hrCode "hrCode", /*工号   */
+        util_user.getDeptNameByMemId(memberId)  "departName", /*部门名称*/
+        memberId "memberId", /*员工   */
+        memberName "memberName", /*真实姓名*/
+        util_common.getEnumShowById(signState)  "signState", /*签收情况*/
+        to_char(signDate, 'yyyy/mm/dd HH24:MI')  "signDate", /*签收日期*/
+        ab.ext_attr_3  "place"/*工作地*/
+        from vm_welfare_deal_membereSon f
+        left join addressbook ab on f.memberId = ab.member_id
+        where formmain_id = #formmain_id# order by util_user.getDeptNameByMemId(memberId)
+    </select>
+</sqlMap>

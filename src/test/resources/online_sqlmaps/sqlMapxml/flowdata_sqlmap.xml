@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+    <!-- 查询系统节点初始数据配置 -->
+    <select id="initConfig.select" resultClass="mapBean" parameterClass="map">
+		SELECT VC_ACTIVITYID AS ACTIVITYID,
+		       (SELECT VM1.VC_FORMNAME
+		          FROM VM_FORMFIELD VM1
+		         WHERE VM1.VC_TABLENAME = F1.VC_SOURCEFORMMAIN
+		           AND ROWNUM = 1) AS SOURCEFORMMAIN,
+		       (SELECT VM8.VC_TABLEDISPLAY  
+                  FROM VM_FORMFIELD VM8
+                 WHERE VM8.vc_ownertableid = F1.VC_SOURCEFORMMAIN 
+                   and vm8.VC_TABLENAME = f1.vc_sourceformson
+                   AND ROWNUM = 1) AS SOURCEFORMSON,
+		       (SELECT VM2.VC_FORMNAME
+		          FROM VM_FORMFIELD VM2
+		         WHERE VM2.VC_TABLENAME = F1.VC_AIMFORMMAIN
+		           AND ROWNUM = 1) AS AIMFORMMAIN,
+		       (SELECT VM3.VC_TABLEDISPLAY
+		          FROM VM_FORMFIELD VM3
+		         WHERE VM3.VC_TABLENAME = F1.VC_AIMFORMSON
+		           AND ROWNUM = 1) AS AIMFORMSON,
+		       (NVL((SELECT VM6.VC_FIELDDISPLAY
+	              FROM VM_FORMFIELD VM6
+	             WHERE VM6.VC_FIELDNAME = F1.VC_SOURCEFIELD
+	               AND VM6.VC_TABLENAME = F1.VC_SOURCEFORMMAIN
+	               AND ROWNUM = 1),
+	            (SELECT VM6.VC_FIELDDISPLAY
+	               FROM VM_FORMFIELD VM6
+	              WHERE VM6.VC_FIELDNAME = F1.VC_SOURCEFIELD
+	                AND VM6.VC_OWNERTABLEID = F1.VC_SOURCEFORMMAIN
+	                AND ROWNUM = 1))) AS SOURCEFIELD,
+		       (SELECT VM7.VC_FIELDDISPLAY
+		          FROM VM_FORMFIELD VM7
+		         WHERE VM7.VC_FIELDNAME = F1.VC_AIMFIELD
+		           AND (VM7.VC_TABLENAME = F1.VC_AIMFORMMAIN OR
+		               VM7.VC_TABLENAME = F1.VC_AIMFORMSON)
+		           AND ROWNUM = 1) AS AIMFIELD,
+		           f1.n_type as type
+		  FROM FG_FLOW_DATA_INIT F1
+         where f1.VC_ACTIVITYID = #activityId#
+           and f1.VC_TEMPLETEID = #templeteId#
+         order by n_type
+    </select>
+    <!-- 根据节点ID查询初始化配置 -->
+    <select id="initNodeConfig.select" resultClass="mapBean" parameterClass="map">
+        SELECT VC_ACTIVITYID AS activityid,
+				VC_SOURCEFORMMAIN as sourceformmain,
+				VC_SOURCEFORMson as sourceformson,
+				VC_AIMFORMMAIN as aimformmain,
+				VC_AIMFORMSON as aimformson,
+				VC_SOURCEFIELD as sourcefield,
+				VC_AIMFIELD as aimfield,
+				n_type as type
+        FROM FG_FLOW_DATA_INIT 
+        where VC_ACTIVITYID = #activityId#
+          and VC_TEMPLETEID = #templeteId#
+        order by n_type
+    </select>
+    <!-- 根据节点ID删除数据 -->
+    <delete id="flowDateInitConfig.delete" parameterClass="map">
+        delete FG_FLOW_DATA_INIT
+        WHERE vc_activityid = #activityId# and VC_TEMPLETEID = #templeteId#
+    </delete>
+    <!-- 新增数据 -->
+    <insert id="flowDateInitConfig.insert" parameterClass="map">
+        INSERT INTO FG_FLOW_DATA_INIT 
+        (N_RECID,VC_ACTIVITYID,VC_TEMPLETEID,VC_SOURCEFORMMAIN,vc_sourceformson,VC_AIMFORMMAIN,VC_AIMFORMSON,VC_SOURCEFIELD,VC_AIMFIELD,n_type)
+        VALUES (#id#, #activityId#,#templeteId#,
+        (select vc_tablename from vm_formfield where vc_formname=#sourceFormmain# and vc_tabletype='master' and rownum=1),
+        (select vc_tablename from vm_formfield where vc_formname=#sourceFormmain# and vc_tabledisplay=#sourceFormson# and rownum=1),
+        (select vc_tablename from vm_formfield where vc_formname=#aimFormmain# and vc_tabletype='master' and rownum=1),
+        (select vc_tablename from vm_formfield where vc_formname=#aimFormmain# and vc_tabledisplay=#aimFormson# and rownum=1),
+        (select vc_fieldname from vm_formfield where vc_formname=#sourceFormmain# and vc_fielddisplay=#sourceField# and rownum=1),
+        (select vc_fieldname from vm_formfield where vc_formname=#aimFormmain# and vc_fielddisplay=#aimField# and rownum=1),
+        #type#)
+    </insert>
+    
+    <!-- 获取需要初始化的数据 -->
+    <select id="flowDateInit.select" parameterClass="map" resultClass="mapBean" remapResults="true"> 
+        select $selectData$ 
+        from $sourceForm$ t1, $aimForm$ t2
+        where $condition$
+        order by t1.modify_date
+    </select>
+    <!-- 清除初始化数据 -->
+    <delete id="sonFlowDateInit.delete" parameterClass="map">
+        delete $aimFormson$ where formmain_id=#formmainId#
+    </delete>
+    <!-- 数据初始化到重复表 -->
+    <insert id="sonFlowDateInit.insert" parameterClass="map">
+        <![CDATA[
+        insert into $aimFormson$ (id,formmain_id,sort,$field$)
+        values (#id#,#formmainId#,#sort#,$value$)
+        ]]>
+    </insert>
+
+
+    <!-- 根据中文表名查询主表字段List -->
+    <select id="getFormmainFieldNameList.select"  parameterClass="map" resultClass="mapBean">
+        SELECT DISTINCT vc_fieldname AS fieldid,vc_fielddisplay AS fieldname
+        FROM vm_formfield
+        WHERE vc_formname = #mainTableName#
+        and vc_tabletype = 'master'
+        AND vc_fieldname like 'field%'
+        order by vc_fieldname
+    </select>
+    <!-- 根据中文表名查询子表字段List -->
+    <select id="getFormsonFieldNameList.select"  parameterClass="map" resultClass="mapBean">
+        SELECT DISTINCT vc_fieldname AS fieldid,vc_fielddisplay AS fieldname
+        FROM vm_formfield
+        WHERE vc_formname = #mainTableName#
+        and vc_tabledisplay = #sonTableName#
+        and vc_tabletype = 'slave'
+        AND vc_fieldname like 'field%'
+        order by vc_fieldname
+    </select>
+</sqlMap>

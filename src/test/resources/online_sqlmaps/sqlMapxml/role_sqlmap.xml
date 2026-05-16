@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+    <!-- 根据ID查询角色信息 -->
+    <select id = "findRoleById.select" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.role.modle.Role">
+        select * from vm_f_deptrole where id = #code#
+    </select>
+    <!-- 根据部门ID和角色ID查询角色信息 -->
+    <select id = "findRoleByRoleAndDeptId.select" parameterClass="java.util.HashMap" resultClass="com.seeyon.apps.kk.role.modle.Role">
+        select * from vm_f_deptrole where role_id = #roleId# and department_id = #deptId#
+    </select>
+    <!-- 清除角色备份表 -->
+    <delete id="cleanRoleBackupTable.delete">
+        delete from vm_f_deptrole_backup
+    </delete>
+    <!-- 角色备份表数据插入 -->
+    <insert id="backRoleTable.insert">
+         insert into vm_f_deptrole_backup (
+        id                ,
+        state             ,
+        start_member_id   ,
+        start_date        ,
+        approve_member_id ,
+        approve_date      ,
+        finishedflag      ,
+        ratifyflag        ,
+        ratify_member_id  ,
+        ratify_date       ,
+        sort              ,
+        modify_member_id  ,
+        modify_date       ,
+        role_id           ,
+        role_name         ,
+        role_code         ,
+        department_id     ,
+        account_id        ,
+        role_member       ,
+        maintainer_id     ,
+        memo              ,
+        rolecreatedate    ,
+        rolecreator       ,
+        fullorpart        ,
+        appointdate
+        )
+        select
+        id                ,
+        state             ,
+        start_member_id   ,
+        start_date        ,
+        approve_member_id ,
+        approve_date      ,
+        finishedflag      ,
+        ratifyflag        ,
+        ratify_member_id  ,
+        ratify_date       ,
+        sort              ,
+        modify_member_id  ,
+        modify_date       ,
+        role_id           ,
+        role_name         ,
+        role_code         ,
+        department_id     ,
+        account_id        ,
+        role_member       ,
+        maintainer_id     ,
+        memo              ,
+        rolecreatedate    ,
+        rolecreator       ,
+        fullorpart        ,
+        appointdate
+        from vm_f_deptrole
+    </insert>
+    <!-- 清空角色表数据 -->
+    <delete id="cleanRoleTable.delete">
+        delete from vm_f_deptrole
+    </delete>
+    <!-- 角色表数据插入 -->
+    <insert id="insertRoleTable.insert">
+        insert into vm_f_deptrole(id,state,start_member_id,start_date,approve_member_id,approve_date,finishedflag,ratifyflag,ratify_member_id,ratify_date,sort,modify_member_id,modify_date
+    ,role_id,role_name,role_code,department_id,account_id,role_member,maintainer_id ,memo,rolecreatedate,rolecreator
+    )
+select util_common.getAbsID() as id,1 as state,util_user.getMemIdByLoginName('flowbot') as start_member_id, create_time as start_date,
+    0 as approve_member_id,create_time as approve_date,0 as finishedflag,0 as ratifyflag,0 as ratify_member_id,null as ratify_date,
+    0 as sort,util_user.getMemIdByLoginName('flowbot') as modify_member_id,create_time as modify_date,
+    id as role_id,name as role_name,code as role_code,department_id,org_account_id as account_id,role_member,null as maintainer_id ,
+    null as memo,create_time as rolecreatedate,util_user.getMemIdByLoginName('flowbot') as rolecreator
+  from (
+    select role_member,r.* from (
+      select u.id as department_id, r.* from org_role r,org_unit u  where r.org_account_id=u.org_account_id and r.bond=2 and r.is_deleted=0 and r.is_enable=1 and u.type='Department' and u.is_internal=1 and u.is_deleted=0 and u.is_enable=1
+) r
+     left join (
+      select objective1_id role_id,objective0_id as department_id,listagg (rl.source_id, ',') WITHIN group (order by rl.source_id) as role_member from org_relationship rl where rl.type='Member_Role' and rl.objective1_id in (select id from org_role r where r.bond=2 and r.is_deleted=0 and r.is_enable=1)  group by objective1_id,objective0_id
+    ) rl on r.id=rl.role_id and r.department_id = rl.department_id
+    where code not in ('DepAdmin','DepAsisDirector','DepFirstManager','DepLeader','DepManager','ViceDepManager','DepartmentGovdocRec','DepartmentGovdocSend') order by code,org_account_id
+  )
+    </insert>
+
+    <!-- 角色表信息更新 -->
+    <update id="updateRoleTable.insert" >
+        update vm_f_deptrole r1
+        set r1.memo         =
+        (select rb.memo
+        from vm_f_deptrole_backup rb
+        where r1.role_id = rb.role_id
+        and r1.department_id = rb.department_id),
+        r1.maintainer_id =
+        (select rb.maintainer_id
+        from vm_f_deptrole_backup rb
+        where r1.role_id = rb.role_id
+        and r1.department_id = rb.department_id),
+        r1.fullorpart =
+        (select rb.fullorpart
+        from vm_f_deptrole_backup rb
+        where r1.role_id = rb.role_id
+        and r1.department_id = rb.department_id),
+        r1.appointdate =
+        (select rb.appointdate
+        from vm_f_deptrole_backup rb
+        where r1.role_id = rb.role_id
+        and r1.department_id = rb.department_id)
+        where exists (select 1
+        from vm_f_deptrole_backup rb
+        where r1.role_id = rb.role_id
+        and r1.department_id = rb.department_id)
+    </update>
+
+
+    <!-- 向content_all表中插入新的组织架构信息 -->
+    <insert id="addDeptRoleContentAll.insert" >
+    insert into ctp_content_all
+    (ID,
+    CREATE_ID,
+    CREATE_DATE,
+    MODIFY_ID,
+    MODIFY_DATE,
+    MODULE_TYPE,
+    MODULE_ID,
+    MODULE_TEMPLATE_ID,
+    CONTENT_TYPE,
+    CONTENT,
+    CONTENT_DATA_ID,
+    CONTENT_TEMPLATE_ID,
+    TITLE,
+    SORT)
+    select
+    util_common.getAbsID,
+    '-6760911671874597139',
+    sysdate,
+    '-6760911671874597139',
+    sysdate,
+    37,
+    dr.id,
+    '-4372158112483553886',
+    '20',
+    '',
+    dr.id,
+    '-4245563439863804009',
+    '部门角色人员维护',
+    '0'
+    from vm_f_deptrole dr where not exists
+    (
+    select 1 from ctp_content_all cca where cca.content_data_id = dr.id
+    )
+
+    </insert>
+
+    <update id = "deptRoleMember.updtae" parameterClass="string">
+        update vm_f_deptrole r set role_member = null where r.id = #id#
+    </update>
+    <select id="memberByCode.selet" parameterClass="string" resultClass="java.lang.String">
+        select role_member from  vm_f_deptrole r where  r.id = #id#
+    </select>
+
+    <update id = "deptRoleMember.update" parameterClass="com.seeyon.apps.kk.role.modle.Role">
+        update vm_f_deptrole r set role_member = #role_member#,modify_date = sysdate,appointDate = sysdate,
+        fullOrPart = #fullOrPart#
+        where r.id = #id#
+    </update>
+
+    <select id = "selectAllRegularStaff.select"  resultClass="java.lang.String">
+        select role_member from vm_f_deptrole where role_id = -8712678903386519288 and role_member is not null
+    </select>
+
+    <select id = "getBaseMemberInfoByMemberId.select"  parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+
+        memberId as "memberId",
+        memberState as "memberState",
+        professionLife as "professionLife"
+
+        from vm_basememberinfo
+
+        where memberId = #memberId#
+    </select>
+
+
+</sqlMap>

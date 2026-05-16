@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+    <!-- 部门岗位变更备选人员查询  -->
+    <select id="postChange.select" resultClass="mapBean" parameterClass="map">
+        SELECT M.ID AS MEMBERID, M.NAME AS MEMBERNAME, P.ID AS POSTID,
+            P.NAME AS POSTNAME, U.ID AS DEPTID, U.NAME AS DEPTNAME, ORG_POST_ID
+        FROM ORG_MEMBER M
+        INNER JOIN ORG_UNIT U ON M.ORG_DEPARTMENT_ID = U.ID
+        INNER JOIN ORG_POST P ON M.ORG_POST_ID = P.ID
+        INNER JOIN ORG_POST P ON M.ORG_POST_ID = P.ID
+        WHERE ORG_DEPARTMENT_ID = #dept#
+        AND ORG_POST_ID IN ( SELECT T1.* FROM VM_DEPTPOST, TABLE (UTIL_COMMON.SPLIT(POSTSCOPE, ',')) T1
+        WHERE BUSIMODEL = #busiModel# AND QUESTNAME = #questName#)
+        AND M.STATE = 1
+        AND M.IS_ADMIN = 0
+        AND M.IS_ENABLE = 1
+    </select>
+    <!-- 部门岗位变更备选人员查询  -->
+    <select id="postChange.select.count" resultClass="long" parameterClass="map">
+        SELECT count(*)
+        FROM ORG_MEMBER　M
+        INNER JOIN ORG_UNIT U
+        ON M.ORG_DEPARTMENT_ID = U.ID
+        INNER JOIN ORG_POST P
+        ON M.ORG_POST_ID = P.ID
+        WHERE ORG_DEPARTMENT_ID = #dept#
+        AND ORG_POST_ID IN ( SELECT T1.*
+        FROM VM_DEPTPOST,
+        TABLE (UTIL_COMMON.SPLIT(POSTSCOPE, ',')) T1
+        WHERE BUSIMODEL = #busiModel#
+        AND QUESTNAME = #questName#)
+    </select>
+    <select id = "postChangeByDept.select"  resultClass="mapBean" parameterClass="map">
+             SELECT M.ID AS MEMBERID, M.NAME AS MEMBERNAME, '' AS POSTID,
+            '' AS POSTNAME, m.org_department_id AS DEPTID, util_org.getDeptNameByDeptId(m.org_department_id) AS DEPTNAME
+        FROM ORG_MEMBER m
+        where M.STATE = 1
+        AND M.IS_ADMIN = 0
+        AND M.IS_ENABLE = 1
+        and m.is_deleted = 0
+        and m.org_department_id =  #dept#
+
+    </select>
+    <select id = "postChangeByDept.select.count"  resultClass="long" parameterClass="map">
+
+       SELECT count(*) from org_member m
+        where M.STATE = 1
+        AND M.IS_ADMIN = 0
+        AND M.IS_ENABLE = 1
+        and m.is_deleted = 0
+        and m.org_department_id =  #dept#
+    </select>
+    <!-- 部门岗位变更流程查询 -->
+    <select id="postChangeFlow.select" resultClass="mapBean" parameterClass="map">
+        SELECT
+            questname,
+            busimodel,
+            mainmember,
+            submember
+        FROM vm_deptchange
+        WHERE mainid =#id#
+    </select>
+    <!-- 更新部门岗位信息 -->
+    <update id="postChange.update" parameterClass="map">
+        update VM_DEPTPOST
+        set id=id
+        <isNotEmpty prepend="," property="mainmember">
+            mainmember = #mainmember#
+        </isNotEmpty>
+        <isNotEmpty prepend="," property="submember">
+            submember = #submember#
+        </isNotEmpty>
+        WHERE questname=#questname# and busimodel = #busimodel#
+    </update>
+   <!-- 查询执行人配置表 -->
+    <select id="deptPostConfig.select" resultClass="mapBean" parameterClass="map">
+        SELECT VC_ACTIVITYID as activityid,vc_businessmodel as busimodel,
+        VC_TASKNAME as taskname,VC_EXCUTEMEMBER as excutemember , N_RECID as id
+        FROM FG_DEPT_POST_CONFIG WHERE 1=1
+        <isNotEmpty prepend="and" property="activityId">
+            VC_ACTIVITYID = #activityId#
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="templeteId">
+            VC_templeteId = #templeteId#
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="taskname">
+            VC_TASKNAME = #taskname#
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="busimodel">
+            vc_businessmodel = #busimodel#
+        </isNotEmpty>
+    </select>
+   <!-- 根据表名和中文名模糊匹配表单字段 -->
+    <select id="getTableField.select" parameterClass="map" resultClass="mapBean">
+    	select distinct vc_fielddisplay as questname  from vm_formfield where 
+        vc_formname = (SELECT NAME FROM  form_definition  WHERE ID=
+       				    (SELECT Content_Template_id FROM ctp_content_all WHERE ID=
+			         	  (SELECT BODY FROM ctp_template WHERE ID=#templeteId#)))
+        <isNotEmpty prepend="and" property="prefixFileDisplay">
+        	vc_fielddisplay  like #prefixFileDisplay# || '%'
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="suffixFileDisplay">
+        	vc_fielddisplay  like '%' || #suffixFileDisplay#
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="allFileDisplay">
+        	vc_fielddisplay  like    '%'|| #allFileDisplay# ||'%'
+        </isNotEmpty>
+   </select>
+
+    <!-- 查询业务模块 -->
+    <select id="busiModelEnum.select" resultClass="mapBean" parameterClass="map">
+        SELECT
+            cei.id        AS enumid,
+            cei.showvalue AS enumname
+        FROM ctp_enum_item cei
+        WHERE cei.ref_enumid in (SELECT ID
+                                FROM ctp_enum ce
+                                WHERE ce.enumname = '业务模块')
+    </select>
+    <!-- 查询任务名称 -->
+    <select id="questNameByBusi.select" resultClass="mapBean" parameterClass="map">
+        SELECT questname AS questname
+        FROM VM_DEPTPOST
+        WHERE busimodel = #busimodel#
+    </select>
+  <!-- 往部门岗位任务配置表中插入数据 -->
+    <insert id="deptPostConfig.insert" parameterClass="map">
+        <![CDATA[
+        INSERT INTO FG_DEPT_POST_CONFIG (N_RECID, VC_ACTIVITYID,VC_templeteId, VC_BUSINESSMODEL, VC_TASKNAME, VC_EXCUTEMEMBER)
+        VALUES (#id#, #activityId#,#templeteId#, #busimodel#, #taskname#, #excutemember#)
+        ]]>
+    </insert>
+
+    <!-- 往部门岗位任务配置表中删除数据 -->
+    <delete id="deptPostConfig.delete" parameterClass="map">
+        delete FG_DEPT_POST_CONFIG
+        WHERE vc_activityid = #activityId#
+          and vc_templeteid = #templeteId#
+    </delete>
+    
+    <!-- 查询任务执行人 -->
+    <select id="questExcuteMember.select" resultClass="mapBean" parameterClass="map">
+        SELECT
+            mainmember AS mainmember,
+            submember  AS submember
+        FROM VM_DEPTPOST
+        WHERE busimodel = #busimodel# AND questname = #questname#
+    </select>
+    <!-- 查询岗位关联流程信息 -->
+    <select id="postRelation.select" resultClass="mapBean" parameterClass="map">
+        SELECT T3.NAME , T3.ACTIVITYID, T3.APPID, FD.NAME as flowname,t4.vc_taskname AS taskname
+        FROM (SELECT T2.NAME, T2.ACTIVITYID, S1.APPID
+        FROM (SELECT T1.WORKFLOW, T1.APPID
+        FROM WF_PROCESS_TEMPLETE T1
+        WHERE INSTR(T1.WORKFLOW, 'ps') > 0) S1,
+        XMLTABLE('ps/p/n' PASSING XMLTYPE(S1.WORKFLOW) COLUMNS
+        "NAME" VARCHAR2(50) PATH '@n',
+        "ACTIVITYID" VARCHAR2(50) PATH '@i') T2
+        WHERE T2.ACTIVITYID IN
+        (SELECT VC_ACTIVITYID
+        FROM FG_DEPT_POST_CONFIG PMI, VM_DEPTPOST VDP
+        WHERE PMI.VC_BUSINESSMODEL = VDP.BUSIMODEL
+        AND PMI.VC_TASKNAME = VDP.QUESTNAME
+        AND VDP.ID in
+        <iterate open="(" close=")" conjunction="," property="idList">
+            #idList[]#
+        </iterate>
+        )) T3,
+        FORM_DEFINITION FD,FG_DEPT_POST_CONFIG t4,VM_DEPTPOST T5
+        WHERE T3.APPID = FD.ID AND t3.ACTIVITYID=t4.Vc_Activityid
+          AND T5.questname = t4.VC_taskname
+	      AND T5.ID in 
+	 		<iterate open="(" close=")" conjunction="," property="idList">
+            	#idList[]#
+        	</iterate>
+    </select>
+    <!-- 通过activityId查询templeteId -->
+    <select id="findTempleteIdByActivityId.select" resultClass="mapBean" parameterClass="map">
+    	select distinct templete_id  from ctp_affair where activity_id=#activityId#
+ 	</select>
+    <!-- 查询管理员ID-->
+    <select id = "adminByAccountId.select" resultClass = "java.lang.String" parameterClass="string">
+        select to_char(member_id) from org_principal where login_name='unitbot'
+    </select>
+    <!-- 查询部门岗位记录-->
+    <select id = "departPostRecord.select" parameterClass = "map" resultClass="mapBean">
+        select * from vm_deptpost where
+        1 = 1
+        <isNotEmpty prepend="and" property="name">
+        	      questName = #name#
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="modelId">
+            BUSIMODEL = #modelId#
+        </isNotEmpty>
+    </select>
+    <!-- 查询系统组 -->
+    <select id = "teamByName.select" parameterClass="string" resultClass="java.util.HashMap">
+        select * from org_team where name =  #postName# and is_enable = 1 and is_deleted = 0
+    </select>
+    <select id = "teamByNameType.select" parameterClass="string" resultClass="java.util.HashMap">
+        select id,name,code,owner_id,is_enable,is_deleted,status,sort_id,org_account_id,to_char(create_time, 'yyyy-mm-dd hh:mm') as create_date,
+        to_char(update_time, 'yyyy-mm-dd hh:mm') as update_time,description,creater_id,external_type
+    from org_team
+ where name  like #postName#||'%'
+    </select>
+    <!-- 组备份表插入数据 -->
+    <insert id = "teamBackInsert.insert" parameterClass = "map">
+    	insert into org_team_copy (ID,updatetime, NAME, CODE, TYPE, OWNER_ID, IS_ENABLE, IS_DELETED, STATUS, SORT_ID, ORG_ACCOUNT_ID, CREATE_TIME, UPDATE_TIME, DESCRIPTION, CREATER_ID, EXTERNAL_TYPE)
+		values (#ID#,#UPDATETIME#,#NAME#,#CODE#,#TYPE#,#OWNER_ID#,#IS_ENABLE#,#IS_DELETED#,#STATUS#,#SORT_ID#,#ORG_ACCOUNT_ID#,#CREATE_TIME#,#UPDATE_TIME#,#DESCRIPTION#,#CREATER_ID#,#EXTERNAL_TYPE#)
+    </insert>
+    
+    <insert id = "postBackInsert.insert" parameterClass = "map">
+    	insert into tb_departposition_copy(ID,updatetime, DEPT, BUSIMODEL, QUESTNAME, POSTSCOPE, MAINMEMBER, SUBMEMBER)
+		values (#ID#,#UPDATETIME#,#DEPT#,#BUSIMODEL#,#QUESTNAME#,#POSTSCOPE#,#MAINMEMBER#,#SUBMEMBER#)
+    </insert>
+        <!-- 查询部门岗位记录 -->
+    <select id = "departPostById.select" parameterClass = "string" resultClass="java.util.HashMap">
+        select * from vm_deptpost where id = #id#
+    </select>
+    <delete id = "postDepartById.delete" parameterClass = "string">
+    	delete from  vm_deptpost where id = #id#
+    </delete>
+   	<select id = "deptchangeByMainId.select" parameterClass = "string" resultClass="mapBean">
+   		select * from vm_deptchange where mainid = #mainid#
+   	</select>
+    <select id = "memberSerarchByTeamId.select"  parameterClass = "string" resultClass="java.lang.String">
+        select org.objective0_id from org_relationship org where
+        org.source_id =  #sourceID# and org.type = 'Team_Member'
+    </select>
+    <update id = "updatePostByteam.select" parameterClass="map">
+        update vm_deptpost
+        set DEPT = #dept#,
+        mainmember = #mainpost#,
+        submember = #submember#,
+        busimodel = #busimodel#,
+        modifydate = sysdate
+        where id = #id#
+    </update>
+</sqlMap>

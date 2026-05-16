@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+    <!-- 文件总表（ctp_file），根据文件ID查找对应文件信息 -->
+    <select id="fileInfo.select" resultClass="java.util.HashMap" parameterClass="map">
+        select ID as FILEURL, FILENAME, MIME_TYPE, FILE_SIZE, to_char(create_date,'yyyy-mm-dd') as create_date
+        from ctp_file
+        where ID = #id#
+        <isNotEmpty prepend="and" property="fileName">
+            FILENAME like '%' || #name# || '%'
+        </isNotEmpty>
+    </select>
+   
+       <!--  //Shkk.do 2019-11-29 wendong 7.1 的数据字段改变了 -->
+    <!-- 附件总表（ctp_attachment），根据关联ID查询对应附件信息 -->
+    <select id="attachmentInfo.select" parameterClass="map" resultClass="mapBean">
+        select file_url as fieldid ,to_char( ca.createdate,'yyyy-mm-dd') as createdate from ctp_attachment ca
+        left join $formName$ f1 on f1.id = ca.att_reference
+        where ca.sub_reference = $fieldName$
+        <isNotEmpty prepend="and" property="attachIds">
+            ca.sub_reference IN
+            <iterate conjunction="," open="(" close=")" property="attachIds">
+                #attachIds[]#
+            </iterate>
+        </isNotEmpty>
+        <isNotEmpty property="sort">
+            order by $sort$
+        </isNotEmpty>
+    </select>
+    <!-- 附件总表（ctp_attachment），根据关联ID获取文件相关信息  -->
+    <select id="attachmentInfo.select.simple" resultClass="java.util.HashMap" parameterClass="map">
+        select id, filename,file_url,mime_type, attachment_size,to_char(createdate,'yyyy-mm-dd') as createdate
+        from ctp_attachment
+        where 1=1
+        <isNotEmpty prepend="and" property="attachId">
+            sub_reference = #attachId#
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="name">
+            FILENAME like '%' || #name# || '%'
+        </isNotEmpty>
+    </select>
+        <!--  //Shkk.do 2019-11-29 wendong 7.1 的数据字段改变了 -->
+    <!-- 附件总表（ctp_attachment），根据关联ID查询对应附件数量 -->
+    <select id="attachmentInfo.select.count" resultClass="long" parameterClass="map">
+        select count(*) from ctp_attachment ca
+        left join $formName$ f1 on f1.id = ca.att_reference
+        where ca.sub_reference = $fieldName$
+        <isNotEmpty prepend="and" property="attachIds">
+            ca.sub_reference IN
+            <iterate conjunction="," open="(" close=")" property="attachIds">
+                #attachIds[]#
+            </iterate>
+        </isNotEmpty>
+    </select>
+    <!-- 附件总表（ctp_attachment），插入新的附件信息 -->
+    <insert id="attachmentInfo.insert"  parameterClass="map">
+
+        insert into ctp_attachment
+        (ID,
+        ATT_REFERENCE,
+        SUB_REFERENCE,
+        CATEGORY,
+        TYPE,
+        FILENAME,
+        FILE_URL,
+        MIME_TYPE,
+        CREATEDATE,
+        ATTACHMENT_SIZE,
+        DESCRIPTION,
+        GENESIS_ID,
+        SORT,
+        SECRET_LEVEL)
+        values
+        (#id#,
+        #formId#,
+        #subId#,
+        #category#,
+        #type#,
+        #fileName#,
+        #fileUrl#,
+        #mimeType#,
+        to_date(#createDate#, 'yyyy-MM-dd'),
+        #fileSize#,
+        null,
+        null,
+        0,
+        null
+        )
+    </insert>
+    <!-- 附件总表（ctp_attachment），解除附件关联信息 -->
+    <delete id="attachmentInfo.delete"  parameterClass="map">
+        delete ctp_attachment ca where 1=1
+        <isNotEmpty prepend="and" property="fileId">
+            ca.file_url = #fileId#
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="attachId">
+            ca.sub_reference = #attachId#
+        </isNotEmpty>
+    </delete>
+    <!-- 文档资源表（doc_resources），根据资源名称和父资源ID获取资源信息 -->
+    <select id="docResourceInfo.select" resultClass="java.util.HashMap"   parameterClass="map" >
+        select * from doc_resources dc where dc.fr_name = #frName# and dc.parent_fr_id = #parentId#
+    </select>
+    <!-- 文档资源表（doc_resources），插入新的文件夹记录 -->
+    <insert id="docNewFolder.insert" parameterClass="map">
+        insert into doc_resources
+        (ID, DOC_LIB_ID, FR_NAME, FR_DESC, FR_TYPE, FR_ORDER, PARENT_FR_ID, FR_SIZE, SOURCE_ID,
+        IS_FOLDER, SUBFOLDER_ENABLED, COMMENT_ENABLED, COMMENT_COUNT, ACCESS_COUNT, CREATE_USER_ID,
+        CREATE_TIME, LAST_USER_ID, LAST_UPDATE, STATUS, STATUS_DATE, LOGICAL_PATH, MIME_TYPE_ID, IS_CHECK_OUT,
+        CHECK_OUT_USER_ID, CHECK_OUT_TIME, KEY_WORDS, HAS_ATTACHMENTS, IS_LEARNING_DOC, MIME_ORDER,
+        THIRD_HASPINGHOLE, VERSION_ENABLED, VERSION_COMMENT, PIGEONHOLE_TYPE, SOURCE_TYPE, RECOMMEND_ENABLE,
+        RECOMMEND_COUNT, COLLECT_COUNT,DOWNLOAD_COUNT,SCORE_COUNT, TOTAL_SCORE, FAVORITE_SOURCE,
+        OPEN_SQUARE_TIME, IS_PIGEONHOLE_ARCHIVE)
+        values
+        (#id#, #docLibId#, #frName#, #frDesc#, #frType#, #frOrder#, #parentFrId#, 0, null,
+        1, 1, 1, 0, 0, #createUserId#,
+        sysdate, #createUserId#, sysdate, 2, sysdate, #logicPath#, #frType#, 0,
+        null, null, null, 0, 0, #mimeOrder#,
+        0, 0, null, null, null, 1,
+        0, 0, 0, 0, 0, null,
+        sysdate, 0)
+    </insert>
+    <!-- 文档资源表（doc_resources），插入新的文件记录 -->
+    <insert id="docNewFile.insert" parameterClass="map">
+        insert into doc_resources
+        (ID, DOC_LIB_ID, FR_NAME, FR_DESC, FR_TYPE, FR_ORDER, PARENT_FR_ID,
+        FR_SIZE, SOURCE_ID,
+        IS_FOLDER, SUBFOLDER_ENABLED, COMMENT_ENABLED, COMMENT_COUNT, ACCESS_COUNT,
+        CREATE_USER_ID,
+        CREATE_TIME, LAST_USER_ID, LAST_UPDATE, STATUS, STATUS_DATE, LOGICAL_PATH,
+        MIME_TYPE_ID, IS_CHECK_OUT,
+        CHECK_OUT_USER_ID, CHECK_OUT_TIME, KEY_WORDS, HAS_ATTACHMENTS, IS_LEARNING_DOC,
+        MIME_ORDER,
+        THIRD_HASPINGHOLE, VERSION_ENABLED, VERSION_COMMENT, PIGEONHOLE_TYPE, SOURCE_TYPE,
+        RECOMMEND_ENABLE,
+        RECOMMEND_COUNT, COLLECT_COUNT,DOWNLOAD_COUNT,SCORE_COUNT, TOTAL_SCORE,
+        FAVORITE_SOURCE,
+        OPEN_SQUARE_TIME, IS_PIGEONHOLE_ARCHIVE)
+        values
+        (#id#, #docLibId#, #frName#, #frDesc#, #frType#, #frOrder#, #parentFrId#,
+        #frSize#, #frSource#,
+        0, 0, 1, 0, 0, #createUserId#,
+        sysdate, #createUserId#, sysdate, 2, sysdate, #logicPath#, #frType#, 0,
+        null, null, null, 0, 0, #mimeOrder#,
+        0, 0, null, null, null, 1,
+        0, 0, 0, 0, 0, null,
+        sysdate, 0)
+    </insert>
+    <!-- 文档资源表（doc_resources），获取指定目录的最小排序号 -->
+    <select id="getFrOrder.select" resultClass="mapBean" parameterClass="map">
+        select min(fr_order) as FRMIN from doc_resources dc where dc.doc_lib_id = #docLibId# and dc.parent_fr_id = #parentFrId#
+    </select>
+    <!-- 传输协议信息（formmain_1115），根据协议ID获取传输协议信息 -->
+    <select id="protocolInfo.select" resultClass="java.util.HashMap" >
+        select field0001 as IP, field0002 as PORT, field0003 as USR, field0004 as PSSW, field0005 as TYPE from formmain_1115
+        where field0006=#id#
+    </select>
+    <!-- 附件关联信息（formmain_0909），根据数据表ID获取需要进行关联的附件信息 -->
+    <select id="attachFileInfo.select" resultClass="java.util.HashMap" parameterClass="map">
+        select id, field0001 as connectValue, field0002 as fileName, field0003 as filePath,
+        field0004 as fileState, field0006 as typeId, field0007 as connectType,
+        field0009 as tableName, field0008 as connectField, field0010 as fieldName , START_MEMBER_ID
+        from formmain_0909 where field0004=2620725725532802393 <!-- 状态为未上传 -->
+        <isNotEmpty prepend="AND" property="id">
+            id in (#id#)
+        </isNotEmpty>
+    </select>
+    <!-- 附件关联信息（formmain_0909），更新关联附件信息 -->
+    <update id="attachFileInfo.update"  parameterClass="map">
+        update formmain_0909 set field0004=#fileState#, field0005=#remark# where id=#id#
+    </update>
+  	<!-- 文档资源表(doc_resource)，根据备注信息删除文件 -->  
+    <delete id="docCenterFile.delete" parameterClass="string">
+   	 delete  doc_resources where fr_desc = #fr_desc#
+    </delete>
+    <!-- 文档资源表（doc_resource）,根据文档资源表中的备注信息获取文档ID  -->
+    <select id="findDocCenterFileId.select" parameterClass="java.lang.String" resultClass="string">
+    	select id from doc_resources where fr_desc = #fr_desc#
+    </select>
+    <!-- 文档权限表（doc_acl）, 向文档中心插入授权信息 -->
+    <insert id="authorToDocCenter.insert" parameterClass="java.util.HashMap">
+	insert into 
+	doc_acl 
+	(
+	ID, USER_ID, USER_TYPE, SHARETYPE, OWNER_ID, SDATE, EDATE, DOC_RESOURCE_ID, IS_ALERT, DOC_ALERT_ID, LEN_POTENT, ACL_ORDER, POTENT,doc_POTENT
+	)
+	values 
+	(
+	util_common.getAbsID,#user_id#, #user_type#, '1', '0',#startdate#,#enddate#,#doc_resources_id#, '0', '', '-1', '0', '0011100','0110000100'
+	)
+    </insert>
+    <!--根据子表表名查询相关附件字段id -->
+    <select id="findTableValues" parameterClass="java.util.HashMap" resultClass="string">
+        select $fieldName$ from $tableName$ where formmain_id = #formId#
+    </select>
+    
+    
+    <select id = "fileIdByRefAndSubRef.select" parameterClass="java.lang.String" resultClass="string">
+      select distinct(c.file_url) as fieldId 
+      from ctp_attachment c
+      where c.sub_reference = #sub_reference#
+    </select>
+
+    <select id="fileIdByRefAndSubRefAndColId.select" parameterClass="java.util.HashMap" resultClass="string">
+        select distinct(c.file_url) as fieldId
+        from ctp_attachment c
+        where c.sub_reference = #attachmentId# and c.att_reference = #colSummaryId#
+    </select>
+    
+    <insert id = "insertFormAssociation.insert" parameterClass="java.util.HashMap" >
+    	insert into form_relation_record
+(id,FROM_MASTERDATA_ID,TO_MASTERDATA_ID,STATE,FIELD_NAME,FORM_TYPE,TYPE,MEMBER_ID,FROM_SUBDATA_ID,TO_SUBDATA_ID) 
+values
+(util_common.getAbsID,#destMainTableId#,#sourceTableColId#,1,#field#,null,1,-6760911671874597139,0,0)
+    	
+    </insert>
+
+    <update id="updateBorrowTime.update"  parameterClass="map">
+        update doc_resources set acl_create_time=sysdate where id=#doc_resources_id#
+    </update>
+    <!-- 根据附件ID查询附件信息 -->
+    <select id="attachmentInfoByRef.select" resultClass="java.util.HashMap" parameterClass="string">
+        select f.id as "id",f.att_reference "attReference",f.sub_reference "subReference",f.file_url "fileUrl",f.filename "fileName" from ctp_attachment f where f.sub_reference = #refId#
+    </select>
+</sqlMap>

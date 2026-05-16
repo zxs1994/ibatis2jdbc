@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+
+    <!-- 表单资源数据表 -->
+    <select id="getAllFormResource.select" resultClass="java.util.HashMap">
+		select
+		id as "id",
+		form_id as "formId",
+		resource_name as "resourceName",
+		content as "content",
+		property_type as "propertyType",
+		property_name as "propertyName"
+		from FORM_RESOURCE where property_type = '103'
+    </select>
+
+	<!-- 根据formId查询所有fg_formField数据 -->
+	<select id="getFormFieldByFormId.select" resultClass="java.util.HashMap" parameterClass="java.lang.String">
+		select
+		n_formid as "nFormId",
+		n_tableid as "nTableId",
+		vc_tablename as "vcTableName",
+		vc_tabledisplay as "vcTableDisplay",
+		vc_tabletype as "vcTableType",
+		vc_ownertableid as "vcOwnerTableId",
+		n_fieldid as "nFieldId",
+		vc_fieldname as "vcFieldName",
+		vc_fielddisplay as "vcFieldDisplay",
+		vc_fieldinputtype as "vcFieldInputType",
+		vc_fieldrefid as "vcFieldRefId",
+		d_modifytime as "dModifyTime"
+		from FG_FORMFIELD where n_formid = #formId#
+	</select>
+
+<!-- 20230724 -->
+	<select id="selectFieldInputType.select"  parameterClass="java.util.HashMap" resultClass="java.lang.String">
+		select extractValue(xmltype(t.content), #fieldDisplayXml#)
+		from form_resource t
+		where t.form_id = #formId# and t.property_type=103
+	</select>
+    <update id="updateFieldInputType.update"  parameterClass="java.util.HashMap">
+		update fg_formfield ff set ff.d_modifytime=sysdate,ff.vc_fieldinputtype= #fieldInputType#
+		where ff.n_formid= #formId# and ff.vc_fielddisplay = #fieldDisplay#
+	</update>
+
+	<!-- 20230724 -->
+	<select id="selectFormRefId.select"  parameterClass="java.util.HashMap" resultClass="java.lang.String">
+		select extractValue(xmltype(t.content), #fieldDisplayXml#)
+		from form_resource t
+		where t.form_id = #formId#  and t.property_type=103
+	</select>
+	<update id="updateFormRefId.update"  parameterClass="java.util.HashMap">
+		update fg_formfield ff set ff.vc_fieldrefid= #enumRefId#
+		where ff.n_formid=#formId# and ff.vc_fielddisplay = #fieldDisplay#
+	</update>
+
+	<update id="formedFormRefId.update"  parameterClass="java.util.HashMap">
+		update fg_formfield ff set ff.vc_fieldrefid=substr(vc_fieldrefid,0,instr(vc_fieldrefid,'_')-1)
+		where ff.n_formid=#formId# and vc_fieldrefid is not null
+	</update>
+
+	<delete id="deleteFormField.delete" parameterClass="java.lang.String">
+		delete from fg_formfield ff where ff.n_formid = #formId#
+	</delete>
+
+	<!-- 表单定义表 -->
+	<select id="getAllFormDefinition.select" resultClass="java.util.HashMap">
+		select
+		id as "id",
+		name as "name",
+		create_id as "createId",
+		create_time as "createTime",
+		form_type as "formType",
+		category_id as "categoryId",
+		use_flag as "useFlag",
+		state as "state",
+		delete_flag as "deleteFlag",
+		field_info as "fieldInfo",
+		view_info as "viewInfo",
+		query_info as "queryInfo",
+		report_info as "reportInfo",
+		trigger_info as "triggerInfo",
+		appbind_info as "appbindInfo",
+		extensions_info as "extensionsInfo",
+		modify_time as "modifyTime",
+		form_style as "formStyle",
+		prepare_flag as "prepareFlag",
+		source_type as "sourceType"
+		from FORM_DEFINITION
+	</select>
+
+	<!-- 20230724 -->
+	<!-- 表单定义表 -->
+	<select id="getFormInfoByXml.select" resultClass="java.util.HashMap" parameterClass="java.util.HashMap">
+		select vc_tableid as "tableId",
+		vc_tablename as "tableName",
+		vc_tabletype as "tableType",
+		vc_tabledisplay as "tableDisplay",
+		vc_ownertableid as "ownerTableId"
+		from xmltable('/TableList/Table' passing ( select xmltype(fd.field_info) from form_definition fd where fd.id = #formId# ) columns
+		vc_tableid VARCHAR2(255) path '@id',
+		vc_tablename VARCHAR2(255) path '@name',
+		vc_tabledisplay VARCHAR2(255) path '@display',
+		vc_ownertableid VARCHAR2(255) path '@onwertable',
+		vc_tabletype VARCHAR2(20) path '@tabletype') table_info
+	</select>
+
+
+	<!-- 20230724 -->
+	<insert id="addFormFieldInfo.insert"  parameterClass="java.util.HashMap">
+		merge into fg_formfield ff using(
+		select
+		#formId# as formId,
+		#tableId# as tableId,
+		#tableName# as tableName,
+		#tableType# as tableType,
+		#tableDisplay# as tableDisplay,
+		#ownerTableId# as ownerTableId,
+		field_info.field_id as fieldId,
+		field_info.field_name as fieldName,
+		field_info.field_display as fieldDisplay,
+		sysdate as modify_date
+		from xmltable('//FieldList/Field' passing (select extract(xmltype(fd.field_info),'/TableList/Table[@name="' || #tableName# || '"]') from form_definition fd where id = #formId#)
+		columns field_id varchar2(255) path '@id',
+		field_name varchar2(255) path '@name',
+		field_display varchar2(100) path '@display') field_info ) sou
+
+		on (
+		ff.n_formid = sou.formId
+		and ff.n_tableid = sou.tableId
+		and ff.n_fieldid = sou.fieldId
+		)
+
+		when matched then
+		update
+		set vc_tablename = sou.tableName
+		, vc_tabledisplay =  sou.tableDisplay
+		, vc_tabletype = sou.tableType
+		, vc_ownertableid =  sou.ownerTableId
+		, vc_fieldname = sou.fieldName
+		, vc_fielddisplay = sou.fieldDisplay
+		where ff.n_formid = sou.formId
+		and n_tableid = sou.tableId
+		and n_fieldid = sou.fieldId
+		and (vc_tablename != sou.tableName
+		or vc_tabledisplay !=  sou.tableDisplay
+		or vc_tabletype != sou.tableType
+		or vc_ownertableid !=  sou.ownerTableId
+		or vc_fieldname != sou.fieldName
+		or vc_fielddisplay != sou.fieldDisplay)
+
+		when not matched then
+
+		insert (
+		id,
+		state,
+		start_member_id,
+		start_date,
+		approve_member_id,
+		approve_date,
+		finishedflag,
+		ratifyflag,
+		ratify_member_id,
+		ratify_date,
+		sort,
+		modify_member_id,
+		modify_date,
+		n_formid,
+		n_tableid,
+		vc_tablename,
+		vc_tabletype,
+		vc_tabledisplay,
+		vc_ownertableid,
+		n_fieldid,
+		vc_fieldname,
+		vc_fielddisplay,
+		d_modifytime
+		) values (
+		util_common.getAbsID(),
+		1,
+		-6760911671874597139,
+		sysdate,
+		0,
+		sysdate,
+		0,
+		0,
+		0,
+		null,
+		0,
+		'-6760911671874597139',
+		sysdate,
+		sou.formId,
+		sou.tableId,
+		sou.tableName,
+		sou.tableType,
+		sou.tableDisplay,
+		sou.ownerTableId,
+		sou.fieldId,
+		sou.fieldName,
+		sou.fieldDisplay,
+		sysdate
+		)
+	</insert>
+
+	<update id="updateFieldInputTypeDefinition.update"  parameterClass="java.util.HashMap">
+		update fg_formfield ff set ff.vc_fieldinputtype= #fieldInputType#
+		where ff.n_formid=#formId# and exists(select 1 from form_resource t where t.form_id=ff.n_formid and t.property_type=103)
+		and  ff.vc_fielddisplay = #fieldDisplay#
+	</update>
+
+	<update id="updateFormRefIdDefinition.update"  parameterClass="java.util.HashMap">
+		update fg_formfield ff set ff.vc_fieldrefid= #enumRefId#
+		where ff.n_formid=#formId# and exists(select 1 from form_resource t where t.form_id=ff.n_formid) and ff.vc_fielddisplay = #fieldDisplay#
+	</update>
+
+
+
+</sqlMap>

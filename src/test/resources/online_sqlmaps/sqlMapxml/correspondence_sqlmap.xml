@@ -1,0 +1,61 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+    <!-- 获取跳转链接为空且指向外部来文Cap3流程的数据 -->
+    <select id="getCap3ReceiveCorrespondInfo.select"  resultClass="java.util.HashMap">
+        select  vcf.id as "flowId",
+        vci.serialNum as "serialNum"
+        from vm_cap3ReceiveCorrespond_Info vci
+        left join vm_cap3ReceiveCorrespond_flow vcf on vcf.serialNum = vci.serialNum
+        where vci.flowUrl is  null
+    </select>
+    <!-- 获取跳转链接为空且指向外部来文Cap4流程的数据 -->
+    <select id="getCap4ReceiveCorrespondInfo.select"  resultClass="java.util.HashMap">
+        select  vcf.id as "flowId",
+        vci.serialNum as "serialNum"
+        from vm_cap3ReceiveCorrespond_Info vci
+        left join vm_cap4ReceiveCorrespond_flow vcf on vcf.serialNum = vci.serialNum
+        where vci.flowUrl is  null
+    </select>
+    <!-- 根据流水号更新外部来文Cap3穿透链接 -->
+    <update id="updateCap3ReceiveFlowUrlField.update" parameterClass="map">
+        update vm_cap3ReceiveCorrespond_Info
+        set flowUrl=#flowUrl#
+        where serialNum=#serialNum#
+    </update>
+    <!-- 根据流水号更新外部来文Cap4穿透链接 -->
+    <update id="updateCap4ReceiveFlowUrlField.update" parameterClass="map">
+        update vm_cap4ReceiveCorrespond_Info
+        set flowUrl=#flowUrl#
+        where serialNum=#serialNum#
+    </update>
+
+    <!-- 获取跳转链接为空且指向对外发文Cap3流程的数据 -->
+    <select id="getCap3SendCorrespondInfo.select"  resultClass="java.util.HashMap">
+        select  vcf.id as "flowId",
+        vci.serialNum as "serialNum"
+        from vm_cap3SendCorrespond_Info vci
+        left join vm_cap3SendCorrespond_flow vcf on vcf.serialNum = vci.serialNum
+        where vci.flowUrl is  null
+    </select>
+    <!-- 获取跳转链接为空且指向对外发文Cap4流程的数据 -->
+    <select id="getCap4SendCorrespondInfo.select" parameterClass="string" resultClass="java.util.HashMap">
+        select  vcf.id as "flowId",
+        vci.serialNum as "serialNum"
+        from vm_cap3SendCorrespond_Info vci
+        left join $vmName$ vcf on vcf.serialNum = vci.serialNum
+        where vci.flowUrl is  null
+    </select>
+    <!-- 根据流水号更新对外发文Cap3穿透链接 -->
+    <update id="updateCap3SendFlowUrlField.update" parameterClass="map">
+        update vm_cap3SendCorrespond_Info
+        set flowUrl=#flowUrl#
+        where serialNum=#serialNum#
+    </update>
+    <!-- 根据流水号更新对外发文Cap4穿透链接 -->
+    <update id="updateCap4SendFlowUrlField.update" parameterClass="map">
+        update vm_cap4SendCorrespond_Info
+        set flowUrl=#flowUrl#
+        where serialNum=#serialNum#
+    </update>
+</sqlMap>

@@ -1,0 +1,981 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+    <!-- 固定资产档案（formmain_0123），根据更新时间查询资产信息 -->
+    <select id="assetInfo.select" parameterClass="map" resultClass="assetInfo">
+        select id,to_char(start_date,'YYYY-MM-DD HH24:MI:SS') as createTime ,start_member_id as createMember,
+        field0001 as assetNo,
+        field0002 as assetCategory,
+        field0003 as assetsName,
+        field0004 as assetModel,
+        'OA' as assetSource,
+        field0006 as assetState,
+        to_char(field0007,'YYYY-MM-DD HH24:MI:SS') as purchaseDate,
+        field0008 as purchaseAmount,
+        field0018 as assetPriceNotDuty,
+        field0019/100 as dutyRate,
+        field0020 as dutyAmount,
+        to_char(field0009,'YYYY-MM-DD HH24:MI:SS') as depreciationDate,
+        field0010 as isMature,
+        to_char(field0011,'YYYY-MM-DD HH24:MI:SS') as warrantyPeriod,
+        field0012 as usePeople,
+        field0013 as usePeopleId,
+        field0014 as useDepartment,
+        field0015 as designatedArea,
+        to_char(field0016,'YYYY-MM-DD HH24:MI:SS') as registerTime,
+        to_char(field0017,'YYYY-MM-DD HH24:MI:SS') as upTime,
+        '' as relevanceSignNo,
+        '' as relevanceSignTitle,
+        field0070 as relevanceContractNo,
+        field0065 as relevanceContractTitle,
+        field0022 as remark,
+        '' as relevanceProjectTitle,
+        '' as relevanceProjectNo,
+        '' as relevanceBidTitle,
+        '' as relevanceBidNo,
+        '' as keeper,
+        '' as relevanceContractURL,
+        field0055 as kmID from
+        formmain_0123 where start_date >= to_date(#dateTime#,'YYYY-MM-DD HH24:MI:SS')
+        and field0001 is not null
+    </select>
+    <!-- 固定资产档案（formmain_0123），根据资产编号查询资产相关信息 -->
+    <select id="assetInfoByCode.select" parameterClass="map" resultClass="assetMarkInfo">
+        select f.id, f.field0001 assetCode,
+        f.field0002 assetType, f.field0003 assetName,
+        f.field0004 assetModel, f.field0006 assetStatus, to_char(f.field0007,'yyyymmdd' ) buyDate,
+        util_user.getMemberNameByLoginName(util_user.getLoginNameByMemId(f.field0012)) applyUser,
+        f.field0012 applyUserId, f.field0071 as assetSpot, f.field0073 assetMark
+        from formmain_0123 f
+        where 1 = 1
+        <isNotEmpty prepend="and" property="all">
+            f.field0006  <![CDATA[<>]]> -5190900076558529642
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="mark">
+            f.field0073 is null
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="code">
+            f.field0001 in
+            <iterate conjunction="," open="(" close=")" property="code">
+                #code[]#
+            </iterate>
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="region">
+            f.field0015 = #region#
+        </isNotEmpty>
+    </select>
+    <!-- 固定资产流程视图（vm_assetcolinfo），获取流程资产相关信息 -->
+    <select id="assetColInfo.select" parameterClass="map" resultClass="assetMarkInfo">
+        select accountId,id, applyUserId, applyUser, buyDate, assetCode, assetType, assetName, assetModel, assetMark from
+        vm_assetcolinfo
+        where type = #type#
+        <isNotEmpty prepend="and" property="id">
+            id = #id#
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="formmain_id">
+            formmain_id = #formmain_id#
+        </isNotEmpty>
+    </select>
+    <!-- 固定资产流程视图（vm_assetcolinfo），查询流程资产标签信息 -->
+    <select id="assetColAttachInfo.select" parameterClass="map" resultClass="mapBean">
+        select markurl as fieldid, to_char(markdate,'yyyy-mm-dd') as createdate from vm_assetcolinfo
+        where type = #tableName# and formmain_id = #mainId#
+    </select>
+    <!-- 固定资产流程视图（vm_assetcolinfo），查询流程资产标签数量 -->
+    <select id="assetColAttachInfo.select.count" parameterClass="map" resultClass="long">
+        select count(*) from vm_assetcolinfo
+        where type = #tableName# and formmain_id = #mainId#
+    </select>
+    <!-- 资产编号设置（formmain_0595），获取资产编号设置信息 -->
+    <select id="assetTypeCode.select" parameterClass="map" resultClass="java.util.HashMap">
+        SELECT id, field0003 as typeCode, field0004 as showValue, field0005 as currentValue, field0006 as accountCode,
+        field0007 as historyCode
+        FROM formmain_0595 WHERE field0002 = #typeId# AND field0001 = #accountId#
+    </select>
+    <!-- 资产编号设置（formmain_0595），更新资产编号设置中的当前值和编号预览 -->
+    <update id="assetTypeCode.update" parameterClass="map">
+        update formmain_0595 set field0005 = #currentValue#, field0004 = #showValue#,field0007 = #historyCode#
+        where field0002 = #typeId# AND field0001 = #accountId#
+    </update>
+    <!-- 资产位置档案视图（vm_assetPosition），根据资产编号查询资产信息 -->
+    <select id="assetPosition.select" parameterClass="map" resultClass="assetPosition">
+        select id,positioncode,positionname,positionmark from vm_assetPosition where 1 = 1
+        <isNotEmpty prepend="AND" property="code">
+            positioncode in
+            <iterate conjunction="," open="(" close=")" property="code">
+                #code[]#
+            </iterate>
+        </isNotEmpty>
+    </select>
+    <!-- 资产位置档案视图（vm_assetPosition），查询最新的资产位置编号 -->
+    <select id="assetPositionMax.select" resultClass="java.lang.String">
+        select max(t.positioncode) from vm_assetPosition t
+    </select>
+    <!-- 资产位置档案视图（vm_assetPosition)，逻辑删除，将资产位置档案的位置状态变为失效 -->
+    <update id="assetPosition.update" parameterClass="string">
+        update vm_assetPosition set positionstatus = util_common.getEnumIdByShow(4275550571744871391,'失效')
+        where positioncode = #code#
+    </update>
+    <!-- 盘点批次档案视图（vm_assetcheckBatch），查询盘点批次信息 -->
+    <select id="assetCheck.select" resultClass="assetCheckBatch" parameterClass="string">
+        select creater, batchmanager, to_char(batchdate,'yyyy-mm-dd') as batchdate,
+        batchno, batchregion, batchstatus, batchnote,isCheckAll
+        from vm_assetcheckbatch
+        where util_common.getenumshowbyid(batchstatus) = #status#
+    </select>
+    <!-- 盘点批次档案视图（vm_assetcheckBatch）,根据批次号更新批次状态 -->
+    <update id="assetCheck.update" parameterClass="map">
+        update vm_assetcheckBatch set batchstatus = #status# where batchno = #batchno#
+    </update>
+    <!-- 资产盘点档案视图（vm_assetcheckresult），查询盘点批次数据 -->
+    <select id="assetCheckData.select" parameterClass="map" resultClass="assetCheckResult">
+        select * from vm_assetcheckresult where 1=1
+        <isNotEmpty prepend="and" property="batchNo">
+            batchNo = #batchNo#
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="assetCode">
+            assetcode = #assetCode#
+        </isNotEmpty>
+    </select>
+    <!-- 资产盘点档案视图（vm_assetcheckresult），更新盘点批次数据 -->
+    <update id="assetCheckData.update" parameterClass="assetCheckResult">
+        update vm_assetcheckresult set
+        <dynamic prepend=" ">
+            <isNotEmpty prepend="," property="isInStock">
+                isInStock = #isInStock#
+            </isNotEmpty>
+            <isNotEmpty prepend="," property="positionChange">
+                positionChange = #positionChange#
+            </isNotEmpty>
+            <isNotEmpty prepend="," property="inventoryPosition">
+                inventoryPosition = #inventoryPosition#
+            </isNotEmpty>
+        </dynamic>
+        where batchno = #batchNo# and assetcode = #assetCode#
+    </update>
+    <!-- 资产盘点档案视图（vm_assetcheckresult），将基础数据插入到资产中 -->
+    <insert id="assetCheckData.insert" parameterClass="assetCheckResult">
+        insert into vm_assetcheckresult(id,batchno,assetcode,assetname, assettype, inventoryposition,
+        depositposition,inventoryregion,
+        positionchange,isinstock,belonginventoryrange,impdate,inventorymanager,buytime,inventorynote,assetstatus,
+        assetSysResult,
+        asstModel,
+        systemFlg,
+        assetSysLocation
+        )
+        values
+        (#id#,#batchNo#,#assetCode#,#assetName#,#assetType#,#inventoryPosition#,#depositPosition#,#inventoryRegion#,#positionChange#,
+        #isInStock#,#belongInventoryRange#,#impDate#,#inventoryManager#,#buyTime#,#inventoryNote#,#assetStatus#,
+        #assetSysResult#,
+        #asstModel#,
+        #systemFlg#,
+        #assetSysLocation#
+        )
+    </insert>
+    <!-- 资产盘点档案视图（vm_assetcheckresult），删除某个盘点批次的数据）-->
+    <delete id="assetCheckData.delete" parameterClass="string">
+        delete vm_assetcheckresult where batchno = #batchno#
+    </delete>
+    <insert id="setCheckGeneration.insert" parameterClass="java.lang.String">
+        insert into vm_assetcheckresult(id,batchno,assetcode,assetname,
+        assettype,depositposition,inventoryregion,impdate,positionchange,isinstock,belonginventoryrange,inventorymanager,buytime,assetstatus)
+        select util_common.getID()
+        ,f2.batchno,f1.assetsCode,f1.assetsName,f1.assetModel,f1.assetSpot,f2.batchregion,to_char(f2.batchdate,'yyyy-mm-dd')
+        ,util_common.getEnumIdByRefName('位置变化','否')
+        ,util_common.getEnumIdByRefName('盘点是否在库','不在库'),util_common.getEnumIdByRefName('属于盘点范围','是')
+        ,f2.batchmanager,to_char(f1.buyTime,'yyyy-mm-dd'),f1.assetstatus from vm_assetdocument
+        f1,vm_assetcheckbatch f2 where f2.batchstatus = util_common.getEnumIdByRefName('盘点状态','盘点中') and
+        nvl(f1.Region,1) = nvl(f2.batchregion,nvl(f1.Region,1)) and f2.batchno = #batchno#
+        and f1.assetstatus != util_common.getEnumIdByRefName('资产状态','已处置')
+    </insert>
+    <update id="assetNote.update" parameterClass="java.util.HashMap">
+        update vm_assetdocument
+        set
+        definingLabels = #definingLabels#
+        where assetsCode = #asstCode#
+    </update>
+    <select id="flowConfiguration.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select vm.templateNo,vm.fieldChinessName,vm.isNull,vm.fieldName from vm_flowConfiguration vm where vm.templateNo
+        = #templateNo#
+    </select>
+    <select id="queryResultByFlowFormId.select" resultClass="com.seeyon.apps.kk.asset.model.AssetPurchaseModel"
+            parameterClass="java.lang.String">
+        select
+        id,
+        formmain_id
+        sort,
+        assettype,
+        assetname,
+        assetPrice,
+        count,
+        use,
+        applysituation,
+        notaxprice,
+        tax,
+        taxprice,
+        defectsperiod,
+        userPeriod
+        from vm_wfcomputerassetpurchase where formmain_id = #formId#
+    </select>
+    <insert id="assetPurchaseModel.insert" parameterClass="com.seeyon.apps.kk.asset.model.AssetPurchaseModel">
+        insert into vm_wfcomassetpurchasedetail
+        (id,
+        formmain_id,
+        sort,
+        assettype,
+        assetname,
+        assetPrice,
+        assetmodel,
+        productserialNumber,
+        defectsperiod,
+        userPeriod,
+        hidDisk1type,
+        hidDisk1Size,
+        hidDisk2type,
+        hidDisk2Size,
+        memoryType,
+        memorySize,
+        memoryCount
+        )
+        values(
+        #id#,
+        #formmain_id#,
+        #sort#,
+        util_common.getEnumIdByRefName('资产分类',#assetType#),
+        util_common.getEnumIdByRefName('资产分类',#assetName#) ,
+        #assetPrice#,
+        #assetModel#,
+        #productSerialNumber#,
+        null,
+        #userPeriod#,
+        util_common.getEnumIdByRefName('电脑硬盘类型',#hidDisk1Type#),
+        #hidDisk1Size#,
+        util_common.getEnumIdByRefName('电脑硬盘类型',#hidDisk2Type#),
+        #hidDisk2Size#,
+        util_common.getEnumIdByRefName('内存类型',#memoryType#),
+        util_common.getEnumIdByRefName('电脑内存尺寸',#memorySize#),
+        #memoryCount#
+        )
+    </insert>
+
+    <select id ="assetPurchaseModel.select" parameterClass="com.seeyon.apps.kk.asset.model.AssetPurchaseModel"
+            resultClass="java.lang.String">
+        select
+        propertyPrice
+        from
+        vm_defaultPropertyInfo
+        where
+        propertyType = (select ID from ctp_enum_item where SHOWVALUE = #assetType#)
+        and propertyName = (select ID from ctp_enum_item where SHOWVALUE = #assetName#)
+
+    </select>
+
+    <delete id="assetPurchase.delete" parameterClass="java.lang.String">
+        delete from vm_wfcomassetpurchasedetail where formmain_id = #formId#
+    </delete>
+    <!-- 配件内存信息查询-->
+    <select id="accessoriesmemory.select" parameterClass="java.lang.Long"
+            resultClass="com.seeyon.apps.kk.asset.model.ComputerAccessoriesModel">
+        select
+        id,
+        formmain_id,
+        memorySort,
+        memoryAccessoriesType,
+        memoryType,
+        memorySize,
+        memoryPrice,
+        memoryState,
+        memoryCount
+        from
+        wf_accessoriesmemoryson where formmain_id = #formId#
+    </select>
+
+    <!-- 配件硬盘信息查询-->
+    <select id="accessoriesharddisk.select" parameterClass="java.lang.Long"
+            resultClass="com.seeyon.apps.kk.asset.model.ComputerAccessoriesModel">
+        select id,
+        formmain_id,
+        hardDiskSort,
+        hardDiskAccessoriesType,
+        hardDiskType,
+        hardDiskSize,
+        hardDiskPrice,
+        hardDiskState,
+        hardDiskSequence,
+        hardDiskCount
+        from wf_accessoriesharddiskson where formmain_id = #formId#
+    </select>
+
+    <insert id="memoryInfo.insert" parameterClass="com.seeyon.apps.kk.asset.model.ComputerAccessoriesModel">
+        insert into
+        wf_oaaccessoriesmemoryson
+        (id,
+        formmain_id,
+        memorySort,
+        memoryAccessoriesType,
+        memoryType,
+        memorySize,
+        memoryPrice,
+        memoryState
+        )values(
+        #id#,
+        #formmain_id#,
+        #memorySort#,
+        #memoryAccessoriesType#,
+        #memoryType#,
+        #memorySize#,
+        #memoryPrice#,
+        #memoryState#
+        )
+    </insert>
+    <insert id="hardDiskInfo.insert" parameterClass="com.seeyon.apps.kk.asset.model.ComputerAccessoriesModel">
+        insert into
+        wf_oaaccessoriesharddiskson
+        (id,
+        formmain_id,
+        hardDiskSort,
+        hardDiskAccessoriesType,
+        hardDiskType,
+        hardDiskSize,
+        hardDiskPrice,
+        hardDiskState
+        )values(
+        #id#,
+        #formmain_id#,
+        #hardDiskSort#,
+        #hardDiskAccessoriesType#,
+        #hardDiskType#,
+        #hardDiskSize#,
+        #hardDiskPrice#,
+        #hardDiskState#
+        )
+    </insert>
+    <delete id="memoryNullRecord.delte" parameterClass="java.lang.Long">
+        delete wf_oaaccessoriesmemoryson where formmain_id = #formId#
+    </delete>
+    <delete id="hardDiskNullRecord.delte" parameterClass="java.lang.Long">
+        delete wf_oaaccessoriesharddiskson where formmain_id = #formmain#
+    </delete>
+
+    <select id="getAllAssetDocument.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        id,
+        START_DATE,
+        assetsCode as "assetsCode",
+        assetCategory as "assetCategory",
+        assetsName as "assetsName",
+        assetModel as "assetModel",
+        assetstatus as "assetstatus",
+        buyTime as "buyTime",
+        amount as "amount",
+        dealType as "dealType",
+        useYears as "useYears",
+        assetSpot as "assetSpot",
+        assetMark as "assetMark",
+        region as "region",
+        definingLabels as "definingLabels",
+        useDepart as "useDepart",
+        useMember as "useMember",
+        isPay as "isPay",
+        payDate as "payDate",
+        payNo as "payNo",
+        financeCardState as "financeCardState",
+        financeCardCreateDate as "financeCardCreateDate",
+        lastCheckingDate as "lastCheckingDate",
+        lastCheckingState as "lastCheckingState",
+        lastFinanceState as "lastFinanceState",
+        financePageUrl as "financePageUrl",
+        notaxamount as "noTaxAmount",
+        recordDate as "recordDate"
+        from vm_assetdocument where 1=1
+        <isNotEmpty prepend="and" property="accountId">
+            accountId = #accountId#
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="startDate">
+            START_DATE &gt;= #startDate#
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="endDate">
+            START_DATE &lt;= #endDate#
+        </isNotEmpty>
+
+    </select>
+
+
+    <select id="getAllAssetDocumentByPayDate.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        id,
+        START_DATE,
+        assetsCode as "assetsCode",
+        assetCategory as "assetCategory",
+        assetsName as "assetsName",
+        assetModel as "assetModel",
+        assetstatus as "assetstatus",
+        buyTime as "buyTime",
+        amount as "amount",
+        dealType as "dealType",
+        useYears as "useYears",
+        assetSpot as "assetSpot",
+        assetMark as "assetMark",
+        region as "region",
+        definingLabels as "definingLabels",
+        useDepart as "useDepart",
+        useMember as "useMember",
+        isPay as "isPay",
+        payDate as "payDate",
+        payNo as "payNo",
+        financeCardState as "financeCardState",
+        financeCardCreateDate as "financeCardCreateDate",
+        lastCheckingDate as "lastCheckingDate",
+        lastCheckingState as "lastCheckingState",
+        lastFinanceState as "lastFinanceState",
+        financePageUrl as "financePageUrl",
+        notaxamount as "noTaxAmount",
+        recordDate as "recordDate"
+        from vm_assetdocument where
+        accountId = #accountId#
+        and ((payDate is not null and payDate &gt;= #startDate#
+        and payDate &lt;= #endDate#) or
+        (payDate is null and START_DATE &gt;= #startDate#
+        and START_DATE &lt;= #endDate#) )
+
+
+    </select>
+
+
+
+    <select id="getDisposedOAAssets.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        id,
+
+        assetsCode as "assetsCode",
+        assetCategory as "assetCategory",
+        assetsName as "assetsName",
+        assetModel as "assetModel",
+        assetstatus as "assetstatus",
+        buyTime as "buyTime",
+        amount as "amount",
+        dealType as "dealType",
+        useYears as "useYears",
+        assetSpot as "assetSpot",
+        assetMark as "assetMark",
+        region as "region",
+        definingLabels as "definingLabels",
+        useDepart as "useDepart",
+        useMember as "useMember",
+        isPay as "isPay",
+        payDate as "payDate",
+        payNo as "payNo",
+        financeCardState as "financeCardState",
+        financeCardCreateDate as "financeCardCreateDate",
+        lastCheckingDate as "lastCheckingDate",
+        lastCheckingState as "lastCheckingState",
+        lastFinanceState as "lastFinanceState",
+        financePageUrl as "financePageUrl",
+        notaxamount as "noTaxAmount",
+        recordDate as "recordDate"
+        from vm_assetdocument where accountId = #accountId#
+        and id in
+        (select formmain_id from vm_assetdispose where disposeDate &lt;= #endDate#
+        and disposeDate &gt;= #startDate#)
+        and assetstatus = '-5190900076558529642'
+        and (lastFinanceState is null or lastFinanceState != '完全清理完毕（0399）')
+
+    </select>
+    <select id="assetInfoUseAndPrice.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select distinct
+        to_char(neatValue) "neatValue",
+        to_char(useTermCount) "useTermCount",
+        to_char(tempDeprTermCount) "tempDeprTermCount",
+        assetsCode "assetsCode"
+        from vm_assetdocument va
+        left join vm_assetdispositionson vad
+        on va.id = vad.formmain_id
+        where vad.dispositionDate is null
+        <isNotEmpty  property="isOpen">
+            OR vad.dispositionDate >= SYSDATE - INTERVAL '3' MONTH;
+        </isNotEmpty>
+    </select>
+
+    <update id="easAssetInfoUpdateToOa.update" parameterClass="java.util.HashMap">
+        update vm_assetdocument
+        set
+         neatValue = #neatValue#,
+         useTermCount = #useTermCount#,
+         tempDeprTermCount = #tempDeprTermCount#,
+         RemainingUsefulLife = #remainingUsefulLife#
+         where assetsCode = #assetCode#
+    </update>
+
+    <update id="updateAssetDocument.update" parameterClass="java.util.HashMap">
+        update vm_assetdocument
+        set
+        isPay = #isPay#,
+        payDate = #payDate#,
+        payNo = #payNo#,
+        financePageUrl = #payUrl#,
+        notaxamount = #price#
+        where assetsCode = #assetsCode#
+    </update>
+
+    <update id="updateAssetDocumentCardInfo.update" parameterClass="java.util.HashMap">
+        update vm_assetdocument
+        set
+        financeCardState = #financeCardState#,
+        financeCardCreateDate = #financeCardCreateDate#
+        where assetsCode = #assetsCode#
+    </update>
+
+    <update id="updateAssetDocumentFinanceStatus.update" parameterClass="java.util.HashMap">
+        update vm_assetdocument
+        set
+        <isNotEmpty  property="lastCheckingDate">
+            lastCheckingDate = #lastCheckingDate#,
+        </isNotEmpty>
+
+        <isNotEmpty  property="lastCheckingState">
+            lastCheckingState = #lastCheckingState#,
+        </isNotEmpty>
+
+        lastFinanceState = #lastFinanceState#
+        where assetsCode = #assetsCode#
+    </update>
+
+
+    <insert id="insertAssetCheckDailyLog.insert" parameterClass="java.util.HashMap">
+        insert into vm_assetcheckrecord(
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+
+        writer,
+        writeDept,
+        checkNo,
+        checkDate,
+        startDate,
+        endDate,
+        assectCode,
+        assetCategory,
+        assetsName,
+
+        assetstatus,
+        buyDate,
+        assetUser,
+        checkState,
+        financeAssetStatus
+        )
+        values
+        (
+        #id#,1,-6760911671874597139,sysdate,0,sysdate,0,0,0,null,0,-6760911671874597139,sysdate,
+        #writer#,
+        #writeDept#,
+        #checkNo#,
+        #checkDate#,
+        #startDate#,
+        #endDate#,
+        #assectCode#,
+        #assetCategory#,
+        #assetsName#,
+
+        #assetstatus#,
+        #buyDate#,
+        #assetUser#,
+        #checkState#,
+        #financeAssetStatus#
+        )
+    </insert>
+
+    <insert id="insertAssetCheckResult.insert" parameterClass="java.util.HashMap">
+        insert into vm_assetcheck_checkResult(
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+
+        creator,
+        createDate,
+        checkStart,
+        checkEnd,
+        checkNo,
+        oaExist,
+        financeExist,
+        oaDealed,
+        financeDealed,
+        checkSame,
+        totalRecord,
+        checkAccount
+        )
+        values
+        (
+        #id#,1,-6760911671874597139,sysdate,0,sysdate,0,0,0,null,0,-6760911671874597139,sysdate,
+        #creator#,
+        #createDate#,
+        #checkStart#,
+        #checkEnd#,
+        #checkNo#,
+        #oaExist#,
+        #financeExist#,
+        #oaDealed#,
+        #financeDealed#,
+        #checkSame#,
+        #totalRecord#,
+        #checkAccount#
+        )
+    </insert>
+
+    <select id="getPrefixByAccountId.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select field0006 from FORMMAIN_0595 where field0001 = #id# group by field0006
+    </select>
+
+    <select id="getAssetIgnoreConfig.select" resultClass="java.util.HashMap">
+        select
+        oaAssetCode as "oaAssetCode",
+        financeAssetCode as "financeAssetCode",
+        ifIgnore as "ifIgnore"
+        from
+        vm_assetcheck_ignoreConfig where ifIgnore = '-286897663746683514'
+    </select>
+
+    <select id="getAssetParamByAccountId.select" resultClass="com.seeyon.apps.kk.asset.model.KingdeeAssetParam" parameterClass="java.lang.String">
+        select
+        writer as "writer",
+        writeDept as "writeDept",
+        writeDate as "writeDate",
+        accountId as "accountId",
+        userName as "userName",
+        passwordBase64 as "passwordBase64",
+        slnName as "slnName",
+        dcName as "dcName",
+        language as "language",
+        dbType as "dbType",
+        keeper as "keeper",
+        companyNumber as "companyNumber",
+        deprMethod as "deprMethod",
+        assetBalanceAmout as "assetBalanceAmout",
+        currency as "currency",
+        sourceType as "sourceType",
+        unit as "unit",
+        remark as "remark",
+        assetPrefix as "assetPrefix",
+        clearMode as "clearMode"
+        from
+        vm_KingdeeAssetParam where accountId = #accountId#
+    </select>
+
+
+    <select id="getAssetSeqConfigList.select" resultClass="java.util.HashMap">
+        select
+        accountPrefix||'-'||typeCode as "oaCode",
+        kingdeeCode as "kdCode"
+        from
+        vm_AssetSeqCodeConfig
+    </select>
+
+
+    <select id="getAssetInfoByCode.select" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        assetsCode as "assetsCode",
+        assetCategory as "assetCategory",
+        assetsName as "assetsName",
+        assetModel as "assetModel",
+        assetstatus as "assetstatus",
+        buyTime as "buyTime",
+        amount as "amount",
+        dealType as "dealType",
+        useYears as "useYears",
+        assetMark as "assetMark",
+        definingLabels as "definingLabels",
+        useDepart as "useDepart",
+        useMember as "useMember",
+        isPay as "isPay",
+        payDate as "payDate",
+        payNo as "payNo",
+        financeCardState as "financeCardState",
+        financeCardCreateDate as "financeCardCreateDate",
+        lastCheckingDate as "lastCheckingDate",
+        lastCheckingState as "lastCheckingState",
+        lastFinanceState as "lastFinanceState",
+        financePageUrl as "financePageUrl",
+        sn as "sn",
+        recordDate as "recordDate",
+        assetUse as "assetUse",
+        remake as "remake",
+        hiddisk1Size as "hiddisk1Size",
+        hiddisk1type as "hiddisk1type",
+        hiddisk2Size as "hiddisk2Size",
+        hiddisk2type as "hiddisk2type",
+        memoryType as "memoryType",
+        memoryCount as "memoryCount",
+        memorySize as "memorySize",
+        taxPrice as "taxPrice",
+        tax as "tax",
+        notaxamount as "notaxamount",
+        contractCode as "contractCode",
+        contractTitle as "contractTitle",
+        quot as "quot",
+        assetSpot as "assetSpot",
+        Region as "Region",
+        enumStoryLocation as "enumStoryLocation",
+        enumSpecStoryLocation as "enumSpecStoryLocation",
+        accountId as "accountId"
+        from vm_assetdocument where assetsCode = #assetsCode#
+    </select>
+
+    <select id="enumInfoByReferId.select" resultClass="java.util.HashMap" parameterClass="java.util.HashMap">
+        select to_char(id)value, showvalue name from ctp_enum_item
+        where ref_enumid = #refId# and level_num = #levelNum# and state = 1
+    </select>
+
+    <insert id="insertApplyPartsSonRecord.insert" parameterClass="java.util.HashMap">
+        insert into vm_applypartsdetail(
+        id,
+        sort,
+        formmain_id,
+        applyDate, /*申请日期*/
+        partsType, /*配件类型*/
+        partsSize, /*配件规格*/
+        partsPrice, /*配件价格*/
+        flowURL, /*url_相关流程*/
+        reason /*申请原因*/
+        )
+        values
+        (
+        util_common.getAbsID,
+        #seq#,
+        (select id from vm_assetdocument  where assetsCode = #assetsCode# ),
+        #applyDate#,
+        #partsType#,
+        #partsSize#,
+        #partsPrice#,
+        #flowURL#,
+        #reason#
+        )
+    </insert>
+
+    <!-- fuzhiyuan.do 20231027 资产档案更新和转移调配子表新增  开始-->
+    <update id="updateAssetInfo.update" parameterClass="map">
+        update vm_assetreturndocument set adminUserId = #adminUserId#, adminDeptId = #adminDeptId#,applyUserId = #applyUserId#
+        where assetsCode = #assetsCode#
+    </update>
+
+    <insert id="insertAssetSonInfo.insert" parameterClass="java.util.HashMap">
+        insert into vm_assetdocumentson(
+        id,
+        formmain_id,
+        transferAcceptDept , /*转移调配接受部门  */
+        transferRemark , /*转移调配备注  */
+        transferSign,  /*转移调配流程标识  */
+        transferAcceptUser,  /*转移调配接收人  */
+        transferDevolveDept,  /*转移调配移交部门  */
+        transferDevolveUser,  /*转移调配移交人  */
+        transferFlow,  /*转移调配流程  */
+        transferDate,  /*转移调配日期  */
+        flowUrl  /*url_相关流程穿透	  */
+        )
+        values
+        (
+        util_common.getAbsID,
+        (select id from vm_assetdocument  where assetsCode = #assetsCode# ),
+        #adminDeptId#,
+        #returnRemark#,
+        #flowId#,
+        #adminUserId#,
+        #applyDeptId#,
+        #applyUserId#,
+        #subject#,
+        #applyDate#,
+        #flowUrl#
+        )
+    </insert>
+    <!--  资产档案更新和转移调配子表新增  结束-->
+
+    <select id="getApplyPartsAffairId.select" resultClass="java.lang.String" parameterClass="java.lang.String">
+        select id from ctp_affair where form_Recordid = (select id from vm_applyparts  where serialNo = #serialNo# ) and node_policy = 'newCol'
+    </select>
+
+
+    <select id="getAssetPartsSort.select" resultClass="java.lang.Integer" parameterClass="java.lang.String">
+        select count(1) from vm_applypartsdetail where formmain_id = (select id from vm_assetdocument  where assetsCode = #assetsCode# )
+    </select>
+
+    <delete id="deleteBlankAssetPartRecord.delete" parameterClass="java.lang.String">
+        delete from vm_applypartsdetail where applydate is null
+    </delete>
+    <!-- 根据表单主键ID获取员工年度资产推送档案数据-->
+    <select id="staffYearBatchPushByFormId.select" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.asset.model.StaffAssetYearBatchModel">
+        select
+        'Asset_Year_Batch_T01' flowType,
+        id,
+        batchNo,
+        util_user.getMemCodeByMemId(sendUserNo) sendUserNo,
+        to_char(writeDate, 'yyyy-mm-dd') writeDate,
+        pushState,
+        pushDate,
+        pushMembers,
+        pushDeparts,
+        pushAccounts,
+        removeMembers,
+        title,
+        content
+        from  vm_cap4_staffYearAssetPush where id = #formId#
+    </select>
+
+    <select id="findNeedSendStaffYearBatch.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select distinct to_char(id) id, to_char(org_department_id) org_department_id  from org_member
+        where (
+        1=0
+        <isNotEmpty prepend="or"  property="pushAccounts">
+            org_account_id in  ($pushAccounts$)
+        </isNotEmpty>
+        <isNotEmpty prepend="or"  property="pushDeparts">
+            org_department_id in ($pushDeparts$)
+        </isNotEmpty>
+        <isNotEmpty prepend="or"  property="pushMembers">
+            id in ($pushMembers$)
+        </isNotEmpty>
+        )
+        <isNotEmpty prepend="AND"  property="removeMembers">
+            id not in ($removeMembers$)
+        </isNotEmpty>
+        and is_admin=0 and is_internal=1 and type <![CDATA[<>]]> 2 and is_virtual=0 and is_deleted=0 and state = 1
+        and id not in (select staff from   vm_cap4_staffYearAssetACK  where batchNo = #batchNo# and staff is not null)
+    </select>
+    <!--向固定资产档案底表中插入数据 -->
+    <insert id="asstYearBatch.insert" parameterClass="java.util.HashMap">
+        insert into vm_cap4_staffYearAssetPushSon
+        (
+        id,
+        formmain_id,
+        memberName,
+        isFinish
+        )
+        values
+        (
+        util_common.getAbsID,
+        #formId#,
+        #memberId#,
+        '-1089048568118490234'
+        )
+    </insert>
+    <insert id="asstYearBatch.delete" >
+        delete from vm_cap4_staffYearAssetPushSon where memberName is null
+    </insert>
+    <!-- 年度资产档案插入 -->
+    <insert id="yearBatchAssetDoc.insert" parameterClass="java.util.HashMap">
+        insert into vm_cap4_assetBatchDoc
+        (
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        batchNo,
+        batchDate,
+        batchMember,
+        batchDepart,
+        batchMethod,
+        batchTitle,
+        assetType,
+        assetCode,
+        assetName,
+        assetModel,
+        buyDate,
+        assetState
+        )
+        select
+        util_common.getAbsID,
+        1,
+        -6760911671874597139,
+        sysdate,
+        0,
+        sysdate,
+        0,
+        0,
+        0,
+        null,
+        0,
+        -6760911671874597139,
+        sysdate,
+        #batchNo#,
+        sysdate,
+        v2.useMember,
+        v2.useDepart,
+        #asstBatchMethod#,
+        #title#,
+        v2.assetCategory,
+        v2.assetsCode,
+        v2.assetsName,
+        v2.assetModel,
+        v2.buyTime,
+        v2.assetstatus
+        from vm_assetdocument v2
+        where v2.assetstatus != -5190900076558529642 and v2.assetstatus != 1350324503683943655
+        and v2.useMember = #memberId#
+    </insert>
+    <insert id="assetBatchDetailContent.insert" >
+
+
+        insert into ctp_content_all
+        (ID,
+        CREATE_ID,
+        CREATE_DATE,
+        MODIFY_ID,
+        MODIFY_DATE,
+        MODULE_TYPE,
+        MODULE_ID,
+        MODULE_TEMPLATE_ID,
+        CONTENT_TYPE,
+        CONTENT,
+        CONTENT_DATA_ID,
+        CONTENT_TEMPLATE_ID,
+        TITLE,
+        SORT,
+        HAS_HTML_SIGNATRUE,
+        VOUCHER_ID)
+        SELECT
+        UTIL_COMMON.getAbsID,
+        '1598169197901989123',
+        sysdate,
+        '1598169197901989123',
+        sysdate,
+        '42',
+        '-5572289964263519421',
+        '-2505388640116324887',
+        '20',
+        null,
+        '-5572289964263519421',
+        '-4944952729521666831',
+        null,
+        '0',
+        '0',
+        'CAP4资产盘点详情'
+        from vm_cap4_assetBatchDoc  vm where id not  in(select content_data_id from ctp_content_all c where c.content_template_id = -4944952729521666831 and content_data_id is not null)
+    </insert>
+</sqlMap>

@@ -1,0 +1,74 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+
+	<!-- 更改激活状态 -->
+	<update id="nodeState.update" parameterClass="java.lang.String">
+		update
+		vm_phonemessage f set f.fillstate =1 where f.id in (
+		$id$)
+	</update>
+
+	<!-- 查询所有需要被更改状态的表单ID -->
+	<select id="getMasterid.select" resultClass="java.lang.String"
+		parameterClass="java.lang.String">
+		select id from vm_phonemessage where id in (
+		select
+		wf_supernode_control.master_id from wf_supernode_control
+		where
+		id
+		in($id$))
+	</select>
+
+	<!-- 激活节点 Shkk.do 2019-11-29 wendong -->
+	<select id="getNodeToken.select"
+		resultClass="com.seeyon.apps.kk.phonemessage.model.NodeActivate"
+		parameterClass="java.lang.String">
+		select sc.id id,TO_CHAR(INVOKE_TIME / (1000 * 60 * 60 * 24) +
+		TO_DATE('1970-01-01 08:00:00', 'yyyy-MM-dd HH24:mi:ss'), 'yyyy-MM-dd HH24:mi:ss')
+		time
+		from
+		(select sc.*, xmltype(nvl(sc.data_id,'&lt;data/&gt;')).extract('/data/init/nodecode/text()').getStringVal() nodecode
+		from
+		(select wscd.return_code, WSC.id id,WSC.PROCESS_ID PROCESS_ID,WSCD.DATA_ID DATA_ID,WSCD.INVOKE_TIME invoke_time
+		from WF_SUPERNODE_CONTROL wsc inner join WF_SUPERNODE_CONTROL_DETAIL wscd on wsc.id=WSCD.CONTROL_ID) sc
+		where
+		sc.process_id in
+		(select d.process_id
+		from col_summary d
+		where
+		d.FORM_RECORDID in
+		(select ph.id
+		from vm_phonemessageson phs
+		join
+		vm_phonemessage ph
+		on phs.formmain_id = ph.id
+		where
+		phs.reson is null
+		and
+		to_number(to_date(to_char(sysdate,
+		'yyyy-MM-dd HH24:mi:ss'),
+		'yyyy-MM-dd HH24:mi:ss') -
+		to_date(to_char(ph.nodetime,
+		'yyyy-MM-dd
+		HH24:mi:ss'),
+		'yyyy-MM-dd HH24:mi:ss')) * 24 <![CDATA[>]]>=#hours#)
+		and d.templete_id in
+		(select id
+		from
+		CTP_TEMPLATE tp
+		where
+		tp.templete_number = 'IRC_PhoneRemind_T001'))
+		and
+		sc.return_code = 0
+		and
+		sc.data_id like chr(60)||'data%')
+		sc
+		where
+		existsnode(xmltype(nvl(sc.data_id,
+		'&lt;data/&gt;')),
+		'/data/init[nodecode="逾期提交判断"]') = 1
+		order by
+		sc.invoke_time desc
+	</select>
+</sqlMap>

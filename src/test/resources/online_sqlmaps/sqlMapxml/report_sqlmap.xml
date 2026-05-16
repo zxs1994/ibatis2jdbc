@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+    <!-- 查询底表原始信息 -->
+    <select id="getArchivesValue.select" resultClass="mapBean" parameterClass="map">
+        select *
+        from vm_archives_update f
+        where f.field0008 = #matterId#
+    </select>
+    
+    <!-- 查询修改表的信息 不可用视图-->
+    <select id="getUpdateValue.select" resultClass="mapBean" parameterClass="map">
+        select *
+        from formmain_3374 f
+        where f.field0008 = #matterId#
+        and f.field0001 = #fildId#
+    </select>
+    
+    <!-- 查询所有需要推送的对外报送任务 -->
+    <select id="report.select" resultClass="com.seeyon.apps.kk.report.model.ReportTask" parameterClass="map">
+    	select v.id as id,
+    	 v.matter_id as matterId,
+         v.next_submitted_date as nextSubmittedDate,
+         v.next_task_date as nextTaskDate,
+         v.submitted_rate as submittedRate,
+         v.year_submitted_date as yearSubmittedDate,
+         v.year_task_date as yearTaskDate,
+         v.submitted_time_basic as submittedTimeBasic,
+         v.submitted_time_number as submittedTimeNumber,
+         v.submitted_time_unit as submittedTimeUnit,
+         v.push_time_basic as pushTimeBasic,
+         v.push_time_number as pushTimeNumber,
+         v.push_time_unit as pushTimeUnit
+      	from vm_submitted_archives v
+      	where push_falg in ('3827536082177116572','1329538010751910982')<!-- 推送状态为 待推送，推送成功-->
+      	and ispush = '-8120149130502781733'<!-- 是否推送任务为推送 -->
+		and isregular <![CDATA[<>]]> -7378876665094976280
+      	and v.next_task_date is not null
+      	<![CDATA[and to_date(v.next_task_date,'YYYYMMDDHH24:MISS') <= sysdate]]> 
+      	and not exists (select 1 from vm_submitted_process a where a.matter_id = v.matter_id and a.end_submitted_date = v.next_submitted_date)
+    </select>
+    
+    <!-- 查询所有没有结束的对外报送任流程 -->
+    <select id="report.process.select" resultClass="com.seeyon.apps.kk.report.model.Report" parameterClass="java.lang.String">
+    	select f.id as flowId,
+    	f.end_submitted_date as nextSubmittedDate,
+    	f.leader as leader,
+    	f.matter_title as matterTitle
+    	from vm_submitted_process f 
+    	where f.finishedflag = 0 $sqlParam$
+    </select>
+    
+    <!-- 查询所有当日需要报送的对外报送任流程 -->
+    <select id="report.message.select" resultClass="java.util.HashMap" parameterClass="java.lang.String">
+		select
+		f.leader as leader,
+		to_char(count(f.leader)) as matterCount,
+		to_char(wmsys.wm_concat('《'||matter_title||'》OAFLAG')) as title
+		from vm_submitted_process f
+		where f.end_submitted_date is not null and f.finishedflag = 0 $sqlParam$
+		group by  f.leader
+	</select>
+    <!-- 已经发起的对外报送流程数量 -->
+    <select id="report.select.count" parameterClass="map" resultClass="long">
+    	select count(1) from vm_submitted_process f 
+    	where f.matter_id = #matterId# 
+    	and f.end_submitted_date = #strSubmittedDate#
+    </select>
+    
+    <!-- 更新对外报送底表的下次报送时间 -->
+    <update id="reportNextSubmitted.update"  parameterClass="map">
+		update vm_submitted_archives v set v.next_submitted_date = #nextSubmittedDate# 
+		where v.matter_id = #matterId#
+	</update>
+	
+	<!-- 更新对外报送底表的表单修改时间 -->
+    <update id="modifyDate.update"  parameterClass="map">
+		update vm_report_archives v set v.modify_date = #modifyDate# 
+		where v.matter_id = #matterId#
+	</update>
+	
+	<!-- 更新对外报送底表的本次报送时间 -->
+    <update id="reportNextSubmitted.this.update"  parameterClass="map">
+		update vm_report_archives v set v.next_report_date_this = #nextSubmittedDateThis# 
+		where v.matter_id = #matterId#
+	</update>
+	
+	<!-- 更新底表的任务状态 -->
+    <update id="reportTaskStatus.update"  parameterClass="map">
+		update vm_submitted_archives v set v.push_falg = #enumId# 
+		where v.matter_id = #matterId#
+	</update>
+	
+	<!-- 更新对外报送流程的任务状态 -->
+    <update id="reportProcessStatus.update"  parameterClass="map">
+		update vm_submitted_process f 
+		set f.matter_status = #enumId# 
+		where f.id = #id#
+	</update>
+	
+	<!-- 更新对外报送底表的下次推送时间 -->
+    <update id="reportNextTask.update"  parameterClass="map">
+		update vm_submitted_archives v set v.next_task_date = #nextTaskDate# 
+		where v.matter_id = #matterId#
+	</update>
+	
+	<!-- 更新对外报送底表的本次推送时间 -->
+    <update id="reportNextTask.this.update"  parameterClass="map">
+		update vm_report_archives v set v.next_task_date_this = #nextTaskDateThis# 
+		where v.matter_id = #matterId#
+	</update>
+	
+	<!-- 查询自动发起的对外报送流程信息 -->
+	<select id="sendReport.select" resultClass="com.seeyon.apps.kk.report.model.Report" parameterClass="map">
+	select v.matter_id as matterId,
+    V.matter_title AS matterTitle,
+    V.matter_desc AS matterDesc,
+    V.submitted_object AS submittedObject,
+    V.report_template AS reportTemplate,
+    V.next_submitted_date AS nextSubmittedDate,
+    V.other_contacts AS otherContacts,
+    V.other_phone AS otherPhone,
+    V.other_email AS otherEmail,
+    V.submitted_platform AS submittedPlatform,
+    V.submitted_mode AS submittedMode,
+    V.submitted_explain AS submittedExplain,
+    V.submitted_company AS submittedCompany,
+    V.submitted_depart AS submittedDepart,
+    V.leader AS leader,
+    V.reviewer AS reviewer,
+    V.co_leader AS coLeader,
+    v.systems as systems,
+    v.mail as mail,
+    v.paper as paper,
+    v.platform_id as platformId,
+    V.object_id AS objectId,
+    v.submitted_rate as reportRate,
+    v.submitted_enclosure as reportEnclosure
+    from vm_submitted_archives v where v.matter_id = #matterId#
+	</select>
+	
+	<!-- 获得报送对象ID -->
+	<select id="report.object.select" parameterClass="map" resultClass="string">
+    	select id from formmain_3366 c where c.field0003 = #specialId#
+    </select>
+    
+    <!-- 获得报送平台ID -->
+	<select id="report.platform.select" parameterClass="map" resultClass="string">
+    	select id from vm_report_platform c where c.platform_id = #specialId#
+    </select>
+	
+	<!-- 获得文件地址 Shkk.do 2019-11-29 wendong -->
+	<select id="report.getFileId.select" parameterClass="map" resultClass="string">
+    	select distinct(c.file_url) file_url 
+    	from ctp_attachment c where c.sub_reference = #refId# and c.att_reference = #Id#
+    </select>
+	
+	<!-- 频率为月，基点为工作日,这个月月初 -->
+	<select id="report.beginMonth.select" parameterClass="map" resultClass="string">
+    	select  util_common.getNextWorkDay(util_common.getFirstWorkDayMonth(#nowdate#),#submittedCount#) 
+    	from dual
+    </select>
+    
+    <!-- 频率为月，基点为工作日,下一个月月初 -->
+	<select id="report.beginNextMonth.select" parameterClass="map" resultClass="string">
+    	select  util_common.getNextWorkDay(util_common.getFirstWorkDayNextMonth(#nowdate#),#submittedCount#) 
+    	from dual
+    </select>
+    
+    <!-- 频率为月，基点为工作日,这个月月末 -->
+	<select id="report.endMonth.select" parameterClass="map" resultClass="string">
+    	select  util_common.getNextWorkDay(util_common.getLastWorkDayMonth(#nowdate#),#submittedCount#) 
+    	from dual
+    </select>
+    
+    <!-- 频率为月，基点为工作日,下个月月末 -->
+	<select id="report.endNextMonth.select" parameterClass="map" resultClass="string">
+    	select  util_common.getNextWorkDay(util_common.getLastWorkDayNextMonth(#nowdate#),#submittedCount#) 
+    	from dual
+    </select>
+    
+    
+    <!-- 频率为季度，基点为工作日,这个季度初 -->
+	<select id="report.beginSeason.select" parameterClass="map" resultClass="string">
+    	select  util_common.getNextWorkDay(util_common.getFirstWorkdaySeason(#nowdate#),#submittedCount#) 
+    	from dual
+    </select>
+    
+    <!-- 频率为季度，基点为工作日,下一个季度初 -->
+	<select id="report.beginNextSeason.select" parameterClass="map" resultClass="string">
+    	select  util_common.getNextWorkDay(util_common.getFirstWorkdayNextSeason(#nowdate#),#submittedCount#) 
+    	from dual
+    </select>
+    
+    <!-- 频率为季度，基点为工作日,这个季度末 -->
+	<select id="report.endSeason.select" parameterClass="map" resultClass="string">
+    	select  util_common.getNextWorkDay(util_common.getLastWorkdaySeason(#nowdate#),#submittedCount#) 
+    	from dual
+    </select>
+    
+    <!-- 频率为季度，基点为工作日,下个季度末 -->
+	<select id="report.endNextSeason.select" parameterClass="map" resultClass="string">
+    	select  util_common.getNextWorkDay(util_common.getLastWorkdayNextSeason(#nowdate#),#submittedCount#) 
+    	from dual
+    </select>
+    
+    <!-- 判断是否为工作日 -->
+    <select id="report.isWorkDay.select" parameterClass="map" resultClass="long">
+    	select  util_common.isWorkDay(#date#) 
+    	from dual
+    </select>
+    
+    <!-- 取给定日期的下一个工作日 -->
+	<select id="report.getNextWorkDay.select" parameterClass="map" resultClass="string">
+    	select  util_common.getNextWorkDay(#date#,#count#) 
+    	from dual
+    </select>
+    
+    <!-- 获取每日18：00给负责人分管领导发送短信的内容格式 -->
+	<select id="report.getReportMessage" parameterClass="map" resultClass="string">
+    	select  
+    	'今日分管部门共有_allReportCount_个对外报送事项,其中按时完成_onReportCount_项,逾期补报完成_outReportCount_项,还有_noReportCount_项没有完成。' 
+    	from dual
+    </select>
+    
+    <!-- 获取每日18：00给部门经理发送短信的内容格式 -->
+	<select id="report.manager.getReportMessage" parameterClass="map" resultClass="string">
+    	select  
+    	'今日部门共有_allReportCount_个对外报送事项,其中按时完成_onReportCount_项,逾期补报完成_outReportCount_项,还有_noReportCount_项没有完成。' 
+    	from dual
+    </select>
+    
+    <!-- 获取每日18：00给营运条线分管领导发送短信的内容格式 -->
+	<select id="report.operation.getReportMessage" parameterClass="map" resultClass="string">
+    	select  
+    	'今日共有_allReportCount_个对外报送事项,其中按时完成_onReportCount_项,逾期补报完成_outReportCount_项,还有_noReportCount_项没有完成。' 
+    	from dual
+    </select>
+    
+    <!-- 查询所有未完成的对外报送任务 -->
+    <select id="unReport.remind.select" resultClass="com.seeyon.apps.kk.report.model.Report" parameterClass="map">
+    	select f.id as flowId,
+    	f.end_submitted_date as nextSubmittedDate,
+    	f.leader as leader,
+    	f.matter_title as matterTitle
+    	from vm_submitted_process f 
+     	where f.end_submitted_date is not null
+     	and f.finishedflag = 0
+     	and to_date(substr(f.end_submitted_date,1,8),'yyyymmdd') = to_date(to_char(sysdate,'yyyymmdd'),'yyyymmdd')
+    </select>
+</sqlMap>

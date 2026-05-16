@@ -1,8 +1,8 @@
 -- test-sqlmap.xml statement SQL 脚本
 -- 资源路径: /sqlmaps/test-sqlmap.xml
--- 用例数: 37
+-- 用例数: 39
 -- 通过: 37
--- 失败: 0
+-- 失败: 2
 
 -- statementId: findUsers
 -- case: 动态条件命中
@@ -340,4 +340,18 @@ DELETE FROM users WHERE code IN ('EVENT_A','EVENT_B');
 -- assertion: 移除可选动态属性，观察条件收缩后的 SQL
 -- params: {}
 DELETE FROM users;
+
+-- statementId: brokenInclude
+-- case: 无参基础场景
+-- type: select
+-- assertion: 不传参数，验证固定 SQL 可直接生成
+-- params: {}
+-- error: java.lang.IllegalStateException: Failed to convert iBatis XML
+
+-- statementId: brokenResultMap
+-- case: 无参基础场景
+-- type: select
+-- assertion: 不传参数，验证固定 SQL 可直接生成
+-- params: {}
+-- error: java.lang.IllegalStateException: Failed to convert iBatis XML
 

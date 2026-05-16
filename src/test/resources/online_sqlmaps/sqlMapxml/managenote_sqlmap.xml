@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+<select id="manageNoteById.select" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.managenote.model.ManageNoteModel">
+    select
+    to_char(id) id,
+    serialNo,
+    util_user.getMemCodeByMemId(sendUser) sendUserNo,
+    util_user.getMemberNameByMemId(sendUser) memberName,
+    to_char(sendDate, 'yyyy-mm-dd') sendDate,
+    sendUser,
+    sendDept,
+    noticeType,
+    sendState,
+    noticeMembers,
+    noticeDepts,
+    noticeTitle,
+    noticeContent,
+    confirmContent,
+    remark,
+    noticeFile,
+    noticeAccounts,
+    removeMembers
+    from
+    vm_managenotice where id = #id#
+</select>
+
+    <select id="findNeedSendManageNode.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select distinct to_char(id) id, to_char(org_department_id) org_department_id  from org_member
+        where (
+        1=0
+        <isNotEmpty prepend="or"  property="noticeAccounts">
+            org_account_id in  ($noticeAccounts$)
+        </isNotEmpty>
+        <isNotEmpty prepend="or"  property="noticeDepts">
+            org_department_id in ($noticeDepts$)
+        </isNotEmpty>
+        <isNotEmpty prepend="or"  property="noticeMembers">
+            id in ($noticeMembers$)
+        </isNotEmpty>
+        )
+        <isNotEmpty prepend="AND"  property="removeMembers">
+            id not in ($removeMembers$)
+        </isNotEmpty>
+        and is_admin=0 and is_internal=1 and type <![CDATA[<>]]> 2 and is_virtual=0 and is_deleted=0 and state = 1
+        and id not in (select noticeMember from  vm_wf_managenotice  where sendSerialNo = #sendSerialNo# and noticeMember is not null)
+    </select>
+
+    <select id="findHaveSendManageFlowBySerialNo.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select noticeMember from  vm_wf_managenotice  where sendSerialNo = #sendSerialNo#
+    </select>
+
+    <select id="findManageNoteFlowBySendSerialNo.select" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.managenote.model.ManageNoteFlowModel">
+        select
+        to_char(id) as "id",
+        serialNo as "serialNo",
+        sendUser as "sendUser",
+        sendDept as "sendDept",
+        sendDate as "sendDate",
+        noticeFile as "noticeFile",
+        noticeTitle as "noticeTitle",
+        noticeContent as "noticeContent",
+        noticeType as "noticeType",
+        confirmContent as "confirmContent",
+        noticeMember as "noticeMember",
+        noticeDept as "noticeDept",
+        sendSerialNo as "sendSerialNo",
+        uniqueCheckNo as "uniqueCheckNo",
+        confirmSelected  as "confirmSelected"
+        from
+        vm_wf_managenotice where sendSerialNo = #sendSerialNo#
+    </select>
+
+
+    <update id="updateManageNoteFlowByDeptId.update" parameterClass="java.util.HashMap">
+        update vm_managenotice_send set
+        notConfirmMembers = #notConfirmMembers#,
+        confirmedMembers = #confirmedMembers#
+        where noticeDept = #deptId# and formmain_id = #formmainId#
+    </update>
+    <select id="findManageNoteDepartInfo.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select noticeDept,notConfirmMembers from vm_managenotice_send  where formmain_id = #formId#
+    </select>
+
+    <update id="updateManageNoteById.select" parameterClass="com.seeyon.apps.kk.managenote.model.ManageNoteSendStateModel">
+        update vm_managenotice_send
+        set notConfirmMembers = #notConfirmMembers#
+        where noticeDept = #noticeDept# and formmain_id = #formmain_id#
+    </update>
+
+    <insert id="insertManageSon.insert" parameterClass="com.seeyon.apps.kk.managenote.model.ManageNoteSendStateModel">
+        insert into vm_managenotice_send
+        (
+        id,
+        formmain_id,
+        noticeDept,
+        notConfirmMembers
+        )
+        values
+        (
+        #id#,
+        #formmain_id#,
+        #noticeDept#,
+        #notConfirmMembers#
+        )
+    </insert>
+    <delete id="manageNode.delete">
+        delete from  vm_managenotice_send  where noticeDept is null
+    </delete>
+    <select id="manageNoteCAP4ById.select" parameterClass="java.lang.String" resultClass="mapBean">
+        SELECT
+        id,
+        title,
+        push_status,
+        prompt_personnel,
+        prompt_department,
+        prompt_company,
+        remove_personnel,
+        prompt_text,
+        serial_number
+        FROM vm_managerNoteCap4Push where id = #formId#
+    </select>
+    <!-- 查找需要提示的人员清单列表 -->
+    <select id="findNeedSendManageNoteCAP4.select" parameterClass="java.util.HashMap" resultClass="mapBean">
+        select distinct to_char(id) id, to_char(org_department_id) org_department_id  from org_member
+        where (
+        1=0
+        <isNotEmpty prepend="or"  property="prompt_company">
+            org_account_id in  ($prompt_company$)
+        </isNotEmpty>
+        <isNotEmpty prepend="or"  property="prompt_department">
+            org_department_id in ($prompt_department$)
+        </isNotEmpty>
+        <isNotEmpty prepend="or"  property="prompt_personnel">
+            id in ($prompt_personnel$)
+        </isNotEmpty>
+        )
+        <isNotEmpty prepend="AND"  property="remove_personnel">
+            id not in ($remove_personnel$)
+        </isNotEmpty>
+        and is_admin=0 and is_internal=1 and type <![CDATA[<>]]> 2 and is_virtual=0 and is_deleted=0 and state = 1
+        and id not in (select noticeMember from  vm_wf_managenoteCap4  where sendSerialNo = #serial_number# and noticeMember is not null)
+    </select>
+    <!-- 查找党委需要提示的人员名单 -->
+    <select id="findNeedSendManageNoteDW.select" parameterClass="java.util.HashMap" resultClass="mapBean">
+        select distinct to_char(orp.objective0_id) id, to_char(ou.id) org_department_id
+        from org_unit ou
+        left join org_relationship orp
+        on ou.id = orp.source_id
+        where ou.id in ($prompt_department$)
+        <isNotEmpty prepend="AND"  property="remove_personnel">
+            orp.objective0_id not in ($remove_personnel$)
+        </isNotEmpty>
+        and orp.type = 'BusinessDepartment_Member'
+        and orp.objective0_id is not null
+        and orp.objective0_id not in (select noticeMember from  vm_wf_managenoteCap4  where sendSerialNo = #serial_number# and noticeMember is not null)
+    </select>
+    <!-- 删除管理提示子表中的空白记录 -->
+    <delete id="manageNoteSonTableBlank.delete" >
+        delete from  vm_managerNoteCap4PushMemberInfos where departId is null
+    </delete>
+    <!-- 管理提示子表中的推送 -->
+    <insert id="managerNoteSonTable.insert" parameterClass="java.util.HashMap">
+        insert into vm_managerNoteCap4PushMemberInfos
+        (
+        id,
+        formmain_id,
+        departId,
+        unconfirmed_personnel
+        )
+        values
+        (
+        util_common.getID,
+        #id#,
+        #departId#,
+        #unconfirmed_personnel#
+        )
+    </insert>
+    <select id = "haveSendDepartInfoCAP4.select" parameterClass="java.lang.String" resultClass="mapBean">
+        select  unconfirmed_personnel, to_char(departId) as departId from  vm_managerNoteCap4PushMemberInfos where formmain_id = #id#
+    </select>
+
+    <update id="managerNoteSonTable.update" parameterClass="java.util.HashMap">
+        update vm_managerNoteCap4PushMemberInfos
+        set unconfirmed_personnel = #unconfirmed_personnel#
+        where formmain_id = #id# and departId = #departId#
+    </update>
+    <!-- 管理提示CAP4已经推送的流程 -->
+    <select id="havePushNoticeMember.select" parameterClass="java.lang.String" resultClass="mapBean">
+        select to_char(noticeMember) AS noticeMember,
+        to_char(noticeDepart) as noticedepart,
+        to_char(imConfig) as imConfig
+        from  vm_wf_managenoteCap4 where sendSerialNo = #sendSerialNo#
+    </select>
+    <!-- 更新管理提示流程子表数据通过主表ID以及部门ID -->
+    <update id="updateManageNoteCAP4FlowByDeptId.update" parameterClass="java.util.HashMap">
+        update vm_managerNoteCap4PushMemberInfos set
+        unconfirmed_personnel = #unconfirmed_personnel#,
+        confirmed_personnel = #confirmed_personnel#
+        where departId = #departId# and formmain_id = #formmainId#
+    </update>
+
+</sqlMap>

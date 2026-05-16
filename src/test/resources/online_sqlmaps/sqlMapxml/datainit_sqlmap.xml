@@ -1,0 +1,360 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+
+    <!-- 根据查询人员信息 -->
+    <select id="getMemberInfoByMemIdOrOrg.select" resultClass="java.util.HashMap" parameterClass="string">
+        select distinct o.id as memberId,o.org_department_id departId  from  org_member o
+        where ($sql$)
+        <!-- 20210326魏尚玉  移除编外人员账号（is_internal = ‘0’）和非正式员工（type='2'） -->
+        and o.is_enable = 1 and o.is_deleted = 0 and is_admin = 0 and is_internal != '0' and type != '2'
+
+    </select>
+
+    <!-- 根据查询人员信息（仅部门负责人） -->
+    <select id="getDeptManagerInfoByMemIdOrOrg.select" resultClass="java.util.HashMap" parameterClass="string">
+        select distinct o.id as memberId,o.org_department_id departId  from  org_member o
+        where ($sql$)
+        <!-- 20210326魏尚玉  移除编外人员账号（is_internal = ‘0’）和非正式员工（type='2'） -->
+        and o.is_enable = 1 and o.is_deleted = 0 and is_admin = 0 and is_internal != '0' and type != '2'
+        and o.id in (select f.source_id from org_relationship f where f.objective0_id in (select id from org_unit where type = 'Department' and is_enable = 1)
+        and  f.type = 'Member_Role'
+        and f.objective1_id in (select id from org_role r where r.code='DepManager') )
+    </select>
+
+
+    <!-- 合规提示推送子表插入 -->
+    <insert id="complianceTip.insert" parameterClass="map" >
+        insert into imy_complicTipSon values(util_common.getAbsID, #formmainid#, #signdep#, #signmembered#, #signmember#)
+    </insert>
+
+    <insert id="complianceTipCap4.insert" parameterClass="map" >
+        insert into imy_complicTipSon_cap4 values(util_common.getAbsID, #formmainid#, #signdep#, #signmembered#, #signmember#)
+    </insert>
+
+    <!-- 合规提示推送子表插入_流程 -->
+    <insert id="complianceTipFlow.insert" parameterClass="map" >
+        insert into imy_complicTipSon_flow values(util_common.getAbsID, #formmainid#, #signdep#, #signmembered#, #signmember#)
+    </insert>
+
+    <!-- 合规提示推送子表清空 -->
+    <delete id="deleteWhiteRecordComp.delete" parameterClass="string">
+        delete imy_complicTipSon s where s.formmainId = #formmainId#
+    </delete>
+    <delete id="deleteWhiteRecordCompCap4.delete" parameterClass="string">
+        delete imy_complicTipSon_cap4 s where s.formmainId = #formmainId#
+    </delete>
+
+    <!-- 合规提示推送子表清空_流程 -->
+    <delete id="deleteWhiteRecordCompFlow.delete" parameterClass="string">
+        delete imy_complicTipSon s where s.formmainId = #formmainId# and signdep is null
+    </delete>
+    <delete id="deleteWhiteRecordCompFlowCap4.delete" parameterClass="string">
+        delete imy_complicTipSon_cap4 s where s.formmainId = #formmainId# and signdep is null
+    </delete>
+    <!-- 合规培训推送子表查询 -->
+    <select id="queryCompTableSonRecord.select"  parameterClass="map" resultClass="java.util.HashMap">
+        select * from imy_complicTipSon where formmain_id = #formmainId#
+    </select>
+    <!-- 合规培训查询 (根据主键数据ID查询)-->
+    <select id="complianceTrain.selelct" resultClass="com.seeyon.apps.kk.flowsend.model.CompcpTrain" parameterClass="java.lang.String">
+        select
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        traincode,
+        senduserno,
+        senddate,
+        jointranmembe,
+        jointrandepar,
+        jointrancompa,
+        removetranmembe,
+        trainsubject,
+        traincontent,
+        note,
+        attacheid,
+        senddepart
+        from imy_compcptrain i where i.id= #id#
+    </select>
+    <select id="complianceTrainCap4.selelct" resultClass="com.seeyon.apps.kk.flowsend.model.CompcpTrain" parameterClass="java.lang.String">
+        select
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        traincode,
+        senduserno,
+        senddate,
+        jointranmembe,
+        jointrandepar,
+        jointrancompa,
+        removetranmembe,
+        trainsubject,
+        traincontent,
+        note,
+        attacheid,
+        senddepart
+        from imy_compcptrain_cap4 i where i.id= #id#
+    </select>
+    <!-- 合规培训查询_流程 (根据主键数据ID查询)-->
+    <select id="complianceTrainFlow.selelct" resultClass="com.seeyon.apps.kk.flowsend.model.CompcpTrain" parameterClass="java.lang.String">
+        select
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        traincode,
+        senduserno,
+        senddate,
+        jointranmembe,
+        jointrandepar,
+        jointrancompa,
+        removetranmembe,
+        trainsubject,
+        traincontent,
+        note,
+        attacheid,
+        senddepart
+        from imy_compcptrain_flow i where i.id= #id#
+    </select>
+    <select id="complianceTrainFlowCap4.selelct" resultClass="com.seeyon.apps.kk.flowsend.model.CompcpTrain" parameterClass="java.lang.String">
+        select
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        traincode,
+        senduserno,
+        senddate,
+        jointranmembe,
+        jointrandepar,
+        jointrancompa,
+        removetranmembe,
+        trainsubject,
+        traincontent,
+        note,
+        attacheid,
+        senddepart
+        from imy_compcptrain_flow_cap4 i where i.id= #id#
+    </select>
+
+    <!-- 合规培训流程查询（根据合规编号查询未结束流程） -->
+    <select id="complianceTrainNoFinish.selelct" resultClass="com.seeyon.apps.kk.flowsend.model.CompcpTrain" parameterClass="java.lang.String">
+        select
+        id,
+        finishedflag,
+        traincode,
+        senduserno,
+        senddate,
+        jointranmembe,
+        jointrandepar,
+        trainsubject,
+        traincontent,
+        note,
+        attacheid,
+        senddepart,
+        isfinishstudy,
+        contactdepart,
+        attachmark
+        from wf_compcptrain w where w.traincode = #code#;
+    </select>
+    <!-- 合规培训流程查询（根据合规编号查询未结束流程） -->
+    <select id="complianceTrainNoFinishCap4.selelct" resultClass="com.seeyon.apps.kk.flowsend.model.CompcpTrain" parameterClass="java.lang.String">
+        select
+        id,
+        finishedflag,
+        traincode,
+        senduserno,
+        senddate,
+        jointranmembe,
+        jointrandepar,
+        trainsubject,
+        traincontent,
+        note,
+        attacheid,
+        senddepart,
+        isfinishstudy,
+        contactdepart,
+        attachmark
+        from wf_compcptrain_cap4 w where w.traincode = #code#;
+    </select>
+    <!-- 合规培训子表清空  -->
+    <delete id="deleteWhiteRecordTrain.delete" >
+        delete imy_compcptrainson s where s.formmain_id =  #formmainId#
+    </delete>
+    <delete id="deleteWhiteRecordTrainCap4.delete" >
+        delete imy_compcptrainson_cap4 s where s.formmain_id =  #formmainId#
+    </delete>
+    <!-- 合规培训子表清空_流程  -->
+    <delete id="deleteWhiteRecordTrainFlowCap4.delete" >
+        delete imy_compcptrainson_cap4 s where s.formmain_id =  #formmainId# and jointrandepar is null
+    </delete>
+
+    <!-- 合规培训子表数据插入 -->
+    <insert id="complianceTrain.insert"  parameterClass ="map">
+        insert into imy_compcptrainson values(util_common.getAbsID, #formmain_id#, #jointrandepar#, #jointranmembe#, #jointranmembed#)
+    </insert>
+    <insert id="complianceTrainCap4.insert"  parameterClass ="map">
+        insert into imy_compcptrainson_cap4 values(util_common.getAbsID, #formmainid#, #signdep#, #signmember#, #signmembered#)
+    </insert>
+
+    <!-- 合规培训子表数据插入_流程 -->
+    <insert id="complianceTrainFlow.insert"  parameterClass ="map">
+        insert into imy_compcptrainson_flow values(util_common.getAbsID, #formmain_id#, #jointrandepar#, #jointranmembe#, #jointranmembed#)
+    </insert>
+
+
+    <!-- 合规提示查询根据编号查询已经结束的流程 -->
+    <select id="complianceTipByFinish.select" parameterClass="string" resultClass="java.lang.String">
+        select w.notemember from wf_complictip w where w.compliancecode = #code# and w.finishedflag = 1
+    </select>
+
+    <select id="complianceTipByFinishCap4.select" parameterClass="string" resultClass="java.lang.String">
+        select w.notemember from wf_complictip_cap4 w where w.compliancecode = #code# and w.finishedflag = 1
+    </select>
+
+    <!-- 合规培训查询根据编号查询已经结束的流程 -->
+    <select id="complianceTrainFinish.select" parameterClass="string" resultClass="java.lang.String">
+        select w.jointranmembe from wf_compcptrain w where w.traincode = #code# and w.finishedflag = 1
+    </select>
+    <select id="complianceTrainFinishCap4.select" parameterClass="string" resultClass="java.lang.String">
+        select w.jointranmembe from wf_compcptrain_cap4 w where w.traincode = #code# and w.finishedflag = 1
+    </select>
+
+    <!-- 根据流水号查询合规提示记录的ID -->
+    <select id="selectTipsFormIdByFlowCode.select" parameterClass="string" resultClass="java.lang.String">
+        select id from imy_complictip where compliancecode = #flowCode#
+    </select>
+
+    <!-- 根据流水号查询合规提示记录的ID -->
+    <select id="selectTrainFormIdByFlowCode.select" parameterClass="string" resultClass="java.lang.String">
+        select id from imy_compcptrain where trainCode = #flowCode#
+    </select>
+
+
+    <!-- 根据流水号查询合规培训记录的ID -->
+    <select id="selectTrainSonByMainId.select" parameterClass="string" resultClass="java.util.HashMap">
+        select id,joinTrandepar,jointranmembe,jointranedmembe from imy_compcptrainson_flow where formmain_id = #id# and joinTrandepar is not null
+    </select>
+
+    <!-- 根据流水号查询合规提示记录的ID -->
+    <select id="selectTipsSonByMainId.select" parameterClass="string" resultClass="java.util.HashMap">
+        select id,signdep,signedmember,signmember from imy_complictipson_flow where formmain_id = #id# and signdep is not null
+    </select>
+
+
+
+    <insert id="copyComplianceTrainFlowToInfoTable.insert"  parameterClass ="java.util.HashMap">
+        insert into imy_compcptrain(
+        id,
+        STATE ,START_MEMBER_ID ,START_DATE , APPROVE_MEMBER_ID ,APPROVE_DATE,FINISHEDFLAG ,RATIFYFLAG ,RATIFY_MEMBER_ID ,RATIFY_DATE , SORT ,MODIFY_MEMBER_ID ,MODIFY_DATE ,
+        traincode,
+        senduserno,
+        senddate,
+        jointranmembe,
+        jointrandepar,
+        jointrancompa,
+        removetranmembe,
+        trainsubject,
+        traincontent,
+        note,
+        attacheid,
+        senddepart
+        )
+        select
+        #newId#,
+        STATE ,START_MEMBER_ID ,START_DATE , APPROVE_MEMBER_ID ,APPROVE_DATE,FINISHEDFLAG ,RATIFYFLAG ,RATIFY_MEMBER_ID ,RATIFY_DATE , SORT ,MODIFY_MEMBER_ID ,MODIFY_DATE ,
+        traincode,
+        senduserno,
+        senddate,
+        jointranmembe,
+        jointrandepar,
+        jointrancompa,
+        removetranmembe,
+        trainsubject,
+        traincontent,
+        note,
+        attacheid,
+        senddepart
+
+        from imy_compcptrain_flow where id = #id#
+    </insert>
+
+    <insert id="copyComplianceTipsFlowToInfoTable.insert"  parameterClass ="java.util.HashMap">
+        insert into imy_complictip(
+        id,
+        STATE ,START_MEMBER_ID ,START_DATE , APPROVE_MEMBER_ID ,APPROVE_DATE,FINISHEDFLAG ,RATIFYFLAG ,RATIFY_MEMBER_ID ,RATIFY_DATE , SORT ,MODIFY_MEMBER_ID ,MODIFY_DATE ,
+        compliancecode,
+        senduserno,
+        notetitle,
+        notecontent,
+        attacheid,
+        compliancetype,
+        senddepartment,
+        notemember,
+        notedepart,
+        notecompa,
+        noteremovemember
+        )
+        select
+        #newId#,
+        STATE ,START_MEMBER_ID ,START_DATE , APPROVE_MEMBER_ID ,APPROVE_DATE,FINISHEDFLAG ,RATIFYFLAG ,RATIFY_MEMBER_ID ,RATIFY_DATE , SORT ,MODIFY_MEMBER_ID ,MODIFY_DATE ,
+        compliancecode,
+        senduserno,
+        notetitle,
+        notecontent,
+        attacheid,
+        compliancetype,
+        senddepartment,
+        notemember,
+        notedepart,
+        notecompa,
+        noteremovemember
+        from imy_complictip_flow where id = #id#
+    </insert>
+
+
+    <!-- 根据id获取流程扩展定义转换map  key为字段英文名，value为字段中文名 -->
+    <select id="getFlowExpendDefByCode.select" parameterClass="string" resultClass="java.util.HashMap">
+        select fieldchinessname as "fieldChineseName",fieldName as "fieldName" from VM_FLOWCONFIGURATION where templateNo = #code#
+    </select>
+
+
+</sqlMap>

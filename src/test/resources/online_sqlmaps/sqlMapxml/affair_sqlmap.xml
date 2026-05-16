@@ -1,0 +1,860 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>  
+    <!-- 任务主表（ctp_affair），根据流程ID查询任务 -->
+    <select id="affair.select" resultClass="affairTask" parameterClass="map">
+        SELECT ca.id as id,om.name as senderLoginName,
+        ca.SUBJECT as subject,
+        nvl(op.login_name, substr(om.ext_attr_2,1,instr(om.ext_attr_2, '@')-1))  sendername,
+        ca.MEMBER_ID as memberId,
+        ca.proxy_member_id proxyMemberId,
+        ca.OBJECT_ID as objectId,
+        ca.ACTIVITY_ID as activityId,
+        to_char(ca.RECEIVE_TIME, 'YYYY-MM-DD HH24:MI:SS') as receiveTime,
+        ca.TASK_STATE as taskState,
+        ca.STATE as state,
+        ca.is_delete as isDelete,
+        ca.SUB_STATE AS subState,
+        ca.TEMPLETE_ID as templeteId,
+        cs.PROCESS_ID as processId,
+        ca.complete_time as completeTime
+        from CTP_AFFAIR ca
+        left join org_principal op
+        on ca.sender_id = op.member_id
+        left join org_member om
+        on ca.sender_id = om.id
+        left join col_summary cs
+        on ca.object_id = cs.id
+        <!-- APP表示所属应用类型，其中1为流程 -->
+        where ca.app in (1)
+        AND NOT EXISTS (SELECT 1 FROM vm_affairlog vm WHERE vm.taskID = to_char(ca.id) AND vm.pushresult = '失败')
+        <!-- objectId不为空，则此时为流程事件监听 -->
+        <isNotEmpty prepend="AND"  property="objectId">
+            ca.OBJECT_ID = #objectId# AND ca.task_state != 2
+        </isNotEmpty>
+        <!-- objectId为空，则此时为捞网 -->
+        <isEmpty prepend="AND"  property="objectId">
+            <!-- 捞网待办未推送或已更新的任务 -->
+            ( (ca.task_state in (0,2) and ca.state = 3)
+            <!-- 捞网已办未更新的任务 20231229状态为11的也需要捞网出来 20250919 事项被删除，不是待发列表的逻辑删除，而是直接从流程图中删除节点的任务  状态为16-->
+            or (ca.task_state=1 and ca.state in(2,4,5,6,7,8,11,16))
+            <!-- 捞网被回退或指定回退到待发未推送的任务 -->
+            <!-- shkk.do wtt 20191127 增加sub_state=16状态，指定回退到发起人，并且流程不用重走的状态, kk.do chenfeng 20250620增加判断is_delete，任务被物理删除就不再推送任务了 -->
+            or (ca.task_state in (0,2) and ca.state=1 and ca.sub_state in (18,16,2)) and ca.is_delete = 0)
+            and(exists(select 'x' from org_principal ol where ol.member_id = member_id ) or
+            (ca.state = 5 and ca.member_id = -1)) and rownum <![CDATA[<=]]> 200
+        </isEmpty>
+    </select>
+
+    <!-- 任务主表（ctp_affair），获取会议任务 -->
+    <select id="affairMeeting.select" resultClass="affairTask" parameterClass="map">
+       SELECT ca.id as id,om.name as senderLoginName,
+       ca.SUBJECT as subject,
+       nvl(op.login_name, substr(om.ext_attr_2,1,instr(om.ext_attr_2, '@')-1))  sendername,
+       ca.MEMBER_ID as memberId,
+       ca.OBJECT_ID as objectId,
+       ca.ACTIVITY_ID as activityId,
+       to_char(ca.RECEIVE_TIME, 'YYYY-MM-DD HH24:MI:SS') as receiveTime,
+       ca.TASK_STATE as taskState,
+       ca.is_delete as isDelete,
+       ca.STATE as state,
+       ca.SUB_STATE AS subState,
+       ca.TEMPLETE_ID as templeteId,
+       cs.PROCESS_ID as processId,
+       to_char(ca.complete_time, 'YYYY-MM-DD HH24:MI:SS')  as completeTime,
+       ca.app as app
+  	   from CTP_AFFAIR ca
+       left join org_principal op
+       on ca.sender_id = op.member_id
+       left join org_member om
+       on ca.sender_id = om.id 
+       left join col_summary cs
+       on ca.object_id = cs.id
+        <!-- APP表示所属应用类型，其中6-会议，29-会议室申请审批 -->
+        where ca.app in (6,29)
+        <!-- objectId为空，则此时为捞网 -->
+        <isEmpty prepend="AND"  property="objectId">
+            <!-- 捞网待办未推送的会议任务，sub_state=34为未到时间的周期会议，不捞网  kk.do chenfeng  SYSDATE + 7 只同步未来七天没有同步的数据-->
+            ( ( ca.task_state = 0 and ca.state = 3 and ca.sub_state!=34 and receive_time <![CDATA[<=]]> SYSDATE + 7)
+            <!-- 捞网处理后的会议任务 -->
+            or ( ca.task_state = 1 and ca.state in (4,10) ) 
+            <!-- 主要是为了过滤时间 -->
+                or (ca.task_state = 1 and ca.sub_state in(11,12,31,32,33) and ca.state !=4)
+            <!-- 会议室审批，当撤销任务时，推送此任务至统一平台 -->
+            or (ca.is_delete = 1 and ca.task_state!=2 and ca.state = 3 and ca.app = 29)
+            )
+        </isEmpty>
+    </select>
+    <!-- 任务主表（ctp_affair），根据任务ID查询任务 -->
+    <select id="affairByAffairId.select" resultClass="affairTask" parameterClass="map">
+        SELECT ca.id as id,om.name as senderLoginName,
+       ca.SUBJECT as subject,
+       nvl(op.login_name, substr(om.ext_attr_2,1,instr(om.ext_attr_2, '@')-1)) sendername,
+       ca.MEMBER_ID as memberId,
+       ca.proxy_member_id proxyMemberId,
+       ca.OBJECT_ID as objectId,
+       ca.is_delete as isDelete,
+       ca.ACTIVITY_ID as activityId,
+       to_char(ca.RECEIVE_TIME, 'YYYY-MM-DD HH24:MI:SS') as receiveTime,
+       ca.TASK_STATE as taskState,
+       ca.STATE as state,
+       ca.SUB_STATE AS subState,
+       to_char(ca.complete_time, 'YYYY-MM-DD HH24:MI:SS') as completeTime
+  	   from CTP_AFFAIR ca
+       left join org_principal op
+       on ca.sender_id = op.member_id
+       left join org_member om
+       on ca.sender_id = om.id 
+        <!-- APP表示所属应用类型，其中1为流程 -->
+        where ca.app in (1) and ca.task_state != '2'
+        <isNotEmpty prepend="AND"  property="affairId">
+            ca.id = #affairId#
+        </isNotEmpty>
+    </select>
+    <!-- 任务主表（ctp_affair），根据会议ID查询任务 -->
+    <select id="affairByMeetingId.select" resultClass="affairTask" parameterClass="map">
+       SELECT ca.id as id,om.name as senderLoginName,
+       ca.is_delete as isDelete,
+       ca.SUBJECT as subject,
+       nvl(op.login_name, substr(om.ext_attr_2,1,instr(om.ext_attr_2, '@')-1))  sendername,
+       ca.MEMBER_ID as memberId,
+       ca.OBJECT_ID as objectId,
+       ca.ACTIVITY_ID as activityId,
+       to_char(ca.RECEIVE_TIME, 'YYYY-MM-DD HH24:MI:SS') as receiveTime,
+       ca.TASK_STATE as taskState,
+       ca.STATE as state,
+       ca.SUB_STATE AS subState,
+        to_char(ca.complete_time, 'YYYY-MM-DD HH24:MI:SS')  as completeTime
+  	   from CTP_AFFAIR ca
+       left join org_principal op
+       on ca.sender_id = op.member_id
+       left join org_member om
+       on ca.sender_id = om.id 
+        <!-- APP表示所属应用类型，其中6为会议 -->
+        where ca.app in (6) and ca.OBJECT_ID = #objectId#
+    </select>
+    <!-- 任务主表（ctp_affair），更新任务推送状态 -->
+    <update id="affairTaskState.update" parameterClass="map">
+        UPDATE CTP_AFFAIR SET Task_State = #taskState# where id = #id#
+    </update>
+    <!-- 任务日志记录视图（vm_affairlog），查询推送统一平台日志 -->
+    <select id="affairLog.select" resultClass="java.util.HashMap"  parameterClass="map">
+        select id, taskId, dataLog, pushType from vm_affairlog where id = #id#
+    </select>
+    <!-- 任务日志记录视图（vm_affairlog），获取推送日志详情信息 -->
+    <select id="getAffairLogInfo.select" resultClass="java.util.HashMap"  parameterClass="java.util.HashMap">
+        select id, taskId, dataLog, pushType from vm_affairlog
+        where pushResult = #pushResult# and pushCount <![CDATA[<=]]> #pushCount# and pushTime >=  to_date(#pushTime#,'yyyy/mm/dd')
+    </select>
+    <!-- 任务日志记录视图（vm_affairlog），新增推送统一平台日志 -->
+    <insert id="affairLog.insert" parameterClass="map">
+        INSERT INTO vm_affairlog (ID, taskSubject, taskId, senderId, memberId, taskTime, pushTime,
+                       pushCount,pushResult, dataLog, returnMsg, pushType)
+        VALUES (#id#, #taskSubject#, #taskId#, #senderId#, #memberId#, #taskTime#, #pushTime#,
+                      '1', #pushResult#, #dataLog#, #returnMsg#, #pushType#)
+    </insert>
+    <!-- 任务日志记录视图（vm_affairlog），更新推送统一平台日志 -->
+    <update id="affairLog.update"  parameterClass="map">
+        update vm_affairlog set pushTime=#pushTime# , pushCount = pushCount + 1 ,
+        pushResult = #pushResult# , returnMsg = #returnMsg#
+        where id = #id#
+    </update>
+    <select id="findNodeInfoByColId.select" resultClass="java.util.HashMap"  parameterClass="string">
+    	select  id, util_user.getLoginNameByMemId(c.member_id) as loginName from ctp_affair c where  c.object_id = #colId# and c.state = 3
+    </select>
+    <!-- 查找连续节点，第二个节点为代理人节点且与第一个节点相同的记录  -->
+    <select id="deailAgentTaskContinuityMemApprove.select" resultClass="java.util.HashMap" parameterClass="map">
+        select q1.id,q1.object_id as colSummaryId , util_user.getLoginNameByMemId(worker_id)  as LOGINNAME from (
+        select row_number() over(partition by object_id order by receive_time,state_order ) row_num,
+        lag(worker_id,1,null) over(partition by object_id order by receive_time,state_order) last_worker_id,
+        lag(state,1,null) over(partition by object_id order by receive_time,state_order) last_status,
+        q.* from (
+        select  case when a.state in (4)  then decode(transactor_id,null,m.name,m4.name) else nvl(ag.agent_name,m.name) end worker_name,
+        case when a.state in(4)  then decode(transactor_id,null,m.id,transactor_id) else nvl(ag.agent_id,a.member_id) end worker_id,
+        m4.name transactor_name,m.name member_name ,
+        decode(a.state,null,0,2,1,4,1,2) state_order,
+        a.* from (select * from ctp_affair a where a.is_delete=0 and a.state not in (1,6  ) and a.node_policy not in ('inform') and a.receive_time>sysdate-100) a
+        join org_member m on a.member_id=m.id 
+        left join org_member m4 on a.transactor_id=m4.id 
+        left join (select * from col_summary cs where cs.finish_date is null) cs on a.object_id=cs.id
+        left join (select m1.name agent_name,m2.name agent_to_name,ag.* from agent ag ,org_member m1,org_member m2
+        where ag.agent_id=m1.id and ag.agent_to_id=m2.id and ag.cancel_flag=0 and sysdate between ag.start_date and ag.end_date ) ag on a.member_id=ag.agent_to_id
+        ) q
+        ) q1 where 1=1 and q1.last_worker_id=q1.worker_id 
+        and q1.state in(3) and q1.last_worker_id <![CDATA[<>]]>  q1.member_id
+        <isNotEmpty property="memberIds" prepend="and">
+            member_id in($memberIds$)
+        </isNotEmpty>
+    </select>
+        <select id = "errorAffair.select" resultClass = "String" >
+        select taskID from vm_affairlog vm where  vm.pushresult = '失败'
+    </select>
+    <select id = "wupTask.select" resultClass="com.seeyon.apps.kk.affair.model.WupTask">
+        select appTaskId,
+        partUserCode,
+        taskName,
+        taskDesc,
+        partiUserName,
+        state,
+        subState
+        from (select t.app_task_id     as appTaskId,
+        t.parti_user_code as partUserCode,
+        t.task_name       as taskName,
+        t.task_desc       as taskDesc,
+        t.parti_user_name as partiUserName,
+        -1                as state,
+        -1                as subState
+        from wup_task t
+        where not (regexp_like(t.app_task_id, '^-*\d+$$') and
+        t.app_task_id in
+        (select id from ctp_affair a where a.task_state is null or a.task_state <![CDATA[<]]> 2
+        union all select id from inquiry_affair
+        union all select id from vm_meeting_emcee_reminder)
+        or regexp_like(t.app_task_id, '^.*[a-zA-Z]+.*$$')
+        and t.app_task_id in
+        (select f.proxy_task_id from vm_task_proxy_push f))
+        union all
+        select w.app_task_id     as appTaskId,
+        w.parti_user_code as partUserCode,
+        w.task_name       as taskName,
+        w.task_desc       as taskDesc,
+        w.parti_user_name as partiUserName,
+        c.state,
+        c.sub_state       as subState
+        from wup_task w
+        left join ctp_affair c
+        on regexp_like(w.app_task_id, '^-*\d+$$')
+        and w.app_task_id = c.id
+        where c.is_delete = 1
+        or c.state in (2, 4, 8, 10, 5, 7, 6, 15, 31, 32, 33)
+        or c.sub_state = 21)
+        where rownum <![CDATA[<=]]> 20000
+        order by apptaskid desc
+    </select>
+    <select id="isTaskByAgentIdHandle.select" parameterClass="java.util.HashMap" resultClass="java.lang.String">
+        select c.subject from ctp_affair c where c.id = #taskId# and c.pre_approver = #generalManagerId#
+    </select>
+    <select id="findAgentLoginName.select" resultClass="java.lang.String">
+                 select loginname from 
+(select distinct util_user.getLoginNameByMemId(a.agent_id) loginname
+  from agent a
+ where a.end_date<![CDATA[>]]> sysdate and cancel_flag = 0) a where a.loginname is not null
+    </select>
+
+
+    <select id="expireNotificationRule.select" parameterClass="java.util.HashMap" resultClass=" java.util.HashMap ">
+        select
+        templateId,
+        activityId,
+        expireDays,
+        messageTemplate,
+        templateCreateTime
+        from
+        vm_taskexpirednotiinfo vm
+        where
+        USEABLE = '-286897663746683514'
+
+    </select>
+
+    <select id="expireNotificationMember.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        MEMBER_ID,
+        count(MEMBER_ID) as totalExpiredTask
+        from
+        ctp_affair
+        where
+        STATE = 3
+        and IS_DELETE = 0
+        <!--此处TEMPLATEID，实际上是CTP_TEMPLATE中的TEMPLATE_NUMBER-->
+        and TEMPLETE_ID = (select ID FROM CTP_TEMPLATE where TEMPLETE_NUMBER = #TEMPLATEID#)
+        and ACTIVITY_ID = #ACTIVITYID#
+        and TRUNC(SYSDATE - RECEIVE_TIME) &gt;= #EXPIREDAYS#
+        <isNotEmpty property="TEMPLATECREATETIME" prepend="and">
+            to_date(#TEMPLATECREATETIME#,'yyyy/mm/dd') &gt;= trunc(create_date)
+        </isNotEmpty>
+        group by
+        MEMBER_ID
+    </select>
+
+
+    <select id="expireNotiTemplateName.select" parameterClass="java.lang.String" resultClass=" java.lang.String ">
+        select
+        PROCESSNAME AS templateName
+        from
+        WF_PROCESS_TEMPLETE
+        where
+        <!--此处TEMPLATEID，实际上是CTP_TEMPLATE中的TEMPLATE_NUMBER-->
+        ID = (SELECT WORKFLOW_ID FROM CTP_TEMPLATE WHERE TEMPLETE_NUMBER = #templateId#)
+    </select>
+
+    <select id="expireNotiActivityName.select" parameterClass="java.util.HashMap" resultClass=" java.lang.String ">
+        select
+        EXTRACTVALUE(XMLTYPE(wf.workflow), '/ps/p/n[@i="' || #ACTIVITYID# || '"]/@n') as activityName
+        from
+        WF_PROCESS_TEMPLETE wf
+        where
+        wf.id = (select WORKFLOW_ID from ctp_template where TEMPLETE_NUMBER = #TEMPLATEID#)
+    </select>
+
+
+    <select id="queryExpiredAffair.select" resultClass="java.util.HashMap">
+
+        select
+        ID, <!--BIGINT TRUE 主键ID-->
+        IS_COVER_TIME, <!--SMALLINT FALSE 是否超期（0否，1是）-->
+        MEMBER_ID, <!--BIGINT FALSE 人员ID-->
+        SENDER_ID, <!--BIGINT FALSE 发送人ID-->
+        SUBJECT, <!--VARCHAR(1024) FALSE 标题-->
+        APP, <!--SMALLINT FALSE 应用-->
+        OBJECT_ID, <!--BIGINT FALSE 主应用ID-->
+        SUB_OBJECT_ID, <!--BIGINT FALSE 对应workitem_id-->
+        STATE, <!--SMALLINT FALSE 状态（1待发，2已发，3待办，4已办，5取消，6回退，7取回，8竞争执行，15终止）-->
+        SUB_STATE, <!--SMALLINT FALSE 子状态（0子状态正常，1待发草稿，2待发被回退，3待发被撤销，4公文回退拟稿人，5协同撤销，11待办未读，12待办已读，13待办暂存待办，14待办知会，15待办被回退暂存待办，15待办，主动指定回退的状态，我指定回退给别人，这是我的状态，16待办&#45;&#45;被指定回退到的事项，别人回退给我，这是我的状态，17待办&#45;&#45;被指定回退到的事项，又指定回退给别人，中间事项的状态，18待发&#45;&#45;指定回退到发起人并且选择流程重走，这是发起人的，19公文&#45;&#45;在办时，指定退回（直接提交给我）普通节点，21状态已办-流程终止，31会议-待办参加，32会议-待办-不参加，33会议待办-待定，34周期性会议-->
+        HASTEN_TIMES, <!--SMALLINT FALSE 催办次数-->
+        REMIND_DATE, <!--BIGINT FALSE 提醒时间-->
+        DEADLINE_DATE, <!--BIGINT FALSE 节点期限-->
+        CAN_DUE_REMIND, <!--SMALLINT FALSE 是否到期提醒-->
+        CREATE_DATE, <!--DATETIME FALSE 创建时间-->
+        to_char(RECEIVE_TIME,'yyyy-MM-dd HH24:mi:ss') RECEIVE_TIME_STR, <!--DATETIME FALSE 接受时间-->
+        COMPLETE_TIME, <!--DATETIME FALSE 完成时间-->
+        REMIND_INTERVAL, <!--SMALLINT FALSE 提醒周期-->
+        IS_DELETE, <!--SMALLINT FALSE 是否被删除（0否，1是）-->
+        TRACK, <!--SMALLINT FALSE 是否跟踪（0否，1是）-->
+        ARCHIVE_ID, <!--BIGINT FALSE 归档ID-->
+        EXT_PROPS, <!--VARCHAR(2000) FALSE 扩展属性-->
+        UPDATE_DATE, <!--DATETIME FALSE 更新时间-->
+        IS_FINISH, <!--SMALLINT FALSE 是否结束（0否，1是）-->
+        BODY_TYPE, <!--VARCHAR(255) FALSE 正文类型-->
+        IMPORTANT_LEVEL, <!--SMALLINT FALSE 重要程度（1普通，2重要，3非常重要）-->
+        RESENT_TIME, <!--SMALLINT FALSE 重复次数-->
+        FORWARD_MEMBER, <!--VARCHAR(255) FALSE 转发人-->
+        IDENTIFIER, <!--VARCHAR(255) FALSE 标识符-->
+        TRANSACTOR_ID, <!--BIGINT FALSE 代理人-->
+        NODE_POLICY, <!--VARCHAR(255) FALSE 节点权限-->
+        ACTIVITY_ID, <!--BIGINT FALSE 工作流节点Id-->
+        FORM_APP_ID, <!--BIGINT FALSE 表单应用id-->
+        FORM_ID, <!--BIGINT FALSE 表单视图ID-->
+        FORM_OPERATION_ID, <!--BIGINT FALSE 表单操作ID-->
+        TEMPLETE_ID, <!--BIGINT FALSE 模板ID-->
+        FROM_ID, <!--BIGINT FALSE //加签、知会、会签等操作，来源人 的Id-->
+        OVER_WORKTIME, <!--BIGINT FALSE 按工作时间计算超期时间-->
+        RUN_WORKTIME, <!--BIGINT FALSE 按工作时间计算运行时间-->
+        OVER_TIME, <!--BIGINT FALSE 按自然时间计算超期时间-->
+        RUN_TIME, <!--BIGINT FALSE 按自然时间计算运行时间-->
+        DEAL_TERM_TYPE, <!--SMALLINT FALSE 处理期限到处理类型（0-仅消息提醒;1-转给指定人;2-自动跳过）-->
+        DEAL_TERM_USERID, <!--BIGINT FALSE 处理期限到处理类型1的辅助值1： userid-->
+        SUB_APP, <!--SMALLINT FALSE 子应用ID-->
+        EXPECTED_PROCESS_TIME, <!--DATETIME FALSE 执行时间-->
+        ORG_ACCOUNT_ID, <!--BIGINT FALSE ORG_ACCOUNT_ID-->
+        PROCESS_ID, <!--VARCHAR(255) FALSE PROCESS_ID-->
+        IS_PROCESS_OVER_TIME, <!--SMALLINT FALSE 流程超期（null否，1是）-->
+        FORM_MULTI_OPERATION_ID, <!--VARCHAR(4000) FALSE 记录视图权限ID串-->
+        BACK_FROM_ID, <!--BIGINT FALSE 回退人的id-->
+        FORM_RELATIVE_STATIC_IDS, <!--VARCHAR(255) FALSE-->
+        FORM_RELATIVE_QUERY_IDS, <!--VARCHAR(255) FALSE-->
+        HAS_FAVORITE, <!--SMALLINT FALSE 是否收藏（0：否，1：是）-->
+        FROM_TYPE, <!--SMALLINT FALSE 加签、知会、会签等操作类型-->
+        FORM_RECORDID, <!--BIGINT FALSE 表单数据记录ID-->
+        CASE_ID, <!--BIGINT FALSE 流程CASE_ID-->
+        RELATION_DATA_ID, <!--BIGINT FALSE 数据关联id-->
+        FIRSTVIEW_PERIOD, <!--BIGINT FALSE 首次查看时长(查看时间-接收时间)-->
+        FIRSTVIEW_DATE, <!--DATETIME FALSE 首次查看时间点-->
+        FIRSTRESPONSE_PERIOD, <!--BIGINT FALSE 首次响应耗时（首次操作-接收时间）-->
+        SIGNLEVIEW_PERIOD, <!--BIGINT FALSE 首次查看耗时（查看关闭时间-查看时间）-->
+        PRE_APPROVER, <!--BIGINT FALSE 上一处理人-->
+        AUTO_RUN, <!--SMALLINT FALSE 是否是自动发起的流程(0、否；1、是)-->
+        SUMMARY_STATE, <!--SMALLINT FALSE 状态：0运行中，1终止结束，2取消 （实际没有用，通过affair的 state=2/substate来决定），3正常结束，4被删除-->
+        TOP_TIME, <!--DATETIME FALSE 置顶时间-->
+        SORT_WEIGHT, <!--SMALLINT FALSE 智能排序权重值-->
+        AI_PROCESSING, <!--SMALLINT FALSE 智能处理标记 0:非智能处理,1:智能处理-->
+        PROCESS_DEADLINE_TIME, <!--DATETIME FALSE 流程期限-->
+        PROXY_MEMBER_ID, <!--BIGINT FALSE 代理人ID-->
+        MATCH_DEPARTMENT_ID, <!--BIGINT FALSE 匹配的部门ID-->
+        MATCH_POST_ID, <!--BIGINT FALSE 匹配的岗位ID-->
+        NODE_NAME, <!--VARCHAR(500) FALSE 节点名称-->
+        MATCH_ACCOUNT_ID, <!--BIGINT FALSE 匹配的单位ID-->
+        PRINT_NM, <!--SMALLINT FALSE 是否打印，打印次数-->
+        MESSAGE_RULE_ID, <!--VARCHAR(1000) FALSE 消息规则id(有多个id，以逗号分隔)-->
+        util_wf.getAffairNodeDesc(id,activity_id) as extendJsonStr,
+        ((sysdate - CREATE_DATE)*24*60)-DEADLINE_DATE as overMin
+
+        from ctp_affair where
+
+        (
+            (
+                ((sysdate - RECEIVE_TIME)*24*60) > (DEADLINE_DATE)
+        and DEADLINE_DATE is not null
+        and util_wf.getWFNodeExtendParam((select ct.workflow_id from CTP_TEMPLATE ct where ct.id =templete_id),activity_id) is not null
+        and node_policy != 'inform'
+            )
+        or from_type in (1,3)
+        )
+        and state = 3
+        and templete_id is not null
+        and FORM_RECORDID is not null
+
+    </select>
+
+    <select id="queryPreviousRemind.select" parameterClass="java.lang.String" resultClass="java.util.Date">
+        select
+        previousNoti
+        from
+            vm_overtime_TASK_INFO
+        where
+            id = #id#
+    </select>
+
+
+    <update id="updatePreviousRemind.update" parameterClass="java.lang.String">
+        UPDATE vm_overtime_TASK_INFO SET previousNoti = sysdate where id = #id#
+    </update>
+
+    <select id="notiEnable.select" parameterClass="java.lang.String" resultClass="java.lang.Integer">
+    select
+    count(1)
+    from
+    VM_TASKEXPIREDNOTIINFO
+    where
+    (select id from ctp_template where templete_number = templateId) = #templateId#
+        and util_common.getEnumShowById(useable) = '是' and util_common.getEnumShowById(cfgtype) = '加签超期提醒'
+    </select>
+
+    <select id="meetingRoomName.select" resultClass="java.util.HashMap">
+        SELECT
+        distinct
+        to_char(ca.object_id) as ObjectId,
+        '('|| cm.meet_place || ')' as name
+        from ctp_affair ca
+        left join meeting cm
+        on ca.object_id = cm.id
+        where ca.app in (6, 29)
+        and
+        ((ca.task_state = 0 and ca.state = 3 and ca.sub_state != 34)
+        or (ca.task_state = 1 and ca.state in (4, 10))
+        or (ca.task_state = 1 and
+        ca.sub_state in (11, 12, 31, 32, 33) and ca.state != 4)
+        or (ca.is_delete = 1 and ca.task_state != 2 and ca.state = 3 and
+        ca.app = 29)) and cm.meet_place is not null
+    </select>
+
+    <select id="inquiryAffair.select"  resultClass="affairTask">
+        select ia.id,
+        util_user.getLoginNameByMemId(ca.sender_id) sendername,
+        ca.subject,
+        util_user.getMemberNameByMemId(ca.sender_id) senderLoginName,
+        ca.member_id memberId,
+        ca.object_id objectId,
+        to_char(ca.RECEIVE_TIME, 'YYYY-MM-DD HH24:MI:SS') as receiveTime,
+        ca.TASK_STATE as taskState,
+        ca.STATE as state,
+        ca.is_delete as isDelete,
+        ca.SUB_STATE AS subState,
+        to_char(ca.complete_time, 'YYYY-MM-DD HH24:MI:SS')  as completeTime
+        from INQUIRY_SURVEYBASIC isc
+        left join ctp_affair ca
+        on isc.id = ca.object_id
+        left join inquiry_affair ia
+        on ca.member_id = ia.member_id and ca.object_id = ia.object_id
+        where
+        ca.task_state = 0 and ca.state = 3 and CENSOR <![CDATA[<>]]> 5 and (close_date is null or close_date > sysdate) and ca.is_delete = 0
+        and isc.surveydesc like '%【推送统一工作门户任务】%'
+    </select>
+
+    <select id="inquiryAffairId.select"  resultClass="java.util.HashMap">
+        select to_char(ia.id) id,
+        to_char(ca.id) as affairId
+        from INQUIRY_SURVEYBASIC isc
+        left join ctp_affair ca
+        on isc.id = ca.object_id
+        left join inquiry_affair ia
+        on ca.member_id = ia.member_id and ca.object_id = ia.object_id
+        where
+        ca.task_state = 0 and ca.state = 3 and CENSOR <![CDATA[<>]]> 5 and (close_date is null or close_date > sysdate) and ca.is_delete = 0
+        and isc.surveydesc like '%【推送统一工作门户任务】%'
+    </select>
+
+
+
+    <!-- 查询所有需要在统一门户需要被更新掉的任务 -->
+    <select id="findNeedUpdateWupTask.select" resultClass="com.seeyon.apps.kk.affair.model.WupTask">
+        select appTaskId,
+        partUserCode,
+        taskName,
+        taskDesc,
+        partiUserName,
+        decode(state, '3', '19', '4', '12', '19') taskStatus,
+        subState
+        from (
+        select w.app_task_id     as appTaskId,
+        w.parti_user_code as partUserCode,
+        w.task_name       as taskName,
+        w.task_desc       as taskDesc,
+        w.parti_user_name as partiUserName,
+        c.state,
+        c.sub_state       as subState
+        from wup_task w
+        left join inquiry_affair c
+        on regexp_like(w.app_task_id, '^-*\d+$$')
+        and w.app_task_id = c.id
+        left join inquiry_surveybasic iqs
+        on c.object_id = iqs.id
+        where c.is_delete = 1
+        or c.state = 4
+        or (iqs.CENSOR = 5 or iqs.close_date <![CDATA[<]]> sysdate)
+        and w.task_status not in (12, 19))
+        where rownum <![CDATA[<]]> 200
+        order by apptaskid desc
+    </select>
+    <!-- 查询统一门户数据 -->
+    <select id="inquiryTask.select"  resultClass="com.seeyon.apps.kk.affair.model.AffairUpdateTask" parameterClass="java.util.HashMap">
+        select id appTaskId,
+        '12' taskStatus,
+        f.subject taskName,
+        to_char(f.create_date , 'YYYY-MM-DD HH24:MI:SS') receiveTime ,
+        to_char(f.create_date, 'YYYY-MM-DD HH24:MI:SS') initTime,
+        util_user.getLoginNameByMemId(f.member_id) partiUserCode,
+        util_user.getLoginNameByMemId(f.sender_id) initiUserCode
+        from inquiry_affair f
+        where f.object_id = #inquiryId#
+        and f.member_id = #memberId#
+    </select>
+    <!--查找没有同步到任务提醒表的会议任务 -->
+    <select id="findNoHostNameRemainMeetingInfo" resultClass="java.lang.String" parameterClass="java.util.HashMap">
+        select to_char(id) id from meeting m
+        where not EXISTS (
+        select 1 from vm_meeting_emcee_reminder ma
+        where m.id = ma.apply_id and to_char(m.begin_date, 'yyyy-mm-dd hh:mm') = to_char(ma.start_time, 'yyyy-mm-dd hh:mm')
+        and to_char(m.end_date, 'yyyy-mm-dd hh:mm') = to_char(ma.end_time, 'yyyy-mm-dd hh:mm')
+        ) and m.end_date > sysdate and m.state <![CDATA[<>]]> 0 and m.state <![CDATA[<>]]> -1
+        <isNotEmpty prepend="and" property="judgeDate">
+            m.begin_date <![CDATA[<=]]> #judgeDate#
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="filterMember">
+            util_user.getLoginNameByMemId(m.emcee_id) not in
+            <iterate open="(" close=")" conjunction="," property="filterMember">
+                #filterMember[]#
+            </iterate>
+        </isNotEmpty>
+
+
+
+    </select>
+
+    <!--查找没有同步到任务提醒表的会议室任务并过滤掉通过会议申请的任务 -->
+    <select id="findNoHostNameRemainMeetingRoomInfo" resultClass="java.lang.Long" parameterClass="java.util.HashMap">
+        select id from meeting_room_app m
+        where not EXISTS (
+        select 1 from vm_meeting_emcee_reminder ma
+        where m.id = ma.apply_id and to_char(m.startdatetime, 'yyyy-mm-dd hh:mm') = to_char(ma.start_time, 'yyyy-mm-dd hh:mm')
+        and to_char(m.enddatetime, 'yyyy-mm-dd hh:mm') = to_char(ma.end_time, 'yyyy-mm-dd hh:mm')
+        ) and m.enddatetime > sysdate and m.meetingid is null  and m.periodicity_id is null
+        <isNotEmpty prepend="and" property="judgeDate">
+            m.startdatetime <![CDATA[<=]]> #judgeDate#
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="filterMember">
+            util_user.getLoginNameByMemId(m.perid) not in
+            <iterate open="(" close=")" conjunction="," property="filterMember">
+                #filterMember[]#
+            </iterate>
+        </isNotEmpty>
+
+    </select>
+    <!-- 会议结束时间小于当前时间且状态为已推送的或者是否提醒为否当时已推送的 -->
+    <select id="findHostNameRemainFinishMeeting" resultClass="java.util.HashMap" parameterClass="java.util.HashMap">
+        select f.id, f.apply_id, f.emcee, to_char(is_reminder) is_reminder
+        from vm_meeting_emcee_reminder f
+        where (f.end_time <![CDATA[<]]> sysdate
+        and f.task_push_status = #MT_PUSH#)
+        or (f.is_reminder = #NO#  and f.task_push_status = #MT_PUSH#)
+    </select>
+
+    <!-- 结束时间大于当前时间然后状态是未推送的数据 -->
+    <select id="noPushESBInHostNameRemain.select" resultClass="mapBean" parameterClass="java.lang.String">
+        select
+        to_char(id) id,
+        emcee,/*会议主持人*/
+        topic,/*会议主题*/
+        location,/*会议地点*/
+        to_char(creator_name) creator_name,/*会议创建人*/
+        creation_time,/*会议创建时间*/
+        to_char(start_time, 'YYYY-MM-DD HH24:MI:SS') start_time,/*会议开始时间*/
+        to_char(end_time, 'YYYY-MM-DD HH24:MI:SS') end_time,/*会议结束时间*/
+        task_push_status,/*任务推送状态*/
+        to_char(is_reminder) is_reminder,/*是否提醒*/
+        to_char(apply_id) apply_id,
+        to_char(apply_type) apply_type
+        from vm_meeting_emcee_reminder f where f.end_time > sysdate and f.task_push_status = #no_push# and is_reminder = -3841538853571705149
+    </select>
+    <!-- 查询所有生效的代理信息 -->
+    <select id = "findEnableAgentConfigInfo.select" parameterClass="java.lang.Long" resultClass="java.lang.String">
+        select agent || '|' || agentTo  as agentInfo from vm_cap4_fgAgentConfig f where f.enable = -3841538853571705149 and f.supportType = #supportType#
+    </select>
+    <!-- 查询代理人在本流程中是否已经审批过非知会类的任务 -->
+    <select id = "agentTaskInfoByTaskId.select" parameterClass="java.util.HashMap" resultClass="java.lang.String">
+        SELECT  distinct to_char(f.id) id
+        FROM ctp_affair f
+        JOIN ctp_affair f2 ON f.object_id = f2.object_id
+        WHERE f.app = 1
+        AND f.state = 4
+        AND f.node_policy <![CDATA[<>]]> 'inform'
+        AND f.member_id = #agentId#
+        AND f2.id = #taskId#
+    </select>
+    <!-- 查询当前任务的实际待办人员是谁 -->
+    <select id="dealMemberTaskInfoByTaskId.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select to_char(f.member_id) memberId from ctp_affair f where f.id = #taskId#
+    </select>
+    <!-- 特定流程的数据查询 -->
+    <select id="delaAdaptSpecialConfigFlow.select" parameterClass="java.lang.Long" resultClass="com.seeyon.apps.kk.affair.model.FgAffairAgentConfig">
+        select
+        id
+        serialNum,
+        filter,
+        filingDate,
+        filingDepart,
+        agentTo,
+        agent,
+        explanation,
+        enable,
+        supportType,
+        priSerialNum,
+        priNodeID,
+        priTemplateCode,
+        currentPriSerialNum,
+        currentTemplateCode
+        from vm_cap4_fgAgentConfig where supportType = #supportType# and  enable = -3841538853571705149
+    </select>
+    <!--  查询是否在前一个任务中已经处理过了 -->
+    <select id="findTaskHaveDealByPreFlowInfo.select" parameterClass="java.util.HashMap" resultClass="java.lang.Integer">
+        select count('x')
+        from ctp_affair f
+        left join $formTable$ f2
+        on f.form_recordid = f2.id
+        where f.form_recordid = #formRecordId#
+        and f.is_delete = 0
+        and (f.is_finish = 1  or f2.ratifyflag = 1)
+        and f.member_id = #memberId#
+        and f.app = 1
+        AND f.state = 4
+        AND f.node_policy <![CDATA[<>]]> 'inform'
+        <isNotEmpty prepend="AND"  property="priNodeID">
+            activity_id  = #priNodeID#
+        </isNotEmpty>
+    </select>
+    <!-- 代理任务数据插入 -->
+    <insert id="agentPushRecord.insert" parameterClass="com.seeyon.apps.kk.affair.model.TaskProxyPush">
+        INSERT INTO vm_task_proxy_push (
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        modify_member_id,
+        modify_date,
+        sort,
+        task_title,
+        task_description,
+        task_initiator,
+        is_proxy_valid,
+        task_processor,
+        task_proxy,
+        task_creation_time,
+        task_closure_time,
+        portal_task_push_time,
+        portal_task_closure_time,
+        is_task_closed,
+        portal_task_status,
+        task_id,
+        proxy_task_id,
+        proxy_effective_time,
+        proxy_expiration_time,
+        portal_push_create_info,
+        portal_push_create_response,
+        portal_push_update_info,
+        portal_push_update_response
+        ) VALUES (
+        #id#,
+        1,
+        '6105960157477424523',
+        sysdate,
+        '0',
+        sysdate,
+        0,
+        0,
+        '0',
+        sysdate,
+        '6105960157477424523',
+        sysdate,
+        0,
+        #task_title#,
+        #task_description#,
+        #task_initiator#,
+        #is_proxy_valid#,
+        #task_processor#,
+        #task_proxy#,
+        #task_creation_time#,
+        #task_closure_time#,
+        #portal_task_push_time#,
+        #portal_task_closure_time#,
+        #is_task_closed#,
+        #portal_task_status#,
+        #task_id#,
+        #proxy_task_id#,
+        #proxy_effective_time#,
+        #proxy_expiration_time#,
+        #portal_push_create_info#,
+        #portal_push_create_response#,
+        #portal_push_update_info#,
+        #portal_push_update_response#
+        )
+    </insert>
+    <!-- 代理任务数据更新 -->
+    <update id="esbagentPushLog.update" parameterClass="com.seeyon.apps.kk.affair.model.TaskProxyPush">
+        update vm_task_proxy_push
+        set
+        <dynamic prepend=" ">
+            <isNotEmpty     prepend="," property="is_proxy_valid">
+                is_proxy_valid = #is_proxy_valid#
+            </isNotEmpty>
+
+            <isNotEmpty     prepend="," property="task_closure_time">
+                task_closure_time = #task_closure_time#
+            </isNotEmpty>
+
+            <isNotEmpty     prepend="," property="portal_task_push_time">
+                portal_task_push_time = #portal_task_push_time#
+            </isNotEmpty>
+
+            <isNotEmpty     prepend="," property="portal_task_closure_time">
+                portal_task_closure_time = #portal_task_closure_time#
+            </isNotEmpty>
+
+            <isNotEmpty     prepend="," property="is_task_closed">
+                is_task_closed = #is_task_closed#
+            </isNotEmpty>
+
+            <isNotEmpty     prepend="," property="portal_task_status">
+                portal_task_status = #portal_task_status#
+            </isNotEmpty>
+
+            <isNotEmpty     prepend="," property="portal_push_create_info">
+                portal_push_create_info = #portal_push_create_info#
+            </isNotEmpty>
+
+            <isNotEmpty     prepend="," property="portal_push_create_response">
+                portal_push_create_response = #portal_push_create_response#
+            </isNotEmpty>
+
+            <isNotEmpty     prepend="," property="portal_push_update_info">
+                portal_push_update_info = #portal_push_update_info#
+            </isNotEmpty>
+
+            <isNotEmpty     prepend="," property="portal_push_update_response">
+                portal_push_update_response = #portal_push_update_response#
+            </isNotEmpty>
+        </dynamic>
+        where proxy_task_id = #proxy_task_id#
+    </update>
+    <!-- 查询没有推送过代理任务的数据信息 -->
+    <select id="noPushAgent.select" resultClass="affairTask">
+        SELECT
+        v.task_id,
+        ca.id as id,
+        util_user.getMemberNameByMemId(ca.member_id) senderLoginName,
+        ca.SUBJECT as subject,
+        util_user.getLoginNameByMemId(ca.sender_id) sendername,
+        ca.MEMBER_ID as memberId,
+        ca.proxy_member_id proxyMemberId,
+        ca.OBJECT_ID as objectId,
+        ca.PROCESS_ID as processId,
+        ca.ACTIVITY_ID as activityId,
+        to_char(ca.RECEIVE_TIME, 'YYYY-MM-DD HH24:MI:SS') as receiveTime,
+        ca.TASK_STATE as taskState,
+        ca.STATE as state,
+        ca.is_delete as isDelete,
+        ca.SUB_STATE AS subState,
+        ca.TEMPLETE_ID as templeteId,
+        to_char(ca.complete_time, 'YYYY-MM-DD HH24:MI:SS') as completeTime
+        FROM CTP_AFFAIR ca
+        LEFT JOIN vm_task_proxy_push v
+        ON ca.id = v.task_id
+        AND ca.proxy_member_id = v.task_proxy
+        WHERE ca.app IN (1)
+        AND ca.state = 3
+        AND ca.proxy_member_id IS NOT NULL
+        AND ca.receive_time >= TRUNC(SYSDATE) - INTERVAL '99' DAY
+        AND v.task_id IS NULL
+    </select>
+
+    <!--查询 1.OA任务为已经关闭，任务推送表状态为已推送，推送失败，关闭失败  2.OA未关闭，推送失败的-->
+    <select id="pushAgentUpdate.select" resultClass="affairTask">
+        SELECT
+        ca.id as id,
+        util_user.getMemberNameByMemId(ca.member_id) senderLoginName,
+        ca.SUBJECT as subject,
+        util_user.getLoginNameByMemId(ca.sender_id) sendername,
+        ca.MEMBER_ID as memberId,
+        ca.proxy_member_id proxyMemberId,
+        ca.OBJECT_ID as objectId,
+        ca.ACTIVITY_ID as activityId,
+        ca.PROCESS_ID as processId,
+        to_char(ca.RECEIVE_TIME, 'YYYY-MM-DD HH24:MI:SS') as receiveTime,
+        ca.TASK_STATE as taskState,
+        ca.STATE as state,
+        ca.is_delete as isDelete,
+        util_common.getEnumValueById(vtp.portal_task_status) AS subState,
+        ca.TEMPLETE_ID as templeteId,
+        to_char(ca.complete_time, 'YYYY-MM-DD HH24:MI:SS') as completeTime
+        from
+        vm_task_proxy_push vtp
+        left join
+        CTP_AFFAIR ca
+        on vtp.task_id = ca.id and vtp.task_proxy = ca.proxy_member_id
+        where ca.app = 1 and
+        ca.proxy_member_id is not null
+        and (vtp.is_need_close_task is null or vtp.is_need_close_task = -1089048568118490234)
+        and (
+        (ca.state in (4,5,6,7,8,11) and util_common.getEnumValueById(vtp.portal_task_status) in (1,3,4) )
+        or （ca.state = 3  and util_common.getEnumValueById(vtp.portal_task_status) =  3）
+        or  (ca.state = 3 and util_common.getEnumValueById(vtp.portal_task_status) =  2)
+        )
+    </select>
+
+    <!-- 查询没有在有效期内的代理任务 -->
+    <select id="findNoActivityAgentTask.select" resultClass="affairTask">
+        SELECT
+        DISTINCT ca.id AS id,
+        util_user.getMemberNameByMemId(ca.member_id) AS senderLoginName,
+        ca.SUBJECT AS subject,
+        util_user.getLoginNameByMemId(ca.sender_id) AS sendername,
+        ca.MEMBER_ID AS memberId,
+        vtp.task_proxy proxyMemberId,
+        ca.OBJECT_ID AS objectId,
+        ca.ACTIVITY_ID AS activityId,
+        TO_CHAR(ca.RECEIVE_TIME, 'YYYY-MM-DD HH24:MI:SS') AS receiveTime,
+        ca.TASK_STATE AS taskState,
+        ca.STATE AS state,
+        ca.is_delete AS isDelete,
+        util_common.getEnumValueById(vtp.portal_task_status) AS subState,
+        ca.TEMPLETE_ID AS templeteId,
+        TO_CHAR(ca.complete_time, 'YYYY-MM-DD HH24:MI:SS') AS completeTime
+        FROM
+        vm_task_proxy_push vtp
+        LEFT JOIN
+        CTP_AFFAIR ca
+        ON
+        vtp.task_id = ca.id
+        WHERE
+        ca.app = 1
+        AND (
+        (((ca.proxy_member_id IS NULL) or (ca.proxy_member_id <![CDATA[<>]]> vtp.task_proxy))  AND util_common.getEnumValueById(vtp.portal_task_status) = 1)
+        or (is_need_close_task = -3841538853571705149 and util_common.getEnumValueById(vtp.portal_task_status) = 1)
+        )
+
+    </select>
+</sqlMap>

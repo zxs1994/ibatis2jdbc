@@ -1,0 +1,54 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+    <select id="getFormInfoSearchCfgByTemplateNo.select"  parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        main.id as "id",
+        main.templateNo as "templateNo",
+        main.mainTable as "mainTable",
+        main.createDate as "createDate",
+        main.isEnable as "isEnable",
+        main.priKeyName as "priKeyName",
+        main.pageSize as "pageSize",
+        main.mainSql as "mainSql",
+        main.extraQryParam as "extraQryParam",
+        main.needApproveLog as "needApproveLog",
+        main.needDetailUrl as "needDetailUrl",
+        main.openTotal as "openTotal",
+        to_char(util_common.getEnumValueById(dateParamType)) as "dateParamType",
+        son.sonTable as "sonTable",
+        son.sonSql as "sonSql",
+        son.rtnName as "rtnName"
+        from vm_cap_commonFlowInfoSearchCfg main left join vm_cap_commonFlowInfoSearchCfg_son son
+        on main.id = son.formmain_id
+        where main.cfgKey = #cfgKey#
+    </select>
+
+    <select id="commonSelectSql.select" parameterClass="java.lang.String" resultClass="java.util.HashMap" remapResults="true">
+        $commonSql$
+    </select>
+
+
+    <select id="getApprovalCheckLogs.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        distinct
+        o.code as "approverCode",
+        o.name as "approverName",
+        c.Ext_Att4 as "approveResult",
+        to_char(c.content) as "approveOpinion",
+        a.node_name as "nodeName",
+        to_char(c.create_date,'yyyy-MM-dd hh24:mi:ss') as "approveTime",
+        a.id as "affairID"
+        from ctp_affair a right join CTP_COMMENT_ALL c on c.affair_id = a.id left join org_member o on o.id = a.member_id
+        where a.templete_id = (select id from ctp_template where templete_number = #templateNo#) and a.form_recordid = #id#
+    </select>
+
+    <select id="getAffairIdByRecordId.select" parameterClass="java.lang.String" resultClass="java.util.HashMap" >
+        select
+        id as "affairId",
+        templete_id as "templateId"
+        from ctp_affair where form_recordId = #formRecordId# and node_policy = 'newCol'
+    </select>
+
+
+</sqlMap>

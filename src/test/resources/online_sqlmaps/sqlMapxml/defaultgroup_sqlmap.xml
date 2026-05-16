@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+    <!-- 默认组设置（vm_defaultgroup），查询是否存在此部门 -->
+    <select id = "deptDefaultGroupCount.select" parameterClass="string" resultClass="java.lang.Integer" >
+        select count(defaultgroupname) from vm_defaultgroup where defaultgroupname = #defaultgroupname#
+    </select>
+    <!-- 默认组设置（vm_defaultgroup），更新默认组 -->
+    <update id="defaultGroup.update"  parameterClass="map" >
+        update vm_defaultgroup set defaultgroupmember = #member#
+        where defaultgroupname = #deptName#
+    </update>
+    <!-- 默认组设置（vm_defaultgroup），新增插入默认组  -->
+    <insert id="defaultGroup.insert" parameterClass="map">
+        insert into vm_defaultgroup(id, creator, createdate, defaultgroupname, defaultgroupmember, defaulttype)
+        values(#id#,util_user.getMemIdByLoginName('flowbot'),
+        trunc(sysdate),#departName#, #member#, util_common.getEnumIdByRefName('默认组类型',#groupType#))
+    </insert>
+    <!--  组织人员表（org_member），根据部门ID查询部门下的所有人员 -->
+    <select id = "deptMember.select" parameterClass="string" resultClass="java.lang.String">
+        select id from org_member
+        where id in (select source_id from org_relationship where objective0_id = #id# and objective2_id is not null)
+        and status = 1 and is_enable = 1 and code is not null
+    </select>
+    <!--  组织机构表（org_unit），查询所有启用的部门ID与部门名称 -->
+    <select id = "activeDeptName.select" resultClass="java.util.HashMap">
+        select id, name from org_unit
+        where type = 'Department' and IS_DELETED = 0 and status = 1 and is_internal = 1
+    </select>
+</sqlMap>

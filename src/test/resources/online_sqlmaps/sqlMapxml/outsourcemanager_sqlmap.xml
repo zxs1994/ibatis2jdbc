@@ -1,0 +1,1688 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+    <select id="projectCloudDeskInfo.select" parameterClass="java.util.HashMap" resultClass="com.seeyon.apps.kk.outsourcemanager.model.CloudDeskInfoModel">
+        select
+        v3.id,
+        v1.belongTeam,
+        LDAPRoot,
+        DNS,
+        authCode,
+        userInitPassword,
+        DNSAdmin,
+        DNSAdminPassword,
+        DNSUrl,
+        cacertLocation,
+        cacertPassword,
+        cloudDeskMod,
+        resourceId,
+        host,
+        run_position,
+        disk,
+        storage,
+        network,
+        policyGroup,
+        cloudDeskAdmin,
+        cloudDeskPassword,
+        policyGroupName,
+        v2.flowID,
+        v3.entryMember,
+        v3.fullSpellingOfName,
+        v3.email
+        from vm_cap_cloudDeskConfig v1
+        left join vm_projectEntrance v2
+        on v1.belongTeam = v2.belongTeam
+        left join vm_projectEntranceSon v3
+        on v2.id =v3.formmain_id
+        where flowid = #flowId#
+        <isNotEmpty prepend="AND" property="isOpenDns">
+            isOpenDns = 1
+        </isNotEmpty>
+        <isNotEmpty prepend="AND" property="isOpenVdi">
+            isOpenVdi = 1
+        </isNotEmpty>
+    </select>
+    <select id="projectLeaveInfoByFlowId.select" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.outsourcemanager.model.CloudDeskInfoModel">
+        select
+        v1.belongTeam,
+        LDAPRoot,
+        DNS,
+        authCode,
+        userInitPassword,
+        DNSAdmin,
+        DNSAdminPassword,
+        DNSUrl,
+        cacertLocation,
+        cacertPassword,
+        cloudDeskMod,
+        resourceId,
+        host,
+        run_position,
+        disk,
+        storage,
+        network,
+        policyGroup,
+        cloudDeskAdmin,
+        cloudDeskPassword,
+        policyGroupName,
+        v2.flowID,
+        v3.email,
+        util_user.getLoginNameByMemId(v2.sendUser)  sendUserLoginName,
+        v3.userDN
+        from vm_cap_cloudDeskConfig v1
+        left join vm_projectleave v2
+        on v1.belongTeam = v2.belongTeam
+        left join projectleaveson v3
+        on v2.id =v3.formmain_id
+        where isRecallResource = -3841538853571705149 and  flowid = #flowId#
+    </select>
+
+    <select id="cloudDeskInfo.select" parameterClass="java.lang.String"
+            resultClass="com.seeyon.apps.kk.outsourcemanager.model.CloudDeskInfoModel">
+        select
+        v1.belongTeam,
+        LDAPRoot,
+        DNS,
+        authCode,
+        userInitPassword,
+        DNSAdmin,
+        DNSAdminPassword,
+        DNSUrl,
+        cacertLocation,
+        cacertPassword,
+        cloudDeskMod,
+        resourceId,
+        host,
+        run_position,
+        disk,
+        storage,
+        network,
+        policyGroup,
+        cloudDeskAdmin,
+        cloudDeskPassword,
+        policyGroupName,
+        v2.flowID,
+        v2.entryMember,
+        v2.sn,
+        v2.givenName,
+        v2.fullSpellingOfName,
+        v2.email,
+        v2.DNSOpenDetail,
+        v2.cloudOpenDetail,
+        v2.vmId
+        from vm_cap_cloudDeskConfig v1
+        left join vm_capwf_coordinationEntry v2
+        on v1.belongTeam = v2.belongTeam
+        where flowid = #flowId#
+    </select>
+    <select id="cloudDeskInfoByBelongTeam.select" parameterClass="java.lang.String"
+            resultClass="com.seeyon.apps.kk.outsourcemanager.model.CloudDeskInfoModel">
+        select * from vm_cap_cloudDeskConfig where belongTeam = #belongTeam#
+    </select>
+
+
+    <insert id="addLogDetail.insert" parameterClass="map">
+        insert into
+        vm_zentaologdetail
+        (
+        id,
+        userName,
+        userAccount,
+        taskId,
+        taskName,
+        taskType,
+        taskState,
+        startDate,
+        endDate,
+        finishedDate,
+        targetDate,
+        costs,
+        expectedCost,
+        requirementId,
+        requirementName,
+        requirementStage,
+        pm,
+        userTeam,
+        teamLeader,
+        calcMonth
+        )
+        values
+        (
+        #id#,
+        #userName#,
+        #userAccount#,
+        #taskId#,
+        #taskName#,
+        #taskType#,
+        #taskState#,
+        to_date(#startDate#,'yyyy/MM/dd HH24:mi'),
+        to_date(#endDate#,'yyyy/MM/dd HH24:mi'),
+        to_date(#finishedDate#,'yyyy/MM/dd HH24:mi'),
+        #targetDate#,
+        #costs#,
+        #expectedCost#,
+        #requirementId#,
+        #requirementName#,
+        #requirementStage#,
+        #pm#,
+        #userTeam#,
+        #teamLeader#,
+        to_date(#calcMonth#,'yyyy-MM')
+        )
+
+    </insert>
+
+    <!--日志汇总删除 -->
+    <delete id="removeLogSum.delete" parameterClass="map">
+        delete from vm_zentaologSum where tyear = #tyear# and tmonth = #tmonth#
+    </delete>
+
+    <insert id="addLogSum.insert" parameterClass="map">
+        insert into
+        vm_zentaologSum
+        (
+        id,
+        tname,
+        spell,
+        tyear,
+        tmonth,
+        manhour,
+        avgday,
+        team,
+        day1,
+        day2,
+        day3,
+        day4,
+        day5,
+        day6,
+        day7,
+        day8,
+        day9,
+        day10,
+        day11,
+        day12,
+        day13,
+        day14,
+        day15,
+        day16,
+        day17,
+        day18,
+        day19,
+        day20,
+        day21,
+        day22,
+        day23,
+        day24,
+        day25,
+        day26,
+        day27,
+        day28,
+        day29,
+        day30,
+        day31,
+        currentSupplier,
+        memberPrice,
+        memberLevel
+        )
+        values
+        (
+        #id#,
+        #tname#,
+        #spell#,
+        #tyear#,
+        #tmonth#,
+        #manhour#,
+        #avgday#,
+        #team#,
+        #day01#,
+        #day02#,
+        #day03#,
+        #day04#,
+        #day05#,
+        #day06#,
+        #day07#,
+        #day08#,
+        #day09#,
+        #day10#,
+        #day11#,
+        #day12#,
+        #day13#,
+        #day14#,
+        #day15#,
+        #day16#,
+        #day17#,
+        #day18#,
+        #day19#,
+        #day20#,
+        #day21#,
+        #day22#,
+        #day23#,
+        #day24#,
+        #day25#,
+        #day26#,
+        #day27#,
+        #day28#,
+        #day29#,
+        #day30#,
+        #day31#,
+        #currentSupplier#,
+        #memberPrice#,
+        #memberLevel#
+        )
+
+    </insert>
+
+
+    <!-- 钉钉考勤汇总表删除 -->
+    <delete id="removeAttendSum.delete" parameterClass="java.lang.String">
+        delete from vm_ddclockinSum where to_char(calcMonth,'yyyy-MM') = #calcMonth#
+    </delete>
+
+    <insert id="addAttendSum.insert" parameterClass="map">
+        insert into
+        vm_ddclockinSum
+        (
+        id,
+        member,
+        team,
+        attendTarget,
+        attendDays,
+        workoverDays,
+        calcMonth,
+        supplier,
+        memberprice,
+        memberlevel
+        )
+        values
+        (
+        #id#,
+        #member#,
+        util_common.getEnumIdByShow(1822868929259851192,#team#),
+        #attendTarget#,
+        #attendDays#,
+        #workoverDays#,
+        to_date(#calcMonth#,'yyyy-MM-dd'),
+        #supplier#,
+        #memberPrice#,
+        #memberLevel#
+        )
+
+    </insert>
+
+
+    <!--日志明细删除 -->
+    <delete id="removeLogDetail.delete" parameterClass="java.lang.String">
+        delete from vm_zentaologdetail where to_char(calcMonth,'yyyy-MM') = #calcMonth#
+    </delete>
+
+    <select id="queryLogDetail.select" parameterClass="map"
+            resultClass="java.util.HashMap">
+        select
+        to_char(userName) as userName,
+        to_char(userAccount) as userAccount,
+        to_char(taskId) as taskId,
+        to_char(taskName) as taskName,
+        to_char(taskType) as taskType,
+        to_char(taskState) as taskState,
+        to_char(startDate,'yyyy/mm/dd') as startDate,
+        to_char(endDate,'yyyy/mm/dd') as endDate,
+        to_char(finishedDate,'yyyy/mm/dd') as finishedDate,
+        to_char(targetDate) as targetDate,
+        to_char(costs) as costs,
+        to_char(expectedCost) as expectedCost,
+        to_char(requirementId) as requirementId,
+        to_char(requirementName) as requirementName,
+        to_char(requirementStage) as requirementStage,
+        util_user.getMemberNameByMemId(pm) as pm,
+        to_char(userTeam) as userTeam,
+        util_user.getMemberNameByMemId(teamLeader) as teamLeader
+        from vm_zentaologdetail
+        where
+        1=1
+
+        and  userTeam = util_common.getEnumIdByShow(1822868929259851192,#team#)
+
+        and  to_char(calcMonth,'yyyy-mm') = #calcMonth#
+
+
+    </select>
+
+    <select id="queryLogSum.select" parameterClass="map"
+            resultClass="java.util.HashMap">
+        select
+        to_char(id) as id,
+        to_char(tname) as tname,
+        to_char(spell) as spell,
+        to_char(tyear) as tyear,
+        to_char(tmonth) as tmonth,
+        to_char(manhour) as manhour,
+        to_char(avgday) as avgday,
+        to_char(team) as team,
+        to_char(day1) as day1,
+        to_char(day2) as day2,
+        to_char(day3) as day3,
+        to_char(day4) as day4,
+        to_char(day5) as day5,
+        to_char(day6) as day6,
+        to_char(day7) as day7,
+        to_char(day8) as day8,
+        to_char(day9) as day9,
+        to_char(day10) as day10,
+        to_char(day11) as day11,
+        to_char(day12) as day12,
+        to_char(day13) as day13,
+        to_char(day14) as day14,
+        to_char(day15) as day15,
+        to_char(day16) as day16,
+        to_char(day17) as day17,
+        to_char(day18) as day18,
+        to_char(day19) as day19,
+        to_char(day20) as day20,
+        to_char(day21) as day21,
+        to_char(day22) as day22,
+        to_char(day23) as day23,
+        to_char(day24) as day24,
+        to_char(day25) as day25,
+        to_char(day26) as day26,
+        to_char(day27) as day27,
+        to_char(day28) as day28,
+        to_char(day29) as day29,
+        to_char(day30) as day30,
+        to_char(day31) as day31
+        from vm_zentaologSum
+        where
+        1=1
+
+        and tyear = #tyear#
+
+        and tmonth = #tmonth#
+
+        and team = util_common.getEnumIdByShow(1822868929259851192,#team#)
+
+
+    </select>
+
+
+    <!-- 外协人员档案-->
+    <select id="outSourceDoc.select" resultClass="java.util.HashMap" parameterClass="java.util.HashMap">
+
+        select
+        id,
+        ontrialdays,
+        billingdata,
+        memberState,
+        MEMBER,
+        TEAM,
+        teamManager,
+        TEAMLEaDER,
+        to_char(leaveDate,'yyyy-mm-dd') leaveDate，
+        SUPPLIER
+        from vm_cap_outsourcemanagerdoc c
+        where
+        1=1
+        <isNotEmpty prepend="AND" property="calcDate">
+            to_date(to_char(c.leaveDate, 'yyyy-mm'), 'yyyy-mm') >= to_date(#calcDate#, 'yyyy-mm') or c.leaveDate is null
+        </isNotEmpty>
+
+    </select>
+    <!--打卡记录删除 -->
+    <delete id="punchRecord.delete" parameterClass="java.lang.String">
+        delete from vm_cap_clockinrecord where to_char(punchDate,'yyyy-MM') = #punchDate#
+    </delete>
+
+    <insert id="punchRecord.insert" parameterClass="com.seeyon.apps.kk.outsourcemanager.model.ClockInModel">
+        insert into vm_cap_clockinrecord
+        (id,
+        STATE,
+        START_MEMBER_ID,
+        START_DATE,
+        APPROVE_MEMBER_ID,
+        APPROVE_DATE,
+        FINISHEDFLAG,
+        RATIFYFLAG,
+        RATIFY_MEMBER_ID,
+        RATIFY_DATE,
+        SORT,
+        MODIFY_MEMBER_ID,
+        MODIFY_DATE,
+        member,
+        account,
+        belongTeam,
+        teamManager,
+        teamLender,
+        punchDate,
+        punchStartTime,
+        punchEndTime,
+        amPunchResult,
+        pmPunchResult,
+        punchCount,
+        chargeCase,
+        isWorkDay,
+        isWorkOverTime,
+        note)
+        values(
+        #id#,
+        #state#,
+        #start_member_id#,
+        #start_date#,
+        #approve_member_id#,
+        #approve_date#,
+        #finishedflag#,
+        #ratifyflag#,
+        #ratify_member_id#,
+        #ratify_date#,
+        0,
+        0,
+        sysdate,
+        #member#,
+        #account#,
+        #belongTeam#,
+        util_user.getMemberNameByMemId(#teamManager#),
+        #teamLender#,
+        to_date(#punchDate#,'yyyy-MM-dd'),
+        #punchStartTime#,
+        #punchEndTime#,
+        #amPunchResult#,
+        #pmPunchResult#,
+        #punchCount#,
+        #chargeCase#,
+        #isWorkDay#,
+        #isWorkOverTime#,
+        #note#
+        )
+    </insert>
+
+    <insert id="addRequireDis.insert" parameterClass="map">
+        insert into vm_cap_requiredistribution
+        (id,
+
+        requireId,
+        requireName,
+        requireDept,
+        createDate,
+        requireState,
+        requirePm,
+        operatorPm,
+        operator,
+        operatorAccount,
+        operatorCost,
+        calcDate,
+        requireType,
+        team,
+        memberPrice,
+        operatorPrice,
+        supplier)
+
+        values(
+
+        #id#,
+
+        #requireId#,
+        #requireName#,
+        #requireDept#,
+        to_date(#requireDate#,'yyyy/MM/dd HH24:mi'),
+        #requireState#,
+        #requirePm#,
+        #operatorPm#,
+        #operator#,
+        #operatorAccount#,
+        #operatorCost#,
+        to_date(#calcDate#,'yyyy-MM'),
+        #requireType#,
+        #team#,
+        #memberPrice#,
+        #operatorPrice#,
+        #supplier#
+        )
+    </insert>
+
+    <!-- 需求分布查询-->
+    <select id="queryRequireDis.select" resultClass="java.util.HashMap">
+        select
+        to_char(id) as id,
+        to_char(requireId) as requireId,
+        to_char(requireName) as requireName,
+        to_char(requireDept) as requireDept,
+        to_char(createDate,'yyyy-mm-dd') as createDate,
+        to_char(requireState) as requireState,
+        to_char(requirePm) as requirePm,
+        to_char(operatorPm) as operatorPm,
+        to_char(operator) as operator,
+        to_char(operatorAccount) as operatorAccount,
+        to_char(operatorCost) as operatorCost,
+        to_char(calcDate,'yyyy-mm') as calcDate,
+        to_char(requireType) as requireType,
+        to_char(team) as team,
+        to_char(memberPrice) as memberPrice,
+        to_char(operatorPrice) as operatorPrice,
+        to_char(supplier) as supplier
+        from
+        vm_cap_requiredistribution
+        where
+        to_char(calcDate,'yyyy-MM') = #calcMonth#
+        and team = util_common.getEnumIdByShow(1822868929259851192,#team#)
+    </select>
+
+
+    <!--需求分布删除 -->
+    <delete id="removeRequireDis.delete" parameterClass="java.lang.String">
+        delete from vm_cap_requiredistribution where to_char(calcDate,'yyyy-MM') = #calcMonth#
+    </delete>
+
+
+    <!-- 钉钉考勤明细查询 -->
+    <select id="queryAttendDetail.select" parameterClass="map" resultClass="java.util.HashMap">
+        select
+        to_char(member) as member,
+        to_char(account) as account,
+        to_char(belongTeam) as belongTeam,
+        to_char(teamManager) as teamManager,
+        util_common.getEnumShowById(teamLender) as teamLender,
+        to_char(punchDate,'yyyy-mm-dd') as punchDate,
+        to_char(punchStartTime) as punchStartTime,
+        to_char(punchEndTime) as punchEndTime,
+        to_char(amPunchResult) as amPunchResult,
+        to_char(pmPunchResult) as pmPunchResult,
+        to_char(punchCount) as punchCount,
+        to_char(chargeCase) as chargeCase,
+        to_char(isWorkDay) as isWorkDay,
+        to_char(isWorkOverTime) as isWorkOverTime,
+        to_char(note) as note
+        from
+        vm_cap_clockinrecord
+        where
+        1=1
+
+        and to_char(punchDate,'yyyy-MM') = #calcMonth#
+
+        and belongTeam = #team#
+        order by member,punchDate
+    </select>
+
+    <!-- 钉钉考勤明细查询 -->
+    <select id="queryAttendSum.select" parameterClass="map" resultClass="java.util.HashMap">
+        select
+        to_char(id) as id,
+        to_char(member) as member,
+        util_common.getEnumShowById(team) as team,
+        to_char(attendTarget) as attendTarget,
+        to_char(attendDays) as attendDays,
+        to_char(workoverDays) as workoverDays,
+        to_char(calcMonth,'yyyy/MM/dd') as calcMonth
+        from
+        vm_ddclockinSum
+        where
+        1=1
+
+        and #calcMonth# = to_char(calcMonth,'yyyy-MM')
+
+        and #team# = util_common.getEnumShowById(team)
+        order by member
+
+
+    </select>
+
+
+    <insert id="addRequireMonthly.insert" parameterClass="map">
+        insert into vm_requiremonthly
+        (id,
+
+        productId,
+        productName,
+        zentaoRequireId,
+        requireName,
+        creator,
+        calcMonth,
+        createDate,
+        expectHour,
+        logHour,
+        team,
+        requireState,
+        completeType
+        )
+
+        values(
+        #id#,
+
+        #productId#,
+        #productName#,
+        #zentaoRequireId#,
+        #requireName#,
+        #creator#,
+        #calcMonth#,
+        to_date(#createDate#,'yyyy/MM/dd hh24:mi'),
+        #expectHour#,
+        #logHour#,
+        #team#,
+        #requireState#,
+        #completeType#
+        )
+    </insert>
+
+    <!-- 月度完成情况查询 -->
+    <select id="queryRequireMonthly.select" parameterClass="map" resultClass="java.util.HashMap">
+        select
+        to_char(id) as id,
+
+        to_char(productId) as productId,
+        to_char(productName) as productName,
+        to_char(zentaoRequireId) as zentaoRequireId,
+        to_char(requireName) as requireName,
+        to_char(creator) as creator,
+        to_char(calcMonth) as calcMonth,
+        to_char(createDate,'yyyy/mm/dd') as createDate,
+        to_char(expectHour) as expectHour,
+        to_char(logHour) as logHour,
+        util_common.getEnumIdByShow(1822868929259851192,#team#) as team,
+        requireState,
+        completeType
+        from
+        vm_requiremonthly
+        where
+        1=1
+        and #calcMonth# = calcMonth
+
+        and util_common.getEnumIdByShow(1822868929259851192,#team#) = team
+
+        and completetype = #completeType#
+
+    </select>
+
+    <!--月度完成情况删除 -->
+    <delete id="removeRequireMonthly.delete" parameterClass="java.lang.String">
+        delete from vm_requiremonthly where calcMonth = #calcMonth#
+    </delete>
+
+
+
+    <!-- 项目经理经费调整插入 -->
+    <insert id="addAdjustPrice.insert" parameterClass="map">
+        insert into
+        vm_cap_adjustprice
+        (
+        id,
+        adjustDate,
+        supplier,
+        pm,
+        team,
+        member,
+        adjustType,
+        entryDate,
+        monthlyPrice,
+        adjustPrice,
+        explain,
+        pmConfirm,
+        signature,
+        adjustReason,
+        remark,
+        memberLevel
+        )
+        values
+        (
+        #id#,
+        to_date(#adjustDate#,'yyyy-MM-dd'),
+        #supplier#,
+        #pm#,
+        util_common.getEnumIdByShow(1822868929259851192,#team#),
+        #member#,
+        #adjustType#,
+        to_date(#entryDate#,'yyyy-MM-dd'),
+        #monthlyPrice#,
+        #adjustPrice#,
+        #explain#,
+        #pmConfirm#,
+        #signature#,
+        #adjustReason#,
+        #remark#,
+        #memberLevel#
+        )
+
+    </insert>
+
+    <!-- 项目经理经费调整查询 -->
+    <select id="queryAdjustPrice.select" parameterClass="map" resultClass="java.util.HashMap">
+        select
+        id,
+
+        adjustDate,
+        supplier,
+        pm,
+        team,
+        member,
+        adjustType,
+        entryDate,
+        monthlyPrice,
+        adjustPrice,
+        explain,
+        pmConfirm,
+        signature,
+        adjustReason,
+        remark
+        from
+        vm_cap_adjustPrice
+        where
+        1=1
+
+        and #calcMonth# = to_char(calcMonth,'yyyy-MM')
+
+        and #team# = team
+
+
+
+    </select>
+
+    <!-- 项目经理经费调整删除 -->
+    <delete id="removeAdjustPrice.delete" parameterClass="java.lang.String">
+        delete vm_cap_adjustprice c where to_char(c.adjustDate ,'yyyy-mm') = #adjustDate#
+    </delete>
+
+
+    <!-- 获取内部员工与团队对应关系 -->
+    <select id="queryMemberTeamRela.select" resultClass="java.util.HashMap">
+        select util_user.getMemberNameByMemId(field0003) NAME,field0004 TEAM from formmain_500190
+    </select>
+
+
+    <!-- 外协人员调整记录查询 -->
+    <select id="queryOutsourceAdjust.select" parameterClass="map" resultClass="java.util.HashMap">
+        select
+        id,
+        formmain_id,
+        sort,
+        membername,
+        pm,
+        team,
+        entryDate,
+        offDate,
+        adjustcontent,
+        currentlevel,
+        adjusttype,
+        adjustdate,
+        chargedate,
+        currentsupplier,
+        adjustreason,
+        currentjob,
+        chargeenddate,
+        memberprice,
+        confidential,
+        surroundingsec,
+        contract
+        from
+        vm_cap_outsourceadjust
+        where
+        <!-- 入场类型，判断输入日期是否等于入场日期+10个工作日（其实是查找转正的记录） -->
+        ((util_common.getEnumShowById(adjustType) = '入场'
+        and substr(util_common.getNextWorkDay(entryDate,#probation#),0,6) = #calcMonth#)
+        and (to_number(offDate - entryDate) &gt;= 30 or offdate is null))
+        or
+        <!-- 退场类型 -->
+        (util_common.getEnumShowById(adjustType) = '退场'
+        and to_char(offDate,'yyyyMM') = #calcMonth#)
+
+    </select>
+
+    <!-- 查询人员本月是否有入职未满一个月的情况 -->
+    <select id="queryIsZeroFee.select" parameterClass="map" resultClass="java.util.HashMap">
+        select
+
+        memberName
+
+        from
+        vm_cap_outsourceadjust
+        where
+        offdate is not null
+        and to_char(offdate,'yyyy-mm') = #calcMonth#
+        and membername = #memberName#
+        and to_number(offDate - entryDate) &lt; 30
+        and util_common.getEnumShowById(adjustType) = '退场'
+
+    </select>
+
+
+    <!-- 绩效调整，按照日期倒叙查询所有外协人员调整信息 -->
+    <select id="queryOutsourceDesc.select" parameterClass="map" resultClass="java.util.HashMap">
+        select
+        id,
+        formmain_id,
+        sort,
+        membername,
+        pm,
+        team,
+        entryDate,
+        adjustcontent,
+        currentlevel,
+        adjusttype,
+        adjustdate,
+        chargedate,
+        currentsupplier,
+        adjustreason,
+        currentjob,
+        chargeenddate,
+        memberprice,
+        confidential,
+        surroundingsec,
+        contract
+        from
+        vm_cap_outsourceadjust a
+        where
+        (chargedate &lt;= to_date(#calcMonth#,'yyyy-MM-dd') or to_char(chargedate,'yyyy-mm') = substr(#calcMonth#,1,7))
+        and (offdate is null or offdate &gt;= to_date(#calcMonth#,'yyyy-MM-dd'))
+        and (entrydate &lt;=  to_date(#calcMonth#,'yyyy-MM-dd') or to_char(entrydate,'yyyy-mm') = substr(#calcMonth#,1,7))
+        order by
+        chargedate desc
+    </select>
+
+
+    <!--绩效反馈表删除 -->
+    <delete id="removeMeritsRecord.delete" parameterClass="java.lang.String">
+        delete from vm_cap_meritsinsert where to_char(meritsDate,'yyyy/MM') = #calcMonth#
+    </delete>
+
+
+    <!-- 绩效反馈表插入 -->
+    <insert id="addMeritsRecord.insert" parameterClass="map">
+        insert into vm_cap_meritsinsert  (
+        id,
+        formmain_id ,
+        meritsDate, /*评优时间*/
+        rate, /*评级*/
+        rateMoney, /*绩效金额*/
+        PMEva, /*PM评语*/
+        evaSupplier, /*绩效发放供应商*/
+        note, /*备注*/
+        pm,
+        sort
+        )
+
+        values(
+        #id#,
+        #formmain_id#,
+        to_date(#meritsDate#,'yyyy/MM/dd'),
+        #rate#,
+        #rateMoney#,
+        #PMEva#,
+        #evaSupplier#,
+        #note#,
+        #pm#,
+        #sort#
+        )
+    </insert>
+
+    <delete id="meritsNullRecord.delete">
+        DELETE from vm_cap_meritsinsert c where c.evaSupplier is null
+    </delete>
+
+    <!-- 查询绩效信息 -->
+    <select id="mertisData.select" resultClass="java.util.HashMap" parameterClass="java.lang.String">
+        select
+        c2.member,
+        util_common.getEnumShowById(c2.team) as team,
+        meritsDate,
+        rate,
+        rateMoney,
+        PMEva,
+        evaSupplier,
+        pm
+        from vm_cap_meritsinsert  c1
+        left join vm_cap_outsourcemanagerdoc c2
+        on c1.formmain_id = c2.id  where to_char(meritsDate,'yyyy-MM')  = #meritsDate# and ratemoney is not null
+    </select>
+
+    <!--查询供应商信息 -->
+    <select id="capSupplier.select" resultClass="java.lang.String" parameterClass="java.util.HashMap">
+        select name from Vm_cap_supplierInfo
+        where 1=1
+        <isNotEmpty prepend="AND" property="name">
+            name = #name#
+        </isNotEmpty>
+    </select>
+    <!-- 根据团队名称查询团队信息 -->
+    <select id="outManagerTeam.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select util_common.getEnumShowById(belongTeam)from vm_cap_outSourceTeam
+        where 1=1
+        <isNotEmpty prepend="AND" property="belongTeam">
+            util_common.getEnumShowById(Belongteam) = #belongTeam#
+        </isNotEmpty>
+    </select>
+    <select id="allSupplierInfo.select" resultClass="java.util.HashMap">
+        select * from vm_cap_supplierinfo
+    </select>
+    <!-- 判断供应商当前月是否有外勤 -->
+    <select id="adjust.select" parameterClass="java.util.HashMap" resultClass="java.lang.Integer">
+        select count(adjusttype) from vm_cap_adjustprice where to_char(adjustdate,'yyyy-MM') = #adjustdate# and supplier
+        = #supplier# and adjusttype ='外勤'
+    </select>
+    <!--外协调整判断当前月份该供应商是否有人 -->
+    <select id="outsourceadjust.select" parameterClass="java.util.HashMap" resultClass="java.lang.Integer">
+        select count(*)
+        from vm_cap_outsourceadjust d
+        where membername not in
+        (select membername
+        from vm_cap_outsourceadjust c
+        where util_common.getEnumShowById(c.team) = #team#
+        and c.currentsupplier = #supplier#
+        and c.adjusttype = -1706323472835391995
+        and to_date(to_char(c.adjustdate, 'yyyy-MM'), 'yyyy-MM') <![CDATA[<]]>
+        to_date(#date#, 'yyyy-MM')) and (util_common.getEnumShowById(d.team) = #team#
+        and d.currentsupplier = #supplier#)
+    </select>
+    <!-- 根据时间查询项目经理费用调整 -->
+    <select id = "supplierPriceAdjust.select" resultClass="java.util.HashMap" parameterClass="java.lang.String">
+        select to_char(adjustDate, 'yyyy-MM-dd') as eventDate,
+        to_char(adjustdate, 'yyyy-MM-dd') as adjustdate,
+        supplier,
+        pm,
+        util_common.getEnumShowById(team) as team,
+        member,
+        adjusttype,
+        to_char(entrydate, 'yyyy-MM-dd') as entrydate,
+        monthlyprice,
+        decode(pmconfirm,'同意',nvl(adjustprice,'-0.00'),'-0.00')adjustprice,
+        explain,
+        pmconfirm,
+        signature,
+        adjustreason,
+        remark
+        from vm_cap_adjustprice
+        where to_char(adjustDate, 'yyyy-MM') = #adjustDate# order by team
+    </select>
+
+    <!-- 查询工作量评定所需基础数据 -->
+    <select id="queryWorkloadInfo.select" parameterClass="map" resultClass="java.util.HashMap">
+        select
+        mem.id as id,
+        mem.member as member,
+        to_char(mem.teamLeader) as teamLeader,
+        zt.avgday as avgday,
+        zt.memberLevel as memberLevel,
+        dd.attenddays as attendDays,
+        dd.attendtarget as attendTarget,
+        dd.supplier as supplier,
+        dd.memberprice as memberprice,
+        dd.workoverdays as workoverdays
+        from
+        vm_ddclockinSum dd left join vm_zentaologSum zt
+        on (dd.member = zt.tname and dd.supplier = zt.currentsupplier and dd.memberprice = zt.memberprice
+        and dd.memberLevel = zt.memberLevel and to_number(to_char(dd.calcmonth,'yyyy')) = zt.tyear
+        and to_number(to_char(dd.calcmonth,'MM')) = zt.tmonth and zt.team = dd.team)
+        left join  vm_cap_outsourcemanagerdoc mem
+        on dd.member = mem.member
+        where to_char(dd.calcmonth,'yyyy/MM') = #calcMonth#
+
+        and dd.team = util_common.getEnumIdByShow(1822868929259851192,#team#)
+    </select>
+
+    <!-- 根据外协人员ID和日期区间查询外协人员调整信息 -->
+    <select id="queryAdjustInfo.select" parameterClass="map" resultClass="java.util.HashMap">
+        select
+        membername,
+        pm,
+        team,
+        entrydate,
+        adjusttype,
+        adjustdate,
+        chargedate,
+        currentsupplier,
+        currentLevel,
+        chargeenddate,
+        memberprice
+        from
+        vm_cap_outsourceadjust
+        where
+        membername = #member# and chargedate
+        between to_date(#startDate#,'yyyy-MM-dd')  and to_date(#endDate#,'yyyy-MM-dd')
+        order by
+        chargeDate asc
+    </select>
+
+    <!-- 根据外协人员名称和月起止日期查询外协人员本月离场日期 -->
+    <select id="queryAdjustOffDate.select" parameterClass="map" resultClass="java.util.HashMap">
+        select
+        to_char(offDate,'yyyy-mm-dd') as offdate
+        from
+        vm_cap_outsourceadjust
+        where
+        membername = #member# and offdate
+        between to_date(#startDate#,'yyyy-MM-dd')  and to_date(#endDate#,'yyyy-MM-dd')
+        and rownum = 1
+    </select>
+
+    <!-- 查询指定月份前人员最后一次调整信息（最新调整信息） -->
+    <select id="queryCurrentMemberAdjust.select" parameterClass="map" resultClass="java.util.HashMap">
+        select * from (
+        select
+        membername,
+        pm,
+        team,
+        entrydate,
+        adjusttype,
+        adjustdate,
+        chargedate,
+        currentsupplier,
+        currentLevel,
+        chargeenddate,
+        memberprice
+        from
+        vm_cap_outsourceadjust
+        where
+        membername = #member# and
+        chargedate &lt;= to_date(#calcMonth#,'yyyy-MM')
+        order by chargedate desc)
+        where rownum = 1
+    </select>
+
+    <!-- 查询指定日期前人员最后一次调整信息（最新调整信息） -->
+    <select id="queryMemberAdjustDate.select" parameterClass="map" resultClass="java.util.HashMap">
+        select * from (
+        select
+        membername,
+        pm,
+        team,
+        entrydate,
+        adjusttype,
+        adjustdate,
+        chargedate,
+        currentsupplier,
+        currentLevel
+        chargeenddate,
+        memberprice
+        from
+        vm_cap_outsourceadjust
+        where
+        membername = #member# and
+        chargedate &lt;= to_date(#calcMonth#,'yyyy-MM-dd')
+        order by chargedate desc)
+        where rownum = 1
+    </select>
+
+    <!-- 合并需求分布表求和 -->
+    <select id="queryRequireSum.select" parameterClass="map" resultClass="java.util.HashMap">
+        select
+        to_char(requireId) as requireId,
+        to_char(requireName) as requireName,
+        to_char(requireDept) as requireDept,
+        to_char(requireType) as requireType,
+        to_char(createDate,'yyyy/mm/dd') as createDate,
+        to_char(requireState) as requireState,
+        to_char(sum(operatorCost)) as operatorCost,
+        to_char(sum(operatorPrice)) as operatorPrice
+        from
+        vm_cap_requiredistribution
+        where
+        requireId is not null
+        and team = util_common.getEnumIdByShow(1822868929259851192,#team#)
+        and to_char(calcDate,'yyyy-MM') = #calcDate#
+        group by
+        requireId,requireName,requireDept,requireType,createDate,requireState
+    </select>
+
+    <!-- 根据时间查询供应商付费信息 -->
+    <select id="supplierPay.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select * from
+        vm_cap_supplierPay vp
+        left join
+        vm_cap_supplierPayson vps
+        on vp.id = vps.formmain_id  where to_char(vp.paydate, 'yyyy-MM') = #payDate# order by  member
+    </select>
+
+    <!-- 根据年月以及供应商查询当前供应商付款材料费用 -->
+    <select id="managerPriceTotal.select" resultClass="java.lang.String" parameterClass="java.util.HashMap">
+        select to_char(sum(adjustprice)) from vm_cap_adjustprice where  to_char(adjustdate, 'yyyy-MM') = #yearMonth# and  supplier = #supplier# and  pmconfirm = '同意'
+    </select>
+    <select id="checkFieldPersonnel.select" resultClass="java.util.HashMap" parameterClass="java.util.HashMap">
+        select
+        team,  /*团队   */
+        supplier,  /*服务商  */
+        member,  /*人员   */
+        to_char(checkDate, 'yyyy-mm-dd') checkDate,   /*考勤日期   */
+        amDate,  /*上班时间   */
+        amResult,  /*上班打卡   */
+        pmDate,  /*下班时间   */
+        pmResult,  /*下班打卡   */
+        census,  /*统计人天   */
+        checkResult,   /*抽查结论   */
+        checkSign,   /*抽查签字   */
+        note   /*备注   */
+        from vm_cap_checkfieldpersonnel vc where vc.supplier = #supplier# and to_char(vc.checkDate,'yyyy-mm') = #checkDate#
+    </select>
+
+    <!-- 根据需求ID查询任务类型 -->
+    <select id="queryRequireType.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select taskType from vm_zentaologdetail where requirementid = #requireId# and rownum = 1
+    </select>
+
+
+    <insert id="addWorkloadMain.insert" parameterClass="map">
+        insert into
+        vm_ctp_workcalc_main
+        (
+        id,
+        teamLeader,
+        calcDate,
+        calcPeriod,
+        ddDailySum,
+        logDailySum,
+        workoverSum,
+        calcFeeSum,
+        team,
+        remark,
+        teamManager
+        )
+        values
+        (
+        #id#,
+        util_user.getMemberNameByMemId(#teamLeader#),
+        #calcDate#,
+        to_date(#calcPeriod#,'yyyy-mm'),
+        #ddDailySum#,
+        #logDailySum#,
+        #workoverSum#,
+        #calcFeeSum#,
+        util_common.getEnumIdByShow(1822868929259851192,#team#),
+        #remark#,
+        #teamManager#
+        )
+
+    </insert>
+
+    <!-- 根据时间查询工作量核算总表 -->
+    <select id="queryWorkloadMain.select" parameterClass="map" resultClass="java.util.HashMap">
+        select
+        to_char(id) as id,
+        to_char(teamLeader) as teamLeader,
+        to_char(calcDate) as calcDate,
+        to_char(calcPeriod,'yyyy-mm') as calcPeriod,
+        to_char(ddDailySum) as ddDailySum,
+        to_char(logDailySum) as logDailySum,
+        to_char(workoverSum) as workoverSum,
+        to_char(calcFeeSum) as calcFeeSum,
+        to_char(team) as team,
+        to_char(remark) as remark
+        from
+        vm_ctp_workcalc_main
+        where
+        to_char(calcPeriod,'yyyy-mm') = #calcMonth#
+        and team = util_common.getEnumIdByShow(1822868929259851192,#team#)
+    </select>
+
+    <!--工作量核算删除 -->
+    <delete id="removeWorkloadMain.delete" parameterClass="map">
+        delete from
+        vm_ctp_workcalc_main
+        where
+        id = #workLoadId#
+    </delete>
+
+
+    <insert id="addWorkloadSub.insert" parameterClass="map">
+        insert into
+        vm_ctp_workcalc_sub
+        (
+        id,
+        formmain_id,
+        member,
+        supplier,
+        ddDaily,
+        logDaily,
+        targetDaily,
+        workover,
+        memberPrice,
+        calcPrice,
+        memberLevel,
+        pmAdjust,
+        pmSign,
+        pmRemark
+        )
+        values
+        (
+        #id#,
+        #formmain_id#,
+        #member#,
+        #supplier#,
+        #ddDaily#,
+        #logDaily#,
+        #targetDaily#,
+        #workover#,
+        #memberPrice#,
+        #calcPrice#,
+        #memberLevel#,
+        #pmAdjust#,
+        #pmSign#,
+        #pmRemark#
+        )
+
+    </insert>
+
+
+    <!-- 根据主表ID查询子表 -->
+    <select id="queryWorkloadSub.select" parameterClass="map" resultClass="java.util.HashMap">
+        select
+        to_char(id) as id,
+        to_char(formmain_id) as formmain_id,
+        to_char(member) as member,
+        to_char(supplier) as supplier,
+        to_char(ddDaily) as ddDaily,
+        to_char(logDaily) as logDaily,
+        to_char(workover) as workover,
+        to_char(memberPrice) as memberPrice,
+        to_char(calcPrice) as calcPrice,
+        to_char(memberLevel) as memberLevel,
+        to_char(pmAdjust) as pmAdjust,
+        to_char(pmSign) as pmSign,
+        to_char(pmRemark) as pmRemark
+        from
+        vm_ctp_workcalc_sub
+        where
+        formmain_id = #id#
+        order by to_char(supplier)
+    </select>
+    <!--工作量核算子表删除 -->
+    <delete id="removeWorkloadSub.delete" parameterClass="map">
+        delete from
+        vm_ctp_workcalc_sub
+        where
+        formmain_id = #workLoadId#
+    </delete>
+
+
+    <!-- 查询所有团队名称 -->
+    <select id="queryAllTeam.select" parameterClass="map" resultClass="java.lang.String">
+        select
+        showvalue
+        from
+        ctp_enum_item
+        where
+        ref_enumid = 1822868929259851192
+    </select>
+
+    <select id="supplierpayinfo.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        supplier,
+        to_char(calcPeriod,'yyyy') calcyear,
+        to_char(calcPeriod,'mm') CALCMONTH,
+        util_common.getEnumShowById(team)  team,
+        teamManager,
+        member,
+        to_char(calcPeriod ,'yyyy-mm') calcPeriod,
+        memberlevel,
+        memberPrice,
+        targetDaily,
+        ddDaily,
+        logDaily,
+        workover,
+        calcPrice from
+        vm_ctp_workcalc_sub  c1
+        left join
+        vm_ctp_workcalc_main c2
+        on c1.formmain_id = c2.id
+        where to_char(calcPeriod ,'yyyy-mm') = #calcDate#
+    </select>
+
+    <select id = "adjustSupplier" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        supplier,
+        pm ,
+        util_common.getEnumShowById(team) team,
+        member,
+        adjusttype,
+        adjustDate   ,
+        entryDate    ,
+        monthlyPrice ,
+        adjustPrice  ,
+        explain      ,
+        pmConfirm    ,
+        signature    ,
+        adjustReason ,
+        memberlevel,
+        remark
+        from vm_cap_adjustprice where to_char(adjustDate, 'yyyy-mm') =    #calcDate#
+    </select>
+    <delete id="supplierPayMain.delete" parameterClass="java.lang.String">
+        delete vm_cap_supplierpay c where to_char(c.paydate, 'yyyy-mm') = #years#
+    </delete>
+    <delete id="supplierPaySon.delete" parameterClass="java.util.HashMap">
+        delete vm_cap_supplierpayson c where c.calcyear = #year# and c.calcmonth = #month#
+    </delete>
+
+    <!-- 插入需求核算子表 -->
+    <insert id="addRequireCalcSub.insert" parameterClass="map">
+        insert into vm_cap_require_sub
+        (ID,
+        FORMMAIN_ID,
+        requireId,
+        requireType,
+        requireName,
+        requireDept,
+        createDate,
+        requireState,
+        operatorCost,
+        operatorPrice
+        )
+        values
+        (
+        #id#,
+        #formmain_id#,
+        #requireId#,
+        #requireType#,
+        #requireName#,
+        #requireDept#,
+        #createDate#,
+        #requireState#,
+        #operatorCost#,
+        #operatorPrice#
+        )
+    </insert>
+
+    <!-- 根据主表ID查询需求核算子表 -->
+    <select id="queryRequireCalcSub.select" parameterClass="map" resultClass="java.util.HashMap">
+        select
+        to_char(requireId) as requireId,
+        to_char(requireType) as requireType,
+        to_char(requireName) as requireName,
+        to_char(requireDept) as requireDept,
+        to_char(createDate) as createDate,
+        to_char(requireState) as requireState,
+        to_char(operatorCost) as operatorCost,
+        to_char(operatorPrice) as operatorPrice
+        from
+        vm_cap_require_sub
+        where
+        formmain_id = #id#
+    </select>
+    <!--需求核算子表删除 -->
+    <delete id="removeRequireCalcSub.delete" parameterClass="map">
+        delete from
+        vm_cap_require_sub
+        where
+        formmain_id = #requireCalcId#
+    </delete>
+
+    <!-- 插入需求核算主表 -->
+    <insert id="addRequireCalcMain.insert" parameterClass="map">
+        insert into
+        vm_cap_require_main
+        (
+        id,
+        team,
+        costSum,
+        priceSum,
+        remark,
+        pm,
+        requireOperatorCost,
+        requireOperatorPrice,
+        bugOperatorCost,
+        bugOperatorPrice,
+        maintanceOperatorCost,
+        maintanceOperatorPrice,
+        otherOperatorCost,
+        otherOperatorPrice,
+        calcPeriod
+        )
+        values
+        (
+        #id#,
+        util_common.getEnumIdByShow(1822868929259851192,#team#),
+        #costSum#,
+        #priceSum#,
+        #remark#,
+        #pm#,
+        #requireOperatorCost#,
+        #requireOperatorPrice#,
+        #bugOperatorCost#,
+        #bugOperatorPrice#,
+        #maintanceOperatorCost#,
+        #maintanceOperatorPrice#,
+        #otherOperatorCost#,
+        #otherOperatorPrice#,
+        #calcPeriod#
+        )
+
+    </insert>
+
+    <!-- 根据时间查询需求核算总表 -->
+    <select id="queryRequireCalcMain.select" parameterClass="map" resultClass="java.util.HashMap">
+        select
+
+        to_char(id) as id,
+        to_char(team) as team,
+        to_char(calcPeriod) as calcPeriod,
+        to_char(costSum) as costSum,
+        to_char(priceSum) as priceSum,
+        to_char(remark) as remark,
+        to_char(pm) as pm,
+        to_char(id) as id,
+        to_char(requireOperatorCost) as requireOperatorCost,
+        to_char(requireOperatorPrice) as requireOperatorPrice,
+        to_char(bugOperatorCost) as bugOperatorCost,
+        to_char(bugOperatorPrice) as bugOperatorPrice,
+        to_char(maintanceOperatorCost) as maintanceOperatorCost,
+        to_char(maintanceOperatorPrice) as maintanceOperatorPrice,
+        to_char(otherOperatorCost) as otherOperatorCost,
+        to_char(otherOperatorPrice) as otherOperatorPrice
+
+        from
+        vm_cap_require_main
+        where
+        calcPeriod = #calcMonth#
+        and team = util_common.getEnumIdByShow(1822868929259851192,#team#)
+    </select>
+
+    <!--工作量核算主表删除 -->
+    <delete id="removeRequireCalcMain.delete" parameterClass="map">
+        delete from
+        vm_cap_require_main
+        where
+        id = #requireCalcId#
+    </delete>
+
+
+
+    <insert id="suppplierPayMain.insert" parameterClass="java.util.HashMap">
+        insert into vm_cap_supplierpay
+        (id,
+        paydate ,
+        supplier   ,
+        baseMoney  ,
+        adjustMoney  ,
+        payMoney ,
+        mainManday ,
+        maincheckday,
+        mainlogday,
+        mainworkovertimeday
+        )
+        values
+        （ #id#,
+        #paydate#,
+        #supplier#,
+        #baseMoney#,
+        #adjustMoney#,
+        #payMoney#,
+        #mainManday#,
+        #maincheckday#,
+        #mainlogday#,
+        #mainworkovertimeday#
+        )
+
+    </insert>
+    <insert id="supplierPaySon.insert" parameterClass="java.util.HashMap">
+        insert into vm_cap_supplierpayson
+        (ID,
+        FORMMAIN_ID,
+        team      ,
+        teamManager,
+        member ,
+        calcyear ,
+        calcmonth ,
+        memberlevel,
+        memberPrice,
+        targetDaily,
+        ddDaily ,
+        logDaily,
+        workover  ,
+        calcPrice,
+        adjustprice,
+        payprice,
+        pm ,
+        adjusttype)
+        values
+        (#ID#,
+        #FORMMAIN_ID#,
+        #TEAM#,
+        #TEAMMANAGER#,
+        #MEMBER#,
+        #CALCYEAR#,
+        #CALCMONTH#,
+        #MEMBERLEVEL#,
+        #MEMBERPRICE#,
+        #TARGETDAILY#,
+        #DDDAILY#,
+        #LOGDAILY#,
+        #WORKOVER#,
+        #CALCPRICE#,
+        #ADJUSTPRICE#,
+        #PAYPRICE#,
+        #PM#,
+        #ADJUSTTYPE#)
+    </insert>
+
+    <!-- 查询日志明细中类型为缺陷、运维或其他的日志 -->
+    <select id="queryBugMaintanceOther.select" parameterClass="map" resultClass="java.util.HashMap">
+        select
+        to_char(requirementid) as requirementid,
+        to_char(requirementname) as requirementname,
+        to_char(expectedcost) as expectedcost,
+        to_char(username) as username,
+        to_char(finishedDate,'yyyy-mm-dd') as finishedDate,
+        to_char(startDate,'yyyy-mm-dd') as startDate,
+        to_char(endDate,'yyyy-mm-dd') as endDate,
+        to_char(tasktype) as tasktype
+        from
+        vm_zentaologdetail
+        where
+        tasktype != '需求'
+        and to_char(calcmonth,'yyyy-mm') = #calcMonth#
+        and userTeam = util_common.getEnumIdByShow(1822868929259851192,#team#)
+    </select>
+
+
+    <!-- 查询本月外勤人员人数 -->
+    <select id="queryOutsideMemCount.select" parameterClass="map" resultClass="java.util.HashMap">
+        select
+        member
+        from vm_cap_clockinrecord
+        where
+        (AMPUNCHRESULT = '外勤' or PMPUNCHRESULT = '外勤')
+        and to_char(punchdate,'yyyy-mm') = #calcMonth#
+        and belongTeam = util_common.getEnumIdByShow(1822868929259851192,#team#)
+        group by member
+
+    </select>
+
+    <!-- 查询本月外勤人员人天 -->
+    <select id="queryOutsidePunchCount.select" parameterClass="map" resultClass="java.util.HashMap">
+        select
+        sum(
+        case
+        when
+        (AMPUNCHRESULT = '外勤' and PMPUNCHRESULT != '外勤')
+        or
+        (AMPUNCHRESULT != '外勤' and PMPUNCHRESULT = '外勤')
+        then
+        0.5
+        else
+        1
+        end
+        ) as sum
+        from vm_cap_clockinrecord
+        where
+        (AMPUNCHRESULT = '外勤' or PMPUNCHRESULT = '外勤')
+        and to_char(punchdate,'yyyy-mm') = #calcMonth#
+        and belongTeam = util_common.getEnumIdByShow(1822868929259851192,#team#)
+
+
+    </select>
+
+    <!-- 查询某员工本年内加班天数总计（12月份统计时） -->
+    <select id="queryWorkoverSum.select" parameterClass="map" resultClass="java.lang.String">
+        select
+        sum(workoverdays) as sum
+        from vm_ddclockinSum
+        where
+        to_char(calcmonth,'yyyy') = #calcMonth#
+        and member = #member#
+        group by member
+
+
+    </select>
+
+    <!-- 查询管办抽查外勤人员人数 -->
+    <select id="queryNumberOfCheckField.select" parameterClass="map" resultClass="java.lang.String">
+        select count(1)
+        from vm_cap_checkfieldpersonnel
+        where team = #team# and to_char(checkdate,'yyyy-mm') = 'calcMonth'
+
+    </select>
+
+    <!-- 查询当月所有的人员变动记录 -->
+    <select id="getMonthlyAdjustMemberInfo.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        membername,
+        pm,
+        team,
+        entrydate,
+        adjusttype,
+        adjustdate,
+        chargedate,
+        currentsupplier,
+        currentLevel,
+        chargeenddate,
+        memberprice
+        from vm_cap_outsourceadjust
+        where (adjustDate is not null and to_char(adjustDate,'yyyy-mm') = #currentMonth#) or (chargeDate is not null and to_char(chargeDate,'yyyy-mm') = #currentMonth#)
+    </select>
+
+    <insert id="insertExternalChargeLong.insert" parameterClass="java.util.HashMap">
+        insert into vm_cap_ExternalChargeLog
+        (id,
+        state             ,
+        start_member_id   ,
+        start_date        ,
+        approve_member_id ,
+        approve_date      ,
+        finishedflag      ,
+        ratifyflag        ,
+        ratify_member_id  ,
+        ratify_date       ,
+        sort              ,
+        modify_member_id  ,
+        modify_date       ,
+        memberId,
+        operateTime,
+        operateName,
+        operateResult,
+        logDetail )
+        values
+        (
+        #id#,
+        1,
+        #memberId#,
+        SYSDATE,
+        0,
+        SYSDATE,
+        0,
+        0,
+        0,
+        null,
+        0,
+        -6760911671874597139,
+        SYSDATE,
+        #memberId#,
+        sysdate,
+        #operateName#,
+        #operateResult#,
+        #logDetail#
+        )
+    </insert>
+
+
+</sqlMap>

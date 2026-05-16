@@ -1,0 +1,689 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+    <!-- 部门岗位变更备选人员查询  -->
+    <select id="selectFundProductCodes.select" resultClass="java.util.HashMap" parameterClass="java.lang.String">
+        select productCode as "productCode",productType as "productType" from VM_APPROVESON where formmain_id = #formId#
+    </select>
+
+    <!-- 查询CAP4产品合同子表 -->
+    <select id="selectFundProductCodesCap4.select" resultClass="java.util.HashMap" parameterClass="java.lang.String">
+        select productCode as "productCode",to_char(productType) as "productType",productname as "productName" from vm_cap_approveson where formmain_id = #formId#
+    </select>
+
+
+
+    <select id="smallFundByDateRegion.select" parameterClass="java.util.HashMap" resultClass="com.seeyon.apps.kk.productcontract.model.SmallFundInfoDTO">
+        select
+        id,
+        to_char(dt_dt, 'yyyy-mm-dd') dt_dt,
+        cnfr_dt,
+        fnd_cd,
+        fnd_nm,
+        fnd_typ,
+        ntvl_dt,
+        is_intt_typ,
+        smll_fnd_mdl,
+        smll_fnd_scl,
+        smll_fnd_accn_nmbr,
+        cntn_dys,
+        cntn_how_mch_day_ovrr,
+        fnd_scl,
+        fnd_accn_nmbr,
+        estb_3yr_day,
+        fnd_mngr,
+        prdc_mngr
+        from vm_smll_fnd_dt_infr where dt_dt between to_date(#beginDate#, 'yyyymmdd') and to_date(#endDate#, 'yyyymmdd')
+    </select>
+
+    <select id="smallFundByConfirmDate.select" parameterClass="java.util.HashMap" resultClass="com.seeyon.apps.kk.productcontract.model.SmallFundInfoDTO">
+        select
+        id,
+        to_char(dt_dt, 'yyyy-mm-dd') dt_dt,
+        cnfr_dt,
+        fnd_cd,
+        fnd_nm,
+        fnd_typ,
+        ntvl_dt,
+        is_intt_typ,
+        smll_fnd_mdl,
+        smll_fnd_scl,
+        smll_fnd_accn_nmbr,
+        cntn_dys,
+        cntn_how_mch_day_ovrr,
+        fnd_scl,
+        fnd_accn_nmbr,
+        estb_3yr_day,
+        fnd_mngr,
+        prdc_mngr,
+        dl_rng
+        from vm_smll_fnd_dt_infr where ntvl_dt >= #confirmDate# order by ntvl_dt asc
+    </select>
+
+    <insert id="smallFund.insert" parameterClass="com.seeyon.apps.kk.productcontract.model.SmallFundInfoDTO">
+        insert into vm_smll_fnd_dt_infr
+        (id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        dt_dt,
+        cnfr_dt,
+        fnd_cd,
+        fnd_nm,
+        fnd_typ,
+        ntvl_dt,
+        is_intt_typ,
+        smll_fnd_mdl,
+        smll_fnd_scl,
+        smll_fnd_accn_nmbr,
+        cntn_dys,
+        cntn_how_mch_day_ovrr,
+        fnd_scl,
+        fnd_accn_nmbr,
+        estb_3yr_day,
+        fnd_mngr,
+        prdc_mngr,
+        dl_rng
+        )values(
+        #id#,
+        1,
+        -6760911671874597139,
+        sysdate,
+        0,
+        null,
+        1,
+        0,
+        0,
+        null,
+        0,
+        null,
+        null,
+        to_date(#dt_dt#, 'yyyy-mm-dd'),
+        to_date(#cnfr_dt#,'yyyy-mm-dd'),
+        #fnd_cd#,
+        #fnd_nm#,
+        #fnd_typ#,
+        to_date(#ntvl_dt#,'yyyy-mm-dd'),
+        #is_intt_typ#,
+        #smll_fnd_mdl#,
+        #smll_fnd_scl#,
+        #smll_fnd_accn_nmbr#,
+        #cntn_dys#,
+        #cntn_how_mch_day_ovrr#,
+        #fnd_scl#,
+        #fnd_accn_nmbr#,
+        decode(#estb_3yr_day#, null, null, to_date(#estb_3yr_day#, 'yyyy-mm-dd')),
+        #fnd_mngr#,
+        #prdc_mngr#,
+        #dl_rng#
+        )
+    </insert>
+
+
+
+    <insert id="smallFundToSendRecord.insert" parameterClass="java.util.HashMap" >
+        insert into vm_cap_smallfundSend
+        (id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        writeDate,
+        fundCode,
+        fundName,
+        fundType,
+        triggerValue,
+        triggerAccount,
+        checkType,
+        smallFundModel
+        )values(
+        #id#,
+        1,
+        -6760911671874597139,
+        sysdate,
+        0,
+        null,
+        1,
+        0,
+        0,
+        null,
+        0,
+        null,
+        null,
+        to_date(#writeDate#, 'yyyy-mm-dd'),
+        #fundCode#,
+        #fundName#,
+        #fundType#,
+        #triggerValue#,
+        #triggerAccount#,
+        #checkType#,
+        #smallFundModel#
+        )
+    </insert>
+
+    <insert id="smallFundToSendRecordSon.insert" parameterClass="java.util.HashMap" >
+        insert into vm_cap_smallfundSend_son
+        (id,
+        formmain_id,
+        continue1,
+        continue10,
+        continue20,
+        valueConfirm,
+        accountConfirm,
+        dialogFlowState,
+        decisionFlowState
+        )values(
+        #id#,
+        #formmain_id#,
+        to_date(#continue1#, 'yyyy-mm-dd'),
+        to_date(#continue10#, 'yyyy-mm-dd'),
+        to_date(#continue20#, 'yyyy-mm-dd'),
+        #valueConfirm#,
+        #accountConfirm#,
+        #dialogFlowState#,
+        #decisionFlowState#
+        )
+    </insert>
+
+    <select id="smallFundToSendRecord.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        main.id as "id",
+        main.writeDate as "writeDate",
+        main.fundCode as "fundCode",
+        main.fundName as "fundName",
+        main.fundType as "fundType",
+        main.triggerValue as "triggerValue",
+        main.triggerAccount as "triggerAccount",
+        main.checkType as "checkType",
+        son.ID as "sonId",
+        son.formmain_id as "formmianId",
+        son.continue1 as "continue1",
+        son.continue10 as "continue10",
+        son.continue20 as "continue20",
+        son.valueConfirm as "valueConfirm",
+        son.accountConfirm as "accountConfirm",
+        son.dialogFlowState as "dialogFlowState",
+        son.decisionFlowState as "decisionFlowState",
+        son.dialogFlowSerialNo as "dialogFlowSerialNo",
+        son.decisionFlowSerialNo as "decisionFlowSerialNo",
+        main.smallFundModel as "smallFundModel"
+        from vm_cap_smallfundSend main left join vm_cap_smallfundSend_Son son on main.id = son.formmain_id
+        where main.fundCode = #fundCode#
+        order by son.continue1 desc
+    </select>
+
+
+    <select id="smallFundToSendRecordDialogToSend.select" parameterClass="java.util.Date" resultClass="java.util.HashMap">
+        select
+        main.id as "id",
+        main.writeDate as "writeDate",
+        main.fundCode as "fundCode",
+        main.fundName as "fundName",
+        main.fundType as "fundType",
+        main.triggerValue as "triggerValue",
+        main.triggerAccount as "triggerAccount",
+        main.checkType as "checkType",
+        son.ID as "sonId",
+        son.formmain_id as "formmianId",
+        son.continue1 as "continue1",
+        son.continue10 as "continue10",
+        son.continue20 as "continue20",
+        son.valueConfirm as "valueConfirm",
+        son.accountConfirm as "accountConfirm",
+        son.dialogFlowState as "dialogFlowState",
+        son.decisionFlowState as "decisionFlowState",
+        son.dialogFlowSerialNo as "dialogFlowSerialNo",
+        son.decisionFlowSerialNo as "decisionFlowSerialNo",
+        main.smallFundModel as "smallFundModel"
+        from vm_cap_smallfundSend main right join
+        (select * from vm_cap_smallfundSend_Son where continue10 > #beginDate#  and dialogFlowState = -1089048568118490234) son on main.id = son.formmain_id
+        where main.checkType in ('普通开放式','发起式成立满3年后','定期开放封闭期内')
+    </select>
+
+    <select id="smallFundToSendRecordDecisionToSend.select" parameterClass="java.util.Date" resultClass="java.util.HashMap">
+        select
+        main.id as "id",
+        main.writeDate as "writeDate",
+        main.fundCode as "fundCode",
+        main.fundName as "fundName",
+        main.fundType as "fundType",
+        main.triggerValue as "triggerValue",
+        main.triggerAccount as "triggerAccount",
+        main.checkType as "checkType",
+        son.ID as "sonId",
+        son.formmain_id as "formmianId",
+        son.continue1 as "continue1",
+        son.continue10 as "continue10",
+        son.continue20 as "continue20",
+        son.valueConfirm as "valueConfirm",
+        son.accountConfirm as "accountConfirm",
+        son.dialogFlowState as "dialogFlowState",
+        son.decisionFlowState as "decisionFlowState",
+        son.dialogFlowSerialNo as "dialogFlowSerialNo",
+        son.decisionFlowSerialNo as "decisionFlowSerialNo",
+        main.smallFundModel as "smallFundModel"
+        from vm_cap_smallfundSend main right join
+        (select * from vm_cap_smallfundSend_Son where  continue20 > #beginDate# and dialogFlowState = -3841538853571705149 and decisionFlowState = -1089048568118490234) son
+        on main.id = son.formmain_id
+        where main.checkType in ('普通开放式','发起式成立满3年后','定期开放封闭期内')
+    </select>
+
+
+    <select id="smallFundToSendRecordInitiatingFund.select" parameterClass="java.util.Date" resultClass="java.util.HashMap">
+        select
+        main.id as "id",
+        main.writeDate as "writeDate",
+        main.fundCode as "fundCode",
+        main.fundName as "fundName",
+        main.fundType as "fundType",
+        main.triggerValue as "triggerValue",
+        main.triggerAccount as "triggerAccount",
+        main.checkType as "checkType",
+        son.ID as "sonId",
+        son.formmain_id as "formmianId",
+        son.continue1 as "continue1",
+        son.continue10 as "continue10",
+        son.continue20 as "continue20",
+        son.valueConfirm as "valueConfirm",
+        son.accountConfirm as "accountConfirm",
+        son.dialogFlowState as "dialogFlowState",
+        son.decisionFlowState as "decisionFlowState",
+        son.dialogFlowSerialNo as "dialogFlowSerialNo",
+        son.decisionFlowSerialNo as "decisionFlowSerialNo",
+        main.smallFundModel as "smallFundModel"
+        from vm_cap_smallfundSend main right join
+        (select * from vm_cap_smallfundSend_Son where  continue1 > #beginDate# and dialogFlowState = -1089048568118490234 and decisionFlowState = -1089048568118490234) son
+        on main.id = son.formmain_id
+        where main.checkType in ('发起式成立未满3年(成立满3年后的对日前10个工作日)','发起式成立未满3年(成立满3年后的对日前一个月)')
+    </select>
+
+    <select id="smallFundToSendDecisionRecordInitiatingFund.select" parameterClass="java.util.Date" resultClass="java.util.HashMap">
+        select
+        main.id as "id",
+        main.writeDate as "writeDate",
+        main.fundCode as "fundCode",
+        main.fundName as "fundName",
+        main.fundType as "fundType",
+        main.triggerValue as "triggerValue",
+        main.triggerAccount as "triggerAccount",
+        main.checkType as "checkType",
+        son.ID as "sonId",
+        son.formmain_id as "formmianId",
+        son.continue1 as "continue1",
+        son.continue10 as "continue10",
+        son.continue20 as "continue20",
+        son.valueConfirm as "valueConfirm",
+        son.accountConfirm as "accountConfirm",
+        son.dialogFlowState as "dialogFlowState",
+        son.decisionFlowState as "decisionFlowState",
+        son.dialogFlowSerialNo as "dialogFlowSerialNo",
+        son.decisionFlowSerialNo as "decisionFlowSerialNo",
+        main.smallFundModel as "smallFundModel"
+        from vm_cap_smallfundSend main right join
+        (select * from vm_cap_smallfundSend_Son where  continue1
+        > #beginDate# and dialogFlowState = -3841538853571705149 and decisionFlowState = -1089048568118490234) son
+        on main.id = son.formmain_id
+        where main.checkType in ('发起式成立未满3年(成立满3年后的对日前10个工作日)','发起式成立未满3年(成立满3年后的对日前一个月)')
+    </select>
+
+
+
+    <select id="getSmallFundNumber.select" parameterClass="java.util.Date" resultClass="java.lang.Integer">
+        select
+        count(id) as "number"
+        from vm_SMLL_FND_DT_INFR  where to_char(dt_dt,'yyyy-MM-dd') = to_char(#date#,'yyyy-MM-dd')
+    </select>
+
+    <update id="productInvestmentDep.update" parameterClass="java.util.HashMap">
+        update vm_product_change set
+        tztxOnejjOneMember = #investmentDepOneFMOne#
+        <isNotEmpty property="investmentDepOne">
+            ,tztxOneMember = #investmentDepOne#
+        </isNotEmpty>
+        <isNotEmpty property="regularMembers">
+            ,regularMembers = #regularMembers#
+        </isNotEmpty>
+        where id = #id#
+    </update>
+    <update id="smallFundToSendRecordSon.update" parameterClass="java.util.HashMap">
+        update vm_cap_smallfundSend_son set
+        id = id
+        <isNotEmpty property="continue10">
+            ,continue10 = to_date(#continue10#, 'yyyy-mm-dd')
+        </isNotEmpty>
+        <isNotEmpty property="continue20">
+            ,continue20 = to_date(#continue20#, 'yyyy-mm-dd')
+        </isNotEmpty>
+        <isNotEmpty property="valueConfirm">
+            ,valueConfirm = #valueConfirm#
+        </isNotEmpty>
+        <isNotEmpty property="accountConfirm">
+            ,accountConfirm = #accountConfirm#
+        </isNotEmpty>
+        <isNotEmpty property="dialogFlowState">
+            ,dialogFlowState = #dialogFlowState#
+        </isNotEmpty>
+        <isNotEmpty property="decisionFlowState">
+            ,decisionFlowState = #decisionFlowState#
+        </isNotEmpty>
+        <isNotEmpty property="dialogFlowSerialNo">
+            ,dialogFlowSerialNo = #dialogFlowSerialNo#
+        </isNotEmpty>
+        <isNotEmpty property="decisionFlowSerialNo">
+            ,decisionFlowSerialNo = #decisionFlowSerialNo#
+        </isNotEmpty>
+        where id = #id#
+    </update>
+
+    <select id="getFundInfoByFundCode.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        pirid as "pirid",
+        fundkind as "fundkind",
+        prdcode as "prdcode",
+        prdname as "prdname",
+        fdshotnm as "fdshotnm",
+        status as "status",
+        productManager as "productManager",
+        fundAdmin as "fundAdmin",
+        saleManager as "saleManager",
+        regularMember as "regularMember",
+        productTypeMonthly as "productTypeMonthly",
+        taOperateManager as "taOperateManager"
+        from vm_fundproductinfo where prdcode = #fundCode#
+
+    </select>
+
+    <select id="getFundInfoByProductId.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        pirid as "pirid",
+        fundkind as "fundkind",
+        prdcode as "prdcode",
+        prdname as "prdname",
+        fdshotnm as "fdshotnm",
+        status as "status",
+        productManager as "productManager",
+        fundAdmin as "fundAdmin",
+        saleManager as "saleManager",
+        regularMember as "regularMember",
+        productTypeMonthly as "productTypeMonthly",
+        taOperateManager as "taOperateManager"
+        from vm_fundproductinfo where pirid = #productId#
+
+    </select>
+
+
+    <select id="getFundManagerByFundCode.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select
+        fundmanagername as "fundmanagername"
+        from vm_fundproductinfoson where formmain_id = (select id from vm_fundproductinfo where prdcode = #fundCode#)
+    </select>
+
+    <select id="getFundManagerByPirId.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select
+        fundmanagername as "fundmanagername"
+        from vm_fundproductinfoson where formmain_id = (select id from vm_fundproductinfo where pirid = #pirid#)
+    </select>
+
+    <select id="getRegularMemberByPirId.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select regularMember from vm_fundproductinfo where pirid = #pirid#
+    </select>
+
+    <select id="getProductCodeList.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select
+        productCode_detail
+        from vm_product_changeson where formmain_id = #id#
+    </select>
+
+
+    <select id="getPublicFundApprovalByFundCode.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        t1.id as "id",
+        t1.fundCode as "fundCode",
+        t1.productName as "productName",
+        t1.institutionCheckMember as "institutionCheckMember",
+        t1.retailCheckMember as "retailCheckMember",
+        t1.electricCheckMember as "electricCheckMember",
+        t2.subject as "flowTitle"
+        from vm_wf_publicFundApproval t1 left join col_summary t2
+        on t1.id = t2.form_recordId
+        where t1.fundCode = #fundCode# and t1.finishedflag = 1
+    </select>
+
+
+    <insert id="attachFlowColumn.insert" parameterClass="java.util.HashMap">
+        insert into CAP_FORM_RELATION_RECORD (
+        ID,
+        FROM_MASTERDATA_ID,
+        TO_MASTERDATA_ID,
+        FIELD_NAME,
+        FORM_TYPE,
+        TYPE,
+        MEMBER_ID,
+        FROM_SUBDATA_ID,
+        TO_SUBDATA_ID,
+        FROM_FORM_ID,
+        TO_FORM_ID,
+        RELATION_SHIP_ID,
+        VIEW_THROUGH,
+        DATA_INFO)
+        values (
+        util_common.getAbsID,
+        (select form_recordId from col_summary where id = #colId#),
+        (select id from col_summary where form_recordid=#flowId#),
+        #fieldName#,
+        '1',
+        '1',
+        #memberId#,
+        null,
+        null,
+        #fromFormId#,
+        #toFormId#,
+        #relationShipId#,
+        '1',
+        #dataInfo#
+        )
+
+    </insert>
+
+    <insert id="attachSmallFundDialogFlow.insert" parameterClass="java.util.HashMap">
+        insert into CAP_FORM_RELATION_RECORD (
+        ID,
+        FROM_MASTERDATA_ID,
+        TO_MASTERDATA_ID,
+        FIELD_NAME,
+        FORM_TYPE,
+        TYPE,
+        MEMBER_ID,
+        FROM_SUBDATA_ID,
+        TO_SUBDATA_ID,
+        FROM_FORM_ID,
+        TO_FORM_ID,
+        RELATION_SHIP_ID,
+        VIEW_THROUGH,
+        DATA_INFO)
+        values (
+        util_common.getAbsID,
+        (select form_recordId from col_summary where id = #colId#),
+        (select id from col_summary where form_recordid=#flowId#),
+        'field0009',
+        '1',
+        '1',
+        '1374924066090270886',
+        null,
+        null,
+        '4783741118343891633',
+        '4783741118343891633',
+        '3479334232820894850',
+        '1',
+        '{"pcView":"7262546445818547798.-2667544057049756824","phoneView":"7262546445818547798.-2667544057049756824"}'
+        )
+
+    </insert>
+
+
+
+    <select id="smallFundToSendRecordDuplicateCheck.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        ID as "id",
+        formmain_id as "formmianId",
+        continue1 as "continue1",
+        continue10 as "continue10",
+        continue20 as "continue20",
+        valueConfirm as "valueConfirm",
+        accountConfirm as "accountConfirm",
+        dialogFlowState as "dialogFlowState",
+        decisionFlowState as "decisionFlowState"
+        from vm_cap_smallfundSend_Son
+        where formmain_id = #formmain_id# and continue1 is not null and to_char(continue1,'yyyy-mm-dd') = #continue1#
+        order by continue1 desc
+    </select>
+
+
+    <select id="getSmallFundDialogFlowByColId.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        serialNo as "serialNo",
+        fundCode as "fundCode",
+        sender as "sender",
+        sentDept as "sentDept",
+        sendDate as "sendDate",
+        fundName as "fundName",
+        triggerAccount as "triggerAccount",
+        triggerValue as "triggerValue",
+        smallFundCount as "smallFundCount",
+        continue1Date as "continue1Date",
+        toClearDays as "toClearDays",
+        approvalFlow as "approvalFlow",
+        investmentDepOne as "investmentDepOne",
+        investmentDepOneFM as "investmentDepOneFM",
+        institutionCheckMember as "institutionCheckMember",
+        brokerCheckMember as "brokerCheckMember",
+        retailCheckMember as "retailCheckMember",
+        electricCheckMember as "electricCheckMember",
+        riskCheckMember as "riskCheckMember",
+        financeCheckMember as "financeCheckMember",
+        marketCheckMember as "marketCheckMember",
+        investmentDepTwo as "investmentDepTwo",
+        investmentDepThree as "investmentDepThree",
+        investmentDepTwoFM as "investmentDepTwoFM",
+        investmentDepThreeFM as "investmentDepThreeFM",
+        clearDateConfirm as "clearDateConfirm",
+        taOperateManager as "taOperateManager",
+        regularMember as "regularMember"
+        from vm_cap_wf_smallfundDialog where id = (select form_recordId from col_summary where id = #colId#)
+    </select>
+
+    <select id="getSmallFundDecisionFlowByColId.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        id as "id",
+        serialNo as "serialNo",
+        fundCode as "fundCode",
+        sender as "sender",
+        sentDept as "sentDept",
+        sendDate as "sendDate",
+        fundName as "fundName",
+        approvalFlow as "approvalFlow",
+        investmentDepOne as "investmentDepOne",
+        investmentDepOneFM as "investmentDepOneFM",
+        institutionCheckMember as "institutionCheckMember",
+        brokerCheckMember as "brokerCheckMember",
+        retailCheckMember as "retailCheckMember",
+        electricCheckMember as "electricCheckMember",
+        riskCheckMember as "riskCheckMember",
+        financeCheckMember as "financeCheckMember",
+        investmentDepTwo as "investmentDepTwo",
+        investmentDepThree as "investmentDepThree",
+        investmentDepTwoFM as "investmentDepTwoFM",
+        investmentDepThreeFM as "investmentDepThreeFM",
+        regularMember as "regularMember"
+        from vm_cap_wf_smallfundDecision where id = (select form_recordId from col_summary where id = #colId#)
+    </select>
+
+    <select id="getSmallFundDialogFlowBySerialNo.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        t1.id as "id",
+        t1.serialNo as "serialNo",
+        t1.fundCode as "fundCode",
+        t1.sender as "sender",
+        t1.sentDept as "sentDept",
+        t1.sendDate as "sendDate",
+        t1.fundName as "fundName",
+        t1.triggerAccount as "triggerAccount",
+        t1.triggerValue as "triggerValue",
+        t1.smallFundCount as "smallFundCount",
+        t1.continue1Date as "continue1Date",
+        t1.toClearDays as "toClearDays",
+        t1.approvalFlow as "approvalFlow",
+        t1.investmentDepOne as "investmentDepOne",
+        t1.investmentDepOneFM as "investmentDepOneFM",
+        t1.institutionCheckMember as "institutionCheckMember",
+        t1.brokerCheckMember as "brokerCheckMember",
+        t1.retailCheckMember as "retailCheckMember",
+        t1.electricCheckMember as "electricCheckMember",
+        t1.riskCheckMember as "riskCheckMember",
+        t1.financeCheckMember as "financeCheckMember",
+        t1.marketCheckMember as "marketCheckMember",
+        t1.investmentDepTwo as "investmentDepTwo",
+        t1.investmentDepThree as "investmentDepThree",
+        t1.investmentDepTwoFM as "investmentDepTwoFM",
+        t1.investmentDepThreeFM as "investmentDepThreeFM",
+        t1.clearDateConfirm as "clearDateConfirm",
+        t1.taOperateManager as "taOperateManager",
+        t1.regularMember as "regularMember",
+        t2.subject as "flowTitle"
+        from vm_cap_wf_smallfundDialog t1 left join col_summary t2
+        on t1.id = t2.form_recordId
+        where t1.serialNo = #serialNo#
+
+    </select>
+
+    <select id="getCheckFundState.select" parameterClass="java.util.HashMap" resultClass="java.lang.String">
+        select
+        haveSendNotice as "haveSendNotice"
+        from vm_approveson
+        where formmain_id = #id#
+        and productcode =  #productCode#
+    </select>
+
+    <select id="getCheckFundStateCap4.select" parameterClass="java.util.HashMap" resultClass="java.lang.String">
+        select
+        haveSendNotice as "haveSendNotice"
+        from vm_cap_approveson
+        where formmain_id = #id#
+        and productcode =  #productCode#
+    </select>
+
+    <update id="updateCheckFundState.update" parameterClass="java.util.HashMap">
+        update vm_approveson set
+        haveSendNotice = #haveSendNotice#
+        where formmain_id = #id#
+        and productcode =  #productCode#
+    </update>
+
+    <update id="updateCheckFundStateCap4.update" parameterClass="java.util.HashMap">
+        update vm_cap_approveson set
+        haveSendNotice = #haveSendNotice#
+        where formmain_id = #id#
+        and productcode =  #productCode#
+    </update>
+
+</sqlMap>

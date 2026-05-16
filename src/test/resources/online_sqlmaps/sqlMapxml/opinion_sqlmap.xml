@@ -1,0 +1,120 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+    <select id="getOpinionMonitorExportData.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        util_common.getEnumShowById(vom.serviceType) as "风险类型",
+        util_common.getEnumShowById(vom.platformCodes) as "渠道商",
+        vom.url  as "链接",
+        vom.tag  as "标记",
+        vom.detectTime  as "发现时间",
+        vom.brandName  as "品牌名称",
+        util_common.getEnumShowById(vom.riskLevel)  as "风险级别",
+        vom.ip  as "解析地址",
+        vom.location  as "地理位置",
+        vom.asn  as "asn",
+        vom.carrier  as "运营商",
+        vom.abuseSubject  as "侵权项",
+        vom.evidence  as "举证截图",
+        vom.note  as "备注",
+        vom.platform  as "平台名称",
+        vom.fraudAccount  as "欺诈账号",
+        vom.accountID  as "账号id",
+        vom.title  as "标题",
+        vom.description  as "描述",
+        vom.processResult  as "处理结果",
+        vom.processSpecification  as "处理说明",
+        util_common.getEnumShowById(vom.pushStatus)  as "推送状态",
+        vom.flowId  as "流水号"
+        from vm_opinion_monitor_info vom
+        where 1=1
+        <isNotEmpty prepend="AND"   property="datas">
+            vom.id in ($datas$)
+        </isNotEmpty>
+    </select>
+    <select id="getOpinionFileId.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+        select to_char(f2.file_url) file_url
+        from vm_opinion_monitor_info f1
+        left join ctp_attachment f2
+        on f1.evidence = f2.sub_reference
+        where f1.evidence = #evidence#
+    </select>
+    <select id="getOpinionMonitorInfoById.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        vom.riskID as "riskID",
+        vom.brandName as "brandName",
+        vom.platformCodes as "platformCodes",
+        vom.pushStatus  as "pushStatus",
+        vom.flowId  as "flowId"
+        from vm_opinion_monitor_push_son son
+        left join vm_opinion_monitor_info vom on vom.flowId = son.flowId
+        where son.formmain_id = #id#
+    </select>
+
+    <select id="getOpinionMonitorInfo.select"  resultClass="java.util.HashMap">
+        select
+        riskID as "riskID",
+        brandName as "brandName",
+        serviceType as "serviceType",
+        riskLevel as "riskLevel",
+        platformCodes as "platformCodes",
+        pushStatus  as "pushStatus",
+        needPush  as "needPush",
+        flowId  as "flowId"
+        from vm_opinion_monitor_info
+    </select>
+
+    <select id="getSpecOpinionMonitorInfo.select"  parameterClass="java.lang.String" resultClass="java.util.HashMap">
+        select
+        riskID as "riskID",
+        brandName as "brandName",
+        serviceType as "serviceType",
+        riskLevel as "riskLevel",
+        platformCodes as "platformCodes",
+        pushStatus  as "pushStatus",
+        needPush  as "needPush",
+        flowId  as "flowId"
+        from vm_opinion_monitor_info
+        where to_date(to_char(sysDate, 'yyyy-mm-dd'), 'yyyy-mm-dd') = to_date(to_char(start_date, 'yyyy-mm-dd'), 'yyyy-mm-dd')
+        and serviceType = #serviceType#
+    </select>
+
+    <!-- 根据风险id更新行舆情信息表推送状态 -->
+    <update id="updateOpinionMonitorPushStatus.update" parameterClass="map">
+        update vm_opinion_monitor_info
+        set pushStatus=#pushStatus#
+        where flowId=#flowId#
+    </update>
+
+    <!-- 根据风险id更新行舆情推送子表推送状态 -->
+    <update id="updateOpinionMonitorInfoStatus.update" parameterClass="map">
+        update vm_opinion_monitor_push_son
+        set pushStatus=#pushStatus#
+        where flowId=#flowId#
+    </update>
+
+    <!-- 插入舆情信息推送-明细 -->
+    <insert id="insertOpinionMonitorPushSon.insert" parameterClass="java.util.HashMap">
+        insert into vm_opinion_monitor_push_son(
+        id,
+        formmain_id,
+        brandName,
+        riskID,
+        serviceType,
+        riskLevel,
+        platformCodes,
+        pushStatus,
+        flowId)
+        values(
+        util_common.getAbsID,
+        (select id from vm_opinion_monitor_push where sendSerialNo = #sendSerialNo#),
+        #brandName#,
+        #riskID#,
+        #serviceType#,
+        #riskLevel#,
+        #platformCodes#,
+        #pushStatus#,
+        #flowId#
+        )
+    </insert>
+</sqlMap>

@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+
+    <!-- 根据流程号获取印章使用记录 -->
+    <select id = "findSealApplyArchiveInfo.select" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.seal.model.SealApplyArchive">
+        select * from vm_sealApplyArchiveInfo where applyNo = #applyNo#
+    </select>
+
+    <!-- 通过印章名称找到印章档案信息 -->
+    <select id="findSealRecordInfo.select" parameterClass="map" resultClass="com.seeyon.apps.kk.seal.model.SealRecordInfo">
+        select * from vm_sealRecordInfo where sealName=#sealName# and sealStatus =#sealStatus#
+
+    </select>
+
+    <!-- 插入到印章档案记录子表中 -->
+    <insert id="sealDetailInsert.insert" parameterClass="com.seeyon.apps.kk.seal.model.SealApplyArchiveChild">
+        insert into vm_sealApplyArchiveChildInfo (
+        id,
+        formmainId,
+        sealCount,
+        approver,
+        keeper,
+        keeperDept,
+        sealStatus,
+        sort,
+        sealSerialNumber,
+        sealName,
+        sealNumber
+        )values(
+        #id#,
+        #formmainId#,
+        #sealCount#,
+        #approver#,
+        #keeper#,
+        #keeperDept#,
+        #sealStatus#,
+        (select max(sort)+1 from vm_sealApplyArchiveChildInfo),
+        (select max(sealSerialNumber)+1 from vm_sealApplyArchiveChildInfo),
+        #sealName#,
+        #sealNumber#
+        )
+
+    </insert>
+    <insert id="sealForKMInsert.insert" parameterClass="map">
+        insert into vm_sealApplyArchiveInfo
+        (id,
+        state,
+        startMemberId,
+        startDate,
+        approveMemberId,
+        approveDate,
+        finishedflag,
+        ratifyflag,
+        ratifyMemberId,
+        ratifyDate,
+        modifyMemberId,
+        modifyDate,
+        sort,
+        businessTitle,
+        applyUserNo,
+        agentUserNo,
+        sealDate,
+        applyDeptCode,
+        sealNumberTotal,
+        remark,
+        applyNo,
+        businessType,
+        files,
+        sealedFiles,
+        serialNumber,
+        businessSubType,
+        businessURL
+        )values
+        (
+        #id#,
+        #state#,
+        #startMemberId#,
+        #startDate#,
+        #approveMemberId#,
+        #approveDate#,
+        #finishedflag#,
+        #ratifyflag#,
+        #ratifyMemberId#,
+        #ratifyDate#,
+        #modifyMemberId#,
+        #modifyDate#,
+        (select max(sort)+1 from vm_sealApplyArchiveInfo),
+        #businessTitle#,
+        #applyUserCode#,
+        #agentUserNo#,
+        #sealDate#,
+        #applyDeptCode#,
+        #sealNumberTotal#,
+        #remark#,
+        #applyNo#,
+        #businessType#,
+        #fileStringBuffer#,
+        #sealedFilesStringBuffer#,
+        #serialNumber#,
+        #businessSubType#,
+        #businessURL#
+
+        )
+
+    </insert>
+
+    <!-- 查询表中是否存在 -->
+    <select id="companySeal.select" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.seal.model.sealoperatemodel.SealRecordinfo">
+        select  id, sealId, sealCode, sealName, sealnameenum
+        from (select id, sealId, sealCode, sealName, sealnameenum
+        from VM_SEALRECORDINFO
+        union all
+        select id, sealId, sealCode, sealName, sealnameenum
+        from
+        VM_SEALRECORDINFOSH)
+        where sealid = #sealid#
+    </select>
+
+    <!-- 查询表中印章列表 -->
+    <select id="companySealList.select" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.seal.model.sealoperatemodel.SealRecordinfo">
+        select id,sealId,sealCode,sealName,sealnameenum from VM_SEALRECORDINFO where sealisok=#sealisok#
+    </select>
+
+    <!-- 插入电子印章表 -->
+    <insert id="companySeal.insert" parameterClass="map">
+        insert into VM_SEALRECORDINFO
+        (
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        modify_member_id,
+        modify_date,
+        sort,
+        sealstatus,
+        opendate,
+        sealname,
+        sealid,
+        sealcode,
+        sealisok,
+        sealnameenum,
+        restrainnumber
+        ) values (
+        #formId#,
+        1,
+        '6105960157477424523',
+        sysdate,
+        '0',
+        sysdate,
+        0,
+        0,
+        '0',
+        sysdate,
+        '6105960157477424523',
+        sysdate,
+        0,
+        #sealstatus#,
+        sysdate,
+        #sealname#,
+        #sealid#,
+        #sealcode#,
+        #sealisok#,
+        #sealnameenum#,
+        #restrainNumber#
+        )
+    </insert>
+
+    <update id="companySealStatus.update" parameterClass="map">
+        update VM_SEALRECORDINFO
+        set sealstatus = #sealstatus#
+        where id = #id#
+    </update>
+
+    <update id="companySealname.update" parameterClass="map">
+        update VM_SEALRECORDINFO
+        set sealname = #sealname#,
+        sealnameenum = #sealnameenum#
+        where id = #id#
+    </update>
+    <select id="findEnumItemById.select" resultClass="mapBean" parameterClass="java.lang.String">
+        select to_char(ID) id, to_char(REF_ENUMID) as parentId, SHOWVALUE, to_char(ENUMVALUE) ENUMVALUE, to_char(SORTNUMBER) SORTNUMBER, STATE, OUTPUT_SWITCH, ORG_ACCOUNT_ID, PARENT_ID, ROOT_ID, LEVEL_NUM, DESCRIPTION, IFUSE, I18N, EXT1 from ctp_enum_item where id = #id#
+    </select>
+
+    <select id="sealMaxSortInfo.select" resultClass="mapBean">
+        select  '1938448756302630027' parentid, to_char(max(f.sortnumber+1)) as enumvalue, to_char(max(f.sortnumber+1)) as sortnumber  from ctp_enum_item f where f.ref_enumid = 1938448756302630027
+    </select>
+    <!-- 查询表中是否存在-上海 -->
+    <select id="companySealSH.select" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.seal.model.sealoperatemodel.SealRecordinfo">
+        select id,sealId,sealCode,sealName,sealnameenum from VM_SEALRECORDINFOSH where sealid = #sealid#
+    </select>
+
+    <!-- 查询表中印章列表-上海 -->
+    <select id="companySealListSH.select" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.seal.model.sealoperatemodel.SealRecordinfo">
+        select id,sealId,sealCode,sealName,sealnameenum from VM_SEALRECORDINFOSH where sealisok=#sealisok#
+    </select>
+    <!-- 印章列表更新-上海 -->
+    <update id="companySealStatusSH.update" parameterClass="map">
+        update VM_SEALRECORDINFOSH
+        set sealstatus = #sealstatus#
+        where id = #id#
+    </update>
+    <!-- 印章列表更新-上海 -->
+    <update id="companySealnameSH.update" parameterClass="map">
+        update VM_SEALRECORDINFOSH
+        set sealname = #sealname#,
+        sealnameenum = #sealnameenum#
+        where id = #id#
+    </update>
+    <!-- 印章列表最大值查询-上海 -->
+    <select id="sealMaxSortInfoSH.select" resultClass="mapBean">
+        select  '-2170604792472449072' parentid, to_char(max(f.sortnumber+1)) as enumvalue, to_char(max(f.sortnumber+1)) as sortnumber  from ctp_enum_item f where f.ref_enumid = -2170604792472449072
+    </select>
+    <!-- 插入电子印章表-上海 -->
+    <insert id="companySealSH.insert" parameterClass="map">
+        insert into VM_SEALRECORDINFOSH
+        (
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        modify_member_id,
+        modify_date,
+        sort,
+        sealstatus,
+        opendate,
+        sealname,
+        sealid,
+        sealcode,
+        sealisok,
+        sealnameenum,
+        signtype,
+        restrainNumber
+        ) values (
+        #formId#,
+        1,
+        '6105960157477424523',
+        sysdate,
+        '0',
+        sysdate,
+        0,
+        0,
+        '0',
+        sysdate,
+        '6105960157477424523',
+        sysdate,
+        0,
+        #sealstatus#,
+        sysdate,
+        #sealname#,
+        #sealid#,
+        #sealcode#,
+        #sealisok#,
+        #sealnameenum#,
+        '3924100868922361882',
+        #restrainNumber#
+        )
+    </insert>
+    <select id="findSignalInfo.select" resultClass="com.seeyon.apps.kk.seal.model.signsealmodel.SignTaskStartBean" parameterClass="java.util.HashMap">
+        select  A1.TYPE,
+        A1.ID,
+        A1.SERIALNO,
+        A1.SUBJECTMATTER,
+        A1.SENDUSER,
+        A1.FILEKEYS,
+        A1.PRESERVER,
+        A1.SIGNTYPE,
+        A1.SEALID,
+        A1.EDGESIGN,
+        A1.KEYWORDSIGN from vm_sealcolinfo a1
+        where 1=1
+        <isNotEmpty prepend="and" property="type">
+            type = #type#
+        </isNotEmpty>
+        <isNotEmpty prepend="and" property="id">
+            id = #id#
+        </isNotEmpty>
+    </select>
+    <select id="findAllFailSignSeal.select" resultClass="com.seeyon.apps.kk.seal.model.EQBSealSignFileRecordModel">
+        select id,
+        state,
+        start_member_id
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        flowName,
+        serialNumber,
+        isPigeonhole,
+        EQBSerialNumber,
+        retryCount,
+        sealState,
+        sealFormName,
+        signareataskid from vm_electronicsealrecord
+        where sealState = 1219999897547194393 and  isSignSeal = -3841538853571705149
+    </select>
+    <!-- 查询所有生效的配置 -->
+    <select id="sealQueueConfig.select" resultClass="com.seeyon.apps.kk.seal.model.SealQueueConfigModel">
+        select
+        sysCode,
+        routingKey,
+        bussType,
+        isEnable
+        from vm_sealQueueConfig where  isEnable = -3841538853571705149
+    </select>
+</sqlMap>

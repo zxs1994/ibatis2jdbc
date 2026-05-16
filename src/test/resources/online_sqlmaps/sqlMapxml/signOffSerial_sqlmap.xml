@@ -1,0 +1,147 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+    <!--  根据主表ID查询ColSummaryId -->
+    <select id = "getCap3ColSummaryIdById.select" parameterClass="string" resultClass="java.lang.String">
+        select * from col_summary where form_recordid = #mainId# and case_id is not null
+    </select>
+    <!--  根据主表ID查询operationId -->
+    <select id="getCap3OperationId.select" resultClass="java.lang.String" parameterClass="map">
+        SELECT  to_char(replace(wm_concat(t.name || '.' || t.value),',','_'))  as id
+        FROM (select '/QueryList/Query[@name="' || #viewName# ||
+        '"]/ShowsThrough/Colum' XPATH,
+        f.*
+        from form_definition f
+        where f.name = #tableName#) f,
+        xmltable(f.XPATH passing xmltype(nvl(f.query_info, <![CDATA['<root/>']]>))
+        columns "NAME" path '@name',
+        "VALUE" path '@value') t
+    </select>
+    <!--  查询RptDesignId -->
+    <select id="findCap4RptDesignId.select" resultClass="java.lang.String" parameterClass="string">
+        select vr.id from VREPORT_RECORD vr where vr.record_subject = #rptDesignName#
+    </select>
+    <!-- 获取跳转链接为空且指向Cap3流程的数据 -->
+    <select id="getCap3GeneralSignInfo.select"  resultClass="java.util.HashMap">
+        select  vcf.id as "flowId",
+        vci.id as "id",
+        vci.serialNum as "serialNum"
+        from vm_cap3GeneralSign_Info vci
+        left join vm_cap3GeneralSign_flow vcf on vcf.serialNum = vci.serialNum
+        where vci.flowUrl is  null and vci.signVersion is  null
+    </select>
+    <!-- 获取跳转链接为空且指向Cap4流程的数据 -->
+    <select id="getCap4GeneralSignInfo.select"  resultClass="java.util.HashMap">
+        select  vcf.id as "flowId",
+        vci.id as "id",
+        vci.serialNum as "serialNum"
+        from vm_cap3GeneralSign_Info vci
+        left join vm_cap4GeneralSign_flow vcf on vcf.serialNum = vci.serialNum
+        where vci.flowUrl is  null and vci.signVersion = 'cap4'
+    </select>
+    <!-- 根据id更新流程链接 -->
+    <update id="updateFlowUrlField.update" parameterClass="map">
+        update vm_cap3GeneralSign_Info
+        set flowUrl=#flowUrl#
+        where id=#id#
+    </update>
+    <!-- 根据id更新CAP4流程链接 -->
+    <update id="updateCap4FlowUrlField.update" parameterClass="map">
+        update vm_cap4GeneralSign_Info
+        set flowUrl=#flowUrl#
+        where serialNum=#serialNum#
+    </update>
+    <!-- 插入CAP3归档表数据 -->
+    <insert id="insertCap3GeneralSignInfo.insert" parameterClass="java.util.HashMap">
+        insert into  $tableName$
+        (
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        field0001,/*流水号*/
+        field0009,
+        field0008,
+        field0010,
+        field0003,
+        field0005,
+        field0007,
+        field0004,
+        field0011,
+        field0013,
+        field0016,
+        field0017,
+        field0018,
+        field0006,
+        field0012
+        )
+        select
+        id,
+        1,
+        -6760911671874597139,
+        sysdate,
+        0,
+        null,
+        0,
+        0,
+        null,
+        null,
+        field0013,/*流水号*/
+        field0004,
+        field0003,
+        field0001,
+        field0012,
+        field0016,
+        field0053,
+        field0002,
+        field0006,
+        field0014,
+        field0008,
+        field0010,
+        field0007,
+        field0011,
+        field0005
+        from formmain_0065
+        where field0013 not in (select field0001 from $tableName$) and field0014 is not null
+    </insert>
+    <!-- 插入CAP3归档表数据到正文表中 -->
+    <insert id="signCTPContent.insert" parameterClass="java.util.HashMap">
+        insert into ctp_content_all
+        (ID,
+        CREATE_ID,
+        CREATE_DATE,
+        MODIFY_ID,
+        MODIFY_DATE,
+        MODULE_TYPE,
+        MODULE_ID,
+        MODULE_TEMPLATE_ID,
+        CONTENT_TYPE,
+        CONTENT,
+        CONTENT_DATA_ID,
+        CONTENT_TEMPLATE_ID,
+        TITLE,
+        SORT)
+        select
+        util_common.getAbsID,
+        '-6760911671874597139',
+        sysdate,
+        '-6760911671874597139',
+        sysdate,
+        37,
+        id,
+        #moduleTemplateId#,
+        '20',
+        '',
+        id,
+        #contentTemplateId#,
+        #title#,
+        '0'
+        from $tableName$ vm where id not  in(select content_data_id from ctp_content_all c where c.content_template_id = #contentTemplateId# and content_data_id is not null)
+    </insert>
+</sqlMap>

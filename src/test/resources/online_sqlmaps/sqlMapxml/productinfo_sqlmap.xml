@@ -1,0 +1,1062 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+	<!-- vm_fundproductinfo 向产品信息表中插入产品信息 -->
+	<insert id ="productInfo.insert" parameterClass="productInfo">
+		insert into vm_fundproductinfo (id,
+
+		state,
+		start_member_id,
+		start_date,
+		approve_member_id,
+		approve_date,
+		finishedflag,
+		ratifyflag,
+		ratify_member_id,
+		ratify_date,
+		sort,
+		modify_member_id,
+		modify_date,
+		pirid, prdcode, fdShotnm, prdName, status, fundKind,isDeleted)
+		values(#id#,
+
+		1,-6760911671874597139,sysdate,0,sysdate,0,0,0,null,0,-6760911671874597139,sysdate,
+		#pirId#,#prdCode#,#fdShotnm#,#prdName#,nvl(util_common.getEnumIdByRefName('产品状态',#status#),-6028337094634094342),
+		nvl(util_common.getEnumIdByRefName('产品类别',#fundKind#),2544872862693016953),'-1089048568118490234')
+	</insert>
+	<!-- ctp_content_all 向正文表中插入产品信息 -->
+	<insert id ="productIndoContentAll.insert" parameterClass="java.lang.String">
+		INSERT INTO  CTP_CONTENT_ALL( ID ,  CREATE_ID ,  CREATE_DATE ,  MODIFY_ID ,
+		MODIFY_DATE ,  MODULE_TYPE ,
+		MODULE_ID ,  MODULE_TEMPLATE_ID ,  CONTENT_TYPE ,  CONTENT ,  CONTENT_DATA_ID ,
+		CONTENT_TEMPLATE_ID ,  TITLE ,  SORT )
+		VALUES(util_common.getID,-6760911671874597139,SYSDATE,
+		-6760911671874597139,SYSDATE,37,#formId#,913592139807475444,
+		20,null,#formId#,-4665446821315130163,'产品信息',0)
+	</insert>
+	<!--vm_fundproductinfo 更新产品信息 -->
+	<update id="productInfo.update" parameterClass="productInfo" >
+		update vm_fundproductinfo set
+		prdCode = #prdCode#,
+		fdShotnm = #fdShotnm#,
+		prdName = #prdName#,
+		isDeleted = '-1089048568118490234',
+		status = nvl(util_common.getEnumIdByRefName('产品状态',#status#),-6028337094634094342),
+		fundKind = nvl(util_common.getEnumIdByRefName('产品类别',#fundKind#),2544872862693016953)
+		where pirId = #pirId#
+	</update>
+	<select id = "productinfoByPirId.select" parameterClass="java.lang.String" resultClass="string">
+		select id from vm_fundproductinfo where  pirid = #pirid#
+	</select>
+	<!-- formson_3379 产品信息子表 删除基金经理-->
+	<delete id = "productManager.delete" parameterClass="java.lang.String">
+		delete vm_fundproductinfoson where formmain_id = #formId#
+	</delete>
+
+
+
+	<!-- formson_3379产品信息子表 插入基金经理  -->
+	<insert id="productManager.insert" parameterClass="map">
+		insert into vm_fundproductinfoson(id,formmain_id,fundmanagername,sortid)
+		values(util_common.getID,#id#,#userId#,#sort#)
+	</insert>
+
+
+	<!--基金经理会议时间查询-->
+	<select id = "applyManagerMeetingTime.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		select to_char(begin_date,'yyyy-mm-dd hh24:mi') begin_date,to_char(end_date,'yyyy-mm-dd hh24:mi')end_date
+		from meeting m
+		where (
+		(#applyStartTime# between m.begin_date and m.end_date) or
+		(#applyEndTime# between m.begin_date and m.end_date) or
+		(m.begin_date between #applyStartTime# and #applyEndTime# and m.end_date between #applyStartTime# and #applyEndTime#)
+		) and (
+		m.emcee_id = #managerId# or m.recorder_id = #managerId# or dbms_lob.instr(m.conferees,'Member|' || #managerId#)>0
+		)
+	</select>
+
+	<!--基金经理投研路演时间查询-->
+	<select id = "applyManagerRoadShowTime.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		select to_char(starttime,'yyyy-mm-dd hh24:mi')as starttime,to_char(endtime,'yyyy-mm-dd hh24:mi')as endtime
+		from vm_internalcooperationroadshow m where (select state from col_summary c where c.form_recordid = m.id)=3
+		and  (m.manager1 = #managerId# or m.manager2 = #managerId# or m.manager3 = #managerId#)
+	</select>
+
+	<!--基金经理请假时间组合-->
+	<select id="applyManagerLeaveTime.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		select to_char(trunc(t.beginDate)+decode( t.startTime,770469099444389055,0/24,3338464713283357441,12/24),'yyyy-mm-dd hh24:mi')
+		starttime,to_char(trunc(t.endDate)+decode( t.endTime,770469099444389055,12/24,3338464713283357441,1),'yyyy-mm-dd hh24:mi')
+		endtime from vm_userApplyForLeave t where t.beginDate>trunc(sysdate)-30 and t.applyUser=#managerId#
+	</select>
+
+
+	<!--基金经理出差时间查询-->
+	<select id = "applyManagerEvectionTime.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		select to_char(e.begindate,'yyyy-mm-dd hh24:mi')begindate,
+		to_char(e.enddate + 1,'yyyy-mm-dd hh24:mi')enddate from vm_evations e
+		where beginDate>trunc(sysdate)-30 and createmember = #managerId#
+	</select>
+
+
+	<!--开始时间，需要发送短信发的人员查询-->
+	<select id = "msgSendMemberGet.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		select seriesNum, to_char(starttime,'yyyy-mm-dd hh24:mi')as starttime, applyUser,manager1,join1, manager2,jion2, manager3,join3,
+		customerName, demandType, demandTheme, msgSendStatus from vm_internalcooperationroadshow m
+		where (sysdate+1/48) > startTime and msgSendStatus = 0 and sysdate  <![CDATA[<=]]> startTime and
+		(select state from col_summary c where c.form_recordid = m.id)=3
+	</select>
+
+	<update id="msgSendStatusUpdate.update" parameterClass="java.lang.String" >
+		update vm_internalcooperationroadshow set msgSendStatus = 1 where seriesNum = #seriesNum#
+	</update>
+
+
+
+	<!--vm_fundproductinfo 更新产品信息 -->
+	<update id="fundAdmin.update" parameterClass="java.util.HashMap" >
+		update VM_ACCOUNTANT_GROUP set
+		fundAdmin = #userId#
+		where id = #id#
+	</update>
+	<select id = "findFundAdminByFundCode.select" parameterClass="java.lang.String" resultClass="string">
+		select id from VM_ACCOUNTANT_GROUP where  fundCode = #fundCode#
+	</select>
+
+
+	<update id="updateFundProductExtraInfo.update" parameterClass="java.util.HashMap" >
+		update vm_fundproductinfo vm set
+		vm.productManager = #productManager#,
+		vm.fundAdmin = #fundAdmin#,
+		vm.saleManager = #saleManager#,
+		vm.taOperateManager = #taOperateManager#
+		where vm.pirId = #productID#
+		and (vm.productManager != #productManager# or
+		vm.fundAdmin != #fundAdmin# or
+		vm.saleManager != #saleManager# or
+		vm.taOperateManager != #taOperateManager# or
+		vm.productManager is null or
+		vm.fundAdmin is null or
+		vm.saleManager is null or
+		vm.taOperateManager is null)
+	</update>
+
+
+	<select id="findAbleSampleContractByProductId.select" parameterClass="java.lang.String"  resultClass="java.util.HashMap">
+		select
+		sampleNo as "sampleNo",
+		writer as "writer",
+		writeDept as "writeDept",
+		writeDate as "writeDate",
+		sampleState as "sampleState",
+		productId as "productId",
+		productName as "productName",
+		productCatagory as "productCatagory",
+		contractSampleFile as "contractSampleFile",
+		remark as "remark",
+		to_char(fileUpdateTime,'yyyy-mm-dd') as "fileUpdateTime",
+		extraContractCount as "extraContractCount",
+		contractSampleName as "contractSampleName",
+
+		contractSampleFileId as "contractSampleFileId"
+		from vm_one2manyContractAddSample
+		where productId = #productId#
+		and sampleState = '752262829221953767'
+	</select>
+
+	<update id="updateSampleContractState.update" parameterClass="java.util.HashMap" >
+		update vm_one2manyContractAddSample set
+		sampleState = #ableState#
+		where productId = #productID#
+	</update>
+
+	<insert id="insertSampleContractState.insert" parameterClass="java.util.HashMap" >
+		insert into vm_one2manyContractAddSample(
+		id,
+
+		state,
+		start_member_id,
+		start_date,
+		approve_member_id,
+		approve_date,
+		finishedflag,
+		ratifyflag,
+		ratify_member_id,
+		ratify_date,
+		sort,
+		modify_member_id,
+		modify_date,
+
+		sampleNo,
+		writer,
+		writeDept,
+		writeDate,
+		sampleState,
+		productId,
+		productName,
+		productCatagory,
+		contractSampleFile,
+
+		fileUpdateTime,
+
+		contractSampleName,
+		contractSampleFileId
+		) values(
+		#id#,
+		1,-6760911671874597139,sysdate,0,sysdate,0,0,0,null,0,-6760911671874597139,sysdate,
+		#sampleNo#,
+		#writer#,
+		#writeDept#,
+		sysdate,
+
+		#sampleState#,
+		#productID#,
+		#productName#,
+		#productCatagory#,
+		#contractSampleFile#,
+
+		#fileUpdateTime#,
+
+		#contractSampleName#,
+		#contractSampleFileId#
+		)
+	</insert>
+
+	<select id = "getProductInfoByProductIds.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+		select
+		id as "id",
+		pirid as "pirid",
+		fundkind as "fundkind",
+		prdcode as "prdcode",
+		prdname as "prdname",
+		fdshotnm as "fdshotnm",
+		status as "status",
+		productManager as "productManager",
+		fundAdmin as "fundAdmin",
+		saleManager as "saleManager",
+		regularMember as "regularMember",
+		productTypeMonthly as "productTypeMonthly"
+		from vm_fundproductinfo where pirid in ($productIds$)
+	</select>
+
+	<select id="productInfoCAP4ByProductIds.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+		select
+		id,
+		pirid,
+		to_char(fundkind) fundkind,
+		prdcode,
+		prdname,
+		fdshotnm,
+		status,
+		productManager,
+		fundAdmin,
+		saleManager,
+		regularMember,
+		to_char(productTypeMonthly) productTypeMonthly,
+		taOperateManager,
+		investType,
+		fundType,
+		mgrNameList,
+		prdInvestType,
+		mixTypeDirect,
+		to_char(customType) customType,
+		dutiesNameList as "dutiesNameList"
+		from vm_cap4_fundproductinfo  where  pirid in ($productIds$)
+	</select>
+
+	<select id="getProductByProductIdsAndDutiesIds.select" parameterClass="Map" resultClass="java.util.HashMap">
+		select
+		fm.fundManager as "fundManager"
+		from vm_cap4_fundmanagers fm
+		left join vm_cap4_fundproductinfo fp on fp.id = fm.formmain_id
+		where  fp.pirid in ($productIds$) and fm.duties in  ($filterDutiesIds$)
+	</select>
+
+
+	<select id = "getProductInfoSonByFormId.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+		select
+		id as "id",
+		formmain_id as "formmainId",
+		fundmanagername as "fundManager"
+		from vm_fundproductinfoson where formmain_id = #id# and fundmanagername is not null
+	</select>
+
+
+	<select id = "getDeptManagerByDeptId.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+		SELECT SOURCE_ID FROM ORG_RELATIONSHIP RL WHERE RL.OBJECTIVE0_ID=#deptId#
+		AND RL.TYPE = 'Member_Role' AND RL.OBJECTIVE1_ID IN
+		(SELECT ID FROM ORG_ROLE R WHERE R.NAME = '部门经理')
+	</select>
+
+
+	<!--update id="updateProductCheckFlowByAffairId.update" parameterClass="java.util.HashMap" >
+		update vm_wf_prodreview set
+		counterSigner = #counterSigner#,
+		whoKnows = #whoKnows#
+		where id =(
+		select form_recordId from ctp_affair where id = #affairId#)
+	</update -->
+
+
+
+	<update id="updateProductCheckFlowBySerialNo.update" parameterClass="java.util.HashMap" >
+		update vm_wf_prodreview set
+		counterSigner = #counterSigner#,
+		whoKnows = #whoKnows#,
+		superNodeState = 1
+		where flowId = #affairId#
+	</update>
+
+	<update id="updateProductContractFlowBySerialNo.update" parameterClass="java.util.HashMap" >
+		update VM_APPROVE set
+		counterSigner = #counterSigner#,
+		whoKnows = #whoKnows#,
+		superNodeState = 1
+		where flowId = #affairId#
+	</update>
+
+
+	<select id="queryAllFundProductId.select"  resultClass="java.lang.String">
+		select pirid from vm_fundproductinfo
+	</select>
+
+	<update id="updateFundProductRegularMember.update" parameterClass="java.util.HashMap">
+		update vm_fundproductinfo set regularMember = #regularMember# where pirid = #productID#
+	</update>
+
+	<select id="getLineInvestFixedConfig.select"  resultClass="java.util.HashMap">
+		select
+		field0082 as "investFixedManager",
+		field0083 as "investFixedDept"
+		from formmain_6041 where field0048 = #configCode#
+	</select>
+
+	<update id="updateFundManagersMain.update" parameterClass="java.util.HashMap" >
+		update vm_fundproductinfo vm set
+		vm.fundManagers = #fundManagers#
+		where id = #formId#
+	</update>
+
+	<select id="getProductNoticeConfigByIdenNo.select" parameterClass="java.lang.String"  resultClass="java.util.HashMap">
+		select
+		institutionBusiDepts as "institutionBusiDepts",
+		eCommerceDepts as "eCommerceDepts",
+		institutionServDepts as "institutionServDepts"
+		from vm_productNoticeConfig where idenNo = #idenNo#
+	</select>
+
+
+	<select id="getEstablishFlowInfoBySerialNo.select" parameterClass="java.lang.String"  resultClass="java.util.HashMap">
+		select
+		serialNo as "serialNo",
+		proposedInvestManager as "proposedInvestManager",
+		investDept1 as "investDept1",
+		investDept2 as "investDept2",
+		investDept3 as "investDept3",
+		investManager1 as "investManager1",
+		investManager2 as "investManager2",
+		investManager3 as "investManager3",
+		otherInvestManager1 as "otherInvestManager1",
+		otherInvestManager2 as "investManager2",
+		otherInvestManager3 as "investManager3",
+		orgBusinessMember as "orgBusinessMember",
+		retailerBusinessMember as "retailerBusinessMember",
+		digitalFianceBusinessMember as "digitalFianceBusinessMember",
+		regularCheckMember as "regularCheckMember"
+		from vm_wf_publicfundapproval where serialNo = #serialNo#
+	</select>
+
+	<select id="getConfigInfoSerialNo.select" parameterClass="java.lang.String"  resultClass="java.util.HashMap">
+		select
+		id as "id",
+		createTime as "createTime",
+		to_char(dm_mcsy_Regular) as "dm_mcsy_regular",
+		to_char(dm_mcsy_Risk) as "dm_mcsy_risk",
+		to_char(dm_mcsy_investRegularTeam) as "dm_mcsy_investRegularTeam",
+		to_char(dm_mcsy_investMiddleTeam) as "dm_mcsy_investMiddleTeam",
+		to_char(dm_mcsy_centralTrad) as "dm_mcsy_centralTrad",
+		to_char(dm_mcsy_fixedIncomeTrad) as "dm_mcsy_fixedIncomeTrad",
+		to_char(dm_mcsy_orgBusinessLine) as "dm_mcsy_orgBusinessLine",
+		to_char(dm_mcsy_orgBusiness) as "dm_mcsy_orgBusiness",
+		to_char(dm_mcsy_socialBankBusiness) as "dm_mcsy_socialBankBusiness",
+		to_char(dm_mcsy_brokerBusiness) as "dm_mcsy_brokerBusiness",
+		to_char(dm_mcsy_retailerBusiness) as "dm_mcsy_retailerBusiness",
+		to_char(dm_mcsy_digitalFianceBusiness) as "dm_mcsy_digitalFianceBusiness",
+		to_char(dm_mcsy_Operation) as "dm_mcsy_operation",
+		to_char(dm_mcsy_informationTechnic) as "dm_mcsy_informationTechnic",
+		to_char(dm_mcsy_humanResourses) as "dm_mcsy_humanResourses",
+		to_char(dm_mcsy_planFinance) as "dm_mcsy_planFinance",
+		to_char(dm_mcsy_customerservice) as "dm_mcsy_customerservice",
+		to_char(dm_mcsy_comprehensive) as "dm_mcsy_comprehensive",
+		to_char(dm_mcsy_marketmanager) as "dm_mcsy_marketmanager",
+		to_char(hp_mcsy_Regular) as "hp_mcsy_regular",
+		to_char(hp_mcsy_Risk) as "hp_mcsy_risk",
+		to_char(hp_mcsy_investRegularTeam) as "hp_mcsy_investRegularTeam",
+		to_char(hp_mcsy_investMiddleTeam) as "hp_mcsy_investMiddleTeam",
+		to_char(hp_mcsy_centralTrad) as "hp_mcsy_centralTrad",
+		to_char(hp_mcsy_fixedIncomeTrad) as "hp_mcsy_fixedIncomeTrad",
+		to_char(hp_mcsy_orgBusinessLine) as "hp_mcsy_orgBusinessLine",
+		to_char(hp_mcsy_orgBusiness) as "hp_mcsy_orgBusiness",
+		to_char(hp_mcsy_socialBankBusiness) as "hp_mcsy_socialBankBusiness",
+		to_char(hp_mcsy_brokerBusiness) as "hp_mcsy_brokerBusiness",
+		to_char(hp_mcsy_retailerBusiness) as "hp_mcsy_retailerBusiness",
+		to_char(hp_mcsy_digitalFianceBusiness) as "hp_mcsy_digitalFianceBusiness",
+		to_char(hp_mcsy_Operation) as "hp_mcsy_operation",
+		to_char(hp_mcsy_informationTechnic) as "hp_mcsy_informationTechnic",
+		to_char(hp_mcsy_humanResourses) as "hp_mcsy_humanResourses",
+		to_char(hp_mcsy_planFinance) as "hp_mcsy_planFinance",
+		to_char(hp_mcsy_customerservice) as "hp_mcsy_customerservice",
+		to_char(hp_mcsy_comprehensive) as "hp_mcsy_comprehensive",
+		to_char(hp_mcsy_marketmanager) as "hp_mcsy_marketmanager",
+		to_char(dm_rlmr_Regular) as "dm_rlmr_regular",
+		to_char(dm_rlmr_Risk) as "dm_rlmr_risk",
+		to_char(dm_rlmr_investRegularTeam) as "dm_rlmr_investRegularTeam",
+		to_char(dm_rlmr_investMiddleTeam) as "dm_rlmr_investMiddleTeam",
+		to_char(dm_rlmr_centralTrad) as "dm_rlmr_centralTrad",
+		to_char(dm_rlmr_fixedIncomeTrad) as "dm_rlmr_fixedIncomeTrad",
+		to_char(dm_rlmr_orgBusinessLine) as "dm_rlmr_orgBusinessLine",
+		to_char(dm_rlmr_orgBusiness) as "dm_rlmr_orgBusiness",
+		to_char(dm_rlmr_socialBankBusiness) as "dm_rlmr_socialBankBusiness",
+		to_char(dm_rlmr_brokerBusiness) as "dm_rlmr_brokerBusiness",
+		to_char(dm_rlmr_retailerBusiness) as "dm_rlmr_retailerBusiness",
+		to_char(dm_rlmr_digitalFianceBusiness) as "dm_rlmr_digitalFianceBusiness",
+		to_char(dm_rlmr_Operation) as "dm_rlmr_operation",
+		to_char(dm_rlmr_informationTechnic) as "dm_rlmr_informationTechnic",
+		to_char(dm_rlmr_humanResourses) as "dm_rlmr_humanResourses",
+		to_char(dm_rlmr_planFinance) as "dm_rlmr_planFinance",
+		to_char(dm_rlmr_customerservice) as "dm_rlmr_customerservice",
+		to_char(dm_rlmr_comprehensive) as "dm_rlmr_comprehensive",
+		to_char(dm_rlmr_marketmanager) as "dm_rlmr_marketmanager",
+		to_char(hp_rlmr_Regular) as "hp_rlmr_regular",
+		to_char(hp_rlmr_Risk) as "hp_rlmr_risk",
+		to_char(hp_rlmr_investRegularTeam) as "hp_rlmr_investRegularTeam",
+		to_char(hp_rlmr_investMiddleTeam) as "hp_rlmr_investMiddleTeam",
+		to_char(hp_rlmr_centralTrad) as "hp_rlmr_centralTrad",
+		to_char(hp_rlmr_fixedIncomeTrad) as "hp_rlmr_fixedIncomeTrad",
+		to_char(hp_rlmr_orgBusinessLine) as "hp_rlmr_orgBusinessLine",
+		to_char(hp_rlmr_orgBusiness) as "hp_rlmr_orgBusiness",
+		to_char(hp_rlmr_socialBankBusiness) as "hp_rlmr_socialBankBusiness",
+		to_char(hp_rlmr_brokerBusiness) as "hp_rlmr_brokerBusiness",
+		to_char(hp_rlmr_retailerBusiness) as "hp_rlmr_retailerBusiness",
+		to_char(hp_rlmr_digitalFianceBusiness) as "hp_rlmr_digitalFianceBusiness",
+		to_char(hp_rlmr_Operation) as "hp_rlmr_operation",
+		to_char(hp_rlmr_informationTechnic) as "hp_rlmr_informationTechnic",
+		to_char(hp_rlmr_humanResourses) as "hp_rlmr_humanResourses",
+		to_char(hp_rlmr_planFinance) as "hp_rlmr_planFinance",
+		to_char(hp_rlmr_customerservice) as "hp_rlmr_customerservice",
+		to_char(hp_rlmr_comprehensive) as "hp_rlmr_comprehensive",
+		to_char(hp_rlmr_marketmanager) as "hp_rlmr_marketmanager",
+		to_char(otherApproveMr) as "otherApproveMr",
+		to_char(otherNoteMr) as "otherNoteMr",
+		to_char(dm_approve_Regular) as "dm_approve_regular",
+		to_char(dm_note_Regular) as "dm_note_regular",
+		to_char(dm_approve_Risk) as "dm_approve_risk",
+		to_char(dm_note_Risk) as "dm_note_risk",
+		to_char(dm_approve_investRegularTeam) as "dm_approve_investRegularTeam",
+		to_char(dm_note_investRegularTeam) as "dm_note_investRegularTeam",
+		to_char(dm_approve_investLine) as "dm_approve_investLine",
+		to_char(dm_note_investLine) as "dm_note_investLine",
+		to_char(dm_approve_investMiddleTeam) as "dm_approve_investMiddleTeam",
+		to_char(dm_note_investMiddleTeam) as "dm_note_investMiddleTeam",
+		to_char(dm_approve_centralTrad) as "dm_approve_centralTrad",
+		to_char(dm_note_centralTrad) as "dm_note_centralTrad",
+		to_char(dm_approve_fixedIncomeTrad) as "dm_approve_fixedIncomeTrad",
+		to_char(dm_note_fixedIncomeTrad) as "dm_note_fixedIncomeTrad",
+		to_char(dm_approve_orgBusinessLine) as "dm_approve_orgBusinessLine",
+		to_char(dm_note_orgBusinessLine) as "dm_note_orgBusinessLine",
+		to_char(dm_approve_orgBusiness) as "dm_approve_orgBusiness",
+		to_char(dm_note_orgBusiness) as "dm_note_orgBusiness",
+		to_char(dm_approve_socialBankBusiness) as "dm_approve_socialBankBusiness",
+		to_char(dm_note_socialBankBusiness) as "dm_note_socialBankBusiness",
+		to_char(dm_approve_brokerBusiness) as "dm_approve_brokerBusiness",
+		to_char(dm_note_brokerBusiness) as "dm_note_brokerBusiness",
+		to_char(dm_approve_retailerBusiness) as "dm_approve_retailerBusiness",
+		to_char(dm_note_retailerBusiness) as "dm_note_retailerBusiness",
+		to_char(dm_approve_digitalFianceBusiness) as "dm_approve_digitalFianceBusiness",
+		to_char(dm_note_digitalFianceBusiness) as "dm_note_digitalFianceBusiness",
+		to_char(dm_approve_Operation) as "dm_approve_operation",
+		to_char(dm_note_Operation) as "dm_note_operation",
+		to_char(dm_approve_informationTechnic) as "dm_approve_informationTechnic",
+		to_char(dm_note_informationTechnic) as "dm_note_informationTechnic",
+		to_char(dm_approve_humanResourses) as "dm_approve_humanResourses",
+		to_char(dm_note_humanResourses) as "dm_note_humanResourses",
+		to_char(dm_approve_planFinance) as "dm_approve_planFinance",
+		to_char(dm_note_planFinance) as "dm_note_planFinance",
+		to_char(dm_approve_customerservice) as "dm_approve_customerservice",
+		to_char(dm_note_customerservice) as "dm_note_customerservice",
+		to_char(dm_approve_comprehensive) as "dm_approve_comprehensive",
+		to_char(dm_note_comprehensive) as "dm_note_comprehensive",
+		to_char(dm_approve_marketmanager) as "dm_approve_marketmanager",
+		to_char(dm_note_marketmanager) as "dm_note_marketmanager",
+		to_char(hp_approve_Regular) as "hp_approve_regular",
+		to_char(hp_note_Regular) as "hp_note_regular",
+		to_char(hp_approve_Risk) as "hp_approve_risk",
+		to_char(hp_note_Risk) as "hp_note_risk",
+		to_char(hp_approve_investRegularTeam) as "hp_approve_investRegularTeam",
+		to_char(hp_note_investRegularTeam) as "hp_note_investRegularTeam",
+		to_char(hp_approve_investLine) as "hp_approve_investLine",
+		to_char(hp_note_investLine) as "hp_note_investLine",
+		to_char(hp_approve_investMiddleTeam) as "hp_approve_investMiddleTeam",
+		to_char(hp_note_investMiddleTeam) as "hp_note_investMiddleTeam",
+		to_char(hp_approve_centralTrad) as "hp_approve_centralTrad",
+		to_char(hp_note_centralTrad) as "hp_note_centralTrad",
+		to_char(hp_approve_fixedIncomeTrad) as "hp_approve_fixedIncomeTrad",
+		to_char(hp_note_fixedIncomeTrad) as "hp_note_fixedIncomeTrad",
+		to_char(hp_approve_orgBusinessLine) as "hp_approve_orgBusinessLine",
+		to_char(hp_note_orgBusinessLine) as "hp_note_orgBusinessLine",
+		to_char(hp_approve_orgBusiness) as "hp_approve_orgBusiness",
+		to_char(hp_note_orgBusiness) as "hp_note_orgBusiness",
+		to_char(hp_approve_socialBankBusiness) as "hp_approve_socialBankBusiness",
+		to_char(hp_note_socialBankBusiness) as "hp_note_socialBankBusiness",
+		to_char(hp_approve_brokerBusiness) as "hp_approve_brokerBusiness",
+		to_char(hp_note_brokerBusiness) as "hp_note_brokerBusiness",
+		to_char(hp_approve_retailerBusiness) as "hp_approve_retailerBusiness",
+		to_char(hp_note_retailerBusiness) as "hp_note_retailerBusiness",
+		to_char(hp_approve_digitalFianceBusiness) as "hp_approve_digitalFianceBusiness",
+		to_char(hp_note_digitalFianceBusiness) as "hp_note_digitalFianceBusiness",
+		to_char(hp_approve_Operation) as "hp_approve_operation",
+		to_char(hp_note_Operation) as "hp_note_operation",
+		to_char(hp_approve_informationTechnic) as "hp_approve_informationTechnic",
+		to_char(hp_note_informationTechnic) as "hp_note_informationTechnic",
+		to_char(hp_approve_humanResourses) as "hp_approve_humanResourses",
+		to_char(hp_note_humanResourses) as "hp_note_humanResourses",
+		to_char(hp_approve_planFinance) as "hp_approve_planFinance",
+		to_char(hp_note_planFinance) as "hp_note_planFinance",
+		to_char(hp_approve_customerservice) as "hp_approve_customerservice",
+		to_char(hp_note_customerservice) as "hp_note_customerservice",
+		to_char(hp_approve_comprehensive) as "hp_approve_comprehensive",
+		to_char(hp_note_comprehensive) as "hp_note_comprehensive",
+		to_char(hp_approve_marketmanager) as "hp_approve_marketmanager",
+		to_char(hp_note_marketmanager) as "hp_note_marketmanager",
+		to_char(note) as "note",
+		to_char(serialNum) as "serialNum",
+		to_char(dm_rlmr_orgservice) as "dm_rlmr_orgservice",
+		to_char(dm_mcsy_orgservice) as "dm_mcsy_orgservice",
+		to_char(dm_approve_orgservice) as "dm_approve_orgservice",
+		to_char(dm_note_orgservice) as "dm_note_orgservice",
+		to_char(hp_mcsy_orgservice) as "hp_mcsy_orgservice",
+		to_char(hp_rlmr_orgservice) as "hp_rlmr_orgservice",
+		to_char(hp_approve_orgservice) as "hp_approve_orgservice",
+		to_char(hp_note_orgservice) as "hp_note_orgservice",
+		to_char(etfApproveMember) as "etfApproveMember",
+		to_char(dm_mcsy_comAlgTrad) as "dm_mcsy_comAlgTrad",
+		to_char(dm_rlmr_comAlgTrad) as "dm_rlmr_comAlgTrad",
+		to_char(dm_approve_comAlgTrad) as "dm_approve_comAlgTrad",
+		to_char(dm_note_comAlgTrad) as "dm_note_comAlgTrad",
+		to_char(hp_mcsy_comAlgTrad) as "hp_mcsy_comAlgTrad",
+		to_char(hp_rlmr_comAlgTrad) as "hp_rlmr_comAlgTrad",
+		to_char(hp_approve_comAlgTrad) as "hp_approve_comAlgTrad",
+		to_char(hp_note_comAlgTrad) as "hp_note_comAlgTrad"
+		from vm_approvenoteconfig where serialNum = #serialNo#
+	</select>
+	<select id="getFlowConfigInfoSerialNo.select" parameterClass="java.lang.String"  resultClass="java.util.HashMap">
+		select
+		id as "id",
+		createTime as "createTime",
+		to_char(dm_mcsy_Regular) as "dm_mcsy_regular",
+		to_char(dm_mcsy_Risk) as "dm_mcsy_risk",
+		to_char(dm_mcsy_investRegularTeam) as "dm_mcsy_investRegularTeam",
+		to_char(dm_mcsy_investMiddleTeam) as "dm_mcsy_investMiddleTeam",
+		to_char(dm_mcsy_centralTrad) as "dm_mcsy_centralTrad",
+		to_char(dm_mcsy_fixedIncomeTrad) as "dm_mcsy_fixedIncomeTrad",
+		to_char(dm_mcsy_orgBusinessLine) as "dm_mcsy_orgBusinessLine",
+		to_char(dm_mcsy_orgBusiness) as "dm_mcsy_orgBusiness",
+		to_char(dm_mcsy_socialBankBusiness) as "dm_mcsy_socialBankBusiness",
+		to_char(dm_mcsy_brokerBusiness) as "dm_mcsy_brokerBusiness",
+		to_char(dm_mcsy_retailerBusiness) as "dm_mcsy_retailerBusiness",
+		to_char(dm_mcsy_digitalFianceBusiness) as "dm_mcsy_digitalFianceBusiness",
+		to_char(dm_mcsy_Operation) as "dm_mcsy_operation",
+		to_char(dm_mcsy_informationTechnic) as "dm_mcsy_informationTechnic",
+		to_char(dm_mcsy_humanResourses) as "dm_mcsy_humanResourses",
+		to_char(dm_mcsy_planFinance) as "dm_mcsy_planFinance",
+		to_char(dm_mcsy_customerservice) as "dm_mcsy_customerservice",
+		to_char(dm_mcsy_comprehensive) as "dm_mcsy_comprehensive",
+		to_char(dm_mcsy_marketmanager) as "dm_mcsy_marketmanager",
+		to_char(hp_mcsy_Regular) as "hp_mcsy_regular",
+		to_char(hp_mcsy_Risk) as "hp_mcsy_risk",
+		to_char(hp_mcsy_investRegularTeam) as "hp_mcsy_investRegularTeam",
+		to_char(hp_mcsy_investMiddleTeam) as "hp_mcsy_investMiddleTeam",
+		to_char(hp_mcsy_centralTrad) as "hp_mcsy_centralTrad",
+		to_char(hp_mcsy_fixedIncomeTrad) as "hp_mcsy_fixedIncomeTrad",
+		to_char(hp_mcsy_orgBusinessLine) as "hp_mcsy_orgBusinessLine",
+		to_char(hp_mcsy_orgBusiness) as "hp_mcsy_orgBusiness",
+		to_char(hp_mcsy_socialBankBusiness) as "hp_mcsy_socialBankBusiness",
+		to_char(hp_mcsy_brokerBusiness) as "hp_mcsy_brokerBusiness",
+		to_char(hp_mcsy_retailerBusiness) as "hp_mcsy_retailerBusiness",
+		to_char(hp_mcsy_digitalFianceBusiness) as "hp_mcsy_digitalFianceBusiness",
+		to_char(hp_mcsy_Operation) as "hp_mcsy_operation",
+		to_char(hp_mcsy_informationTechnic) as "hp_mcsy_informationTechnic",
+		to_char(hp_mcsy_humanResourses) as "hp_mcsy_humanResourses",
+		to_char(hp_mcsy_planFinance) as "hp_mcsy_planFinance",
+		to_char(hp_mcsy_customerservice) as "hp_mcsy_customerservice",
+		to_char(hp_mcsy_comprehensive) as "hp_mcsy_comprehensive",
+		to_char(hp_mcsy_marketmanager) as "hp_mcsy_marketmanager",
+		to_char(dm_rlmr_Regular) as "dm_rlmr_regular",
+		to_char(dm_rlmr_Risk) as "dm_rlmr_risk",
+		to_char(dm_rlmr_investRegularTeam) as "dm_rlmr_investRegularTeam",
+		to_char(dm_rlmr_investMiddleTeam) as "dm_rlmr_investMiddleTeam",
+		to_char(dm_rlmr_centralTrad) as "dm_rlmr_centralTrad",
+		to_char(dm_rlmr_fixedIncomeTrad) as "dm_rlmr_fixedIncomeTrad",
+		to_char(dm_rlmr_orgBusinessLine) as "dm_rlmr_orgBusinessLine",
+		to_char(dm_rlmr_orgBusiness) as "dm_rlmr_orgBusiness",
+		to_char(dm_rlmr_socialBankBusiness) as "dm_rlmr_socialBankBusiness",
+		to_char(dm_rlmr_brokerBusiness) as "dm_rlmr_brokerBusiness",
+		to_char(dm_rlmr_retailerBusiness) as "dm_rlmr_retailerBusiness",
+		to_char(dm_rlmr_digitalFianceBusiness) as "dm_rlmr_digitalFianceBusiness",
+		to_char(dm_rlmr_Operation) as "dm_rlmr_operation",
+		to_char(dm_rlmr_informationTechnic) as "dm_rlmr_informationTechnic",
+		to_char(dm_rlmr_humanResourses) as "dm_rlmr_humanResourses",
+		to_char(dm_rlmr_planFinance) as "dm_rlmr_planFinance",
+		to_char(dm_rlmr_customerservice) as "dm_rlmr_customerservice",
+		to_char(dm_rlmr_comprehensive) as "dm_rlmr_comprehensive",
+		to_char(dm_rlmr_marketmanager) as "dm_rlmr_marketmanager",
+		to_char(hp_rlmr_Regular) as "hp_rlmr_regular",
+		to_char(hp_rlmr_Risk) as "hp_rlmr_risk",
+		to_char(hp_rlmr_investRegularTeam) as "hp_rlmr_investRegularTeam",
+		to_char(hp_rlmr_investMiddleTeam) as "hp_rlmr_investMiddleTeam",
+		to_char(hp_rlmr_centralTrad) as "hp_rlmr_centralTrad",
+		to_char(hp_rlmr_fixedIncomeTrad) as "hp_rlmr_fixedIncomeTrad",
+		to_char(hp_rlmr_orgBusinessLine) as "hp_rlmr_orgBusinessLine",
+		to_char(hp_rlmr_orgBusiness) as "hp_rlmr_orgBusiness",
+		to_char(hp_rlmr_socialBankBusiness) as "hp_rlmr_socialBankBusiness",
+		to_char(hp_rlmr_brokerBusiness) as "hp_rlmr_brokerBusiness",
+		to_char(hp_rlmr_retailerBusiness) as "hp_rlmr_retailerBusiness",
+		to_char(hp_rlmr_digitalFianceBusiness) as "hp_rlmr_digitalFianceBusiness",
+		to_char(hp_rlmr_Operation) as "hp_rlmr_operation",
+		to_char(hp_rlmr_informationTechnic) as "hp_rlmr_informationTechnic",
+		to_char(hp_rlmr_humanResourses) as "hp_rlmr_humanResourses",
+		to_char(hp_rlmr_planFinance) as "hp_rlmr_planFinance",
+		to_char(hp_rlmr_customerservice) as "hp_rlmr_customerservice",
+		to_char(hp_rlmr_comprehensive) as "hp_rlmr_comprehensive",
+		to_char(hp_rlmr_marketmanager) as "hp_rlmr_marketmanager",
+		to_char(otherApproveMr) as "otherApproveMr",
+		to_char(otherNoteMr) as "otherNoteMr",
+		to_char(dm_approve_Regular) as "dm_approve_regular",
+		to_char(dm_note_Regular) as "dm_note_regular",
+		to_char(dm_approve_Risk) as "dm_approve_risk",
+		to_char(dm_note_Risk) as "dm_note_risk",
+		to_char(dm_approve_investRegularTeam) as "dm_approve_investRegularTeam",
+		to_char(dm_note_investRegularTeam) as "dm_note_investRegularTeam",
+		to_char(dm_approve_investLine) as "dm_approve_investLine",
+		to_char(dm_note_investLine) as "dm_note_investLine",
+		to_char(dm_approve_investMiddleTeam) as "dm_approve_investMiddleTeam",
+		to_char(dm_note_investMiddleTeam) as "dm_note_investMiddleTeam",
+		to_char(dm_approve_centralTrad) as "dm_approve_centralTrad",
+		to_char(dm_note_centralTrad) as "dm_note_centralTrad",
+		to_char(dm_approve_fixedIncomeTrad) as "dm_approve_fixedIncomeTrad",
+		to_char(dm_note_fixedIncomeTrad) as "dm_note_fixedIncomeTrad",
+		to_char(dm_approve_orgBusinessLine) as "dm_approve_orgBusinessLine",
+		to_char(dm_note_orgBusinessLine) as "dm_note_orgBusinessLine",
+		to_char(dm_approve_orgBusiness) as "dm_approve_orgBusiness",
+		to_char(dm_note_orgBusiness) as "dm_note_orgBusiness",
+		to_char(dm_approve_socialBankBusiness) as "dm_approve_socialBankBusiness",
+		to_char(dm_note_socialBankBusiness) as "dm_note_socialBankBusiness",
+		to_char(dm_approve_brokerBusiness) as "dm_approve_brokerBusiness",
+		to_char(dm_note_brokerBusiness) as "dm_note_brokerBusiness",
+		to_char(dm_approve_retailerBusiness) as "dm_approve_retailerBusiness",
+		to_char(dm_note_retailerBusiness) as "dm_note_retailerBusiness",
+		to_char(dm_approve_digitalFianceBusiness) as "dm_approve_digitalFianceBusiness",
+		to_char(dm_note_digitalFianceBusiness) as "dm_note_digitalFianceBusiness",
+		to_char(dm_approve_Operation) as "dm_approve_operation",
+		to_char(dm_note_Operation) as "dm_note_operation",
+		to_char(dm_approve_informationTechnic) as "dm_approve_informationTechnic",
+		to_char(dm_note_informationTechnic) as "dm_note_informationTechnic",
+		to_char(dm_approve_humanResourses) as "dm_approve_humanResourses",
+		to_char(dm_note_humanResourses) as "dm_note_humanResourses",
+		to_char(dm_approve_planFinance) as "dm_approve_planFinance",
+		to_char(dm_note_planFinance) as "dm_note_planFinance",
+		to_char(dm_approve_customerservice) as "dm_approve_customerservice",
+		to_char(dm_note_customerservice) as "dm_note_customerservice",
+		to_char(dm_approve_comprehensive) as "dm_approve_comprehensive",
+		to_char(dm_note_comprehensive) as "dm_note_comprehensive",
+		to_char(dm_approve_marketmanager) as "dm_approve_marketmanager",
+		to_char(dm_note_marketmanager) as "dm_note_marketmanager",
+		to_char(hp_approve_Regular) as "hp_approve_regular",
+		to_char(hp_note_Regular) as "hp_note_regular",
+		to_char(hp_approve_Risk) as "hp_approve_risk",
+		to_char(hp_note_Risk) as "hp_note_risk",
+		to_char(hp_approve_investRegularTeam) as "hp_approve_investRegularTeam",
+		to_char(hp_note_investRegularTeam) as "hp_note_investRegularTeam",
+		to_char(hp_approve_investLine) as "hp_approve_investLine",
+		to_char(hp_note_investLine) as "hp_note_investLine",
+		to_char(hp_approve_investMiddleTeam) as "hp_approve_investMiddleTeam",
+		to_char(hp_note_investMiddleTeam) as "hp_note_investMiddleTeam",
+		to_char(hp_approve_centralTrad) as "hp_approve_centralTrad",
+		to_char(hp_note_centralTrad) as "hp_note_centralTrad",
+		to_char(hp_approve_fixedIncomeTrad) as "hp_approve_fixedIncomeTrad",
+		to_char(hp_note_fixedIncomeTrad) as "hp_note_fixedIncomeTrad",
+		to_char(hp_approve_orgBusinessLine) as "hp_approve_orgBusinessLine",
+		to_char(hp_note_orgBusinessLine) as "hp_note_orgBusinessLine",
+		to_char(hp_approve_orgBusiness) as "hp_approve_orgBusiness",
+		to_char(hp_note_orgBusiness) as "hp_note_orgBusiness",
+		to_char(hp_approve_socialBankBusiness) as "hp_approve_socialBankBusiness",
+		to_char(hp_note_socialBankBusiness) as "hp_note_socialBankBusiness",
+		to_char(hp_approve_brokerBusiness) as "hp_approve_brokerBusiness",
+		to_char(hp_note_brokerBusiness) as "hp_note_brokerBusiness",
+		to_char(hp_approve_retailerBusiness) as "hp_approve_retailerBusiness",
+		to_char(hp_note_retailerBusiness) as "hp_note_retailerBusiness",
+		to_char(hp_approve_digitalFianceBusiness) as "hp_approve_digitalFianceBusiness",
+		to_char(hp_note_digitalFianceBusiness) as "hp_note_digitalFianceBusiness",
+		to_char(hp_approve_Operation) as "hp_approve_operation",
+		to_char(hp_note_Operation) as "hp_note_operation",
+		to_char(hp_approve_informationTechnic) as "hp_approve_informationTechnic",
+		to_char(hp_note_informationTechnic) as "hp_note_informationTechnic",
+		to_char(hp_approve_humanResourses) as "hp_approve_humanResourses",
+		to_char(hp_note_humanResourses) as "hp_note_humanResourses",
+		to_char(hp_approve_planFinance) as "hp_approve_planFinance",
+		to_char(hp_note_planFinance) as "hp_note_planFinance",
+		to_char(hp_approve_customerservice) as "hp_approve_customerservice",
+		to_char(hp_note_customerservice) as "hp_note_customerservice",
+		to_char(hp_approve_comprehensive) as "hp_approve_comprehensive",
+		to_char(hp_note_comprehensive) as "hp_note_comprehensive",
+		to_char(hp_approve_marketmanager) as "hp_approve_marketmanager",
+		to_char(hp_note_marketmanager) as "hp_note_marketmanager",
+		to_char(dm_rlmr_orgservice) as "dm_rlmr_orgservice",
+		to_char(dm_mcsy_orgservice) as "dm_mcsy_orgservice",
+		to_char(dm_approve_orgservice) as "dm_approve_orgservice",
+		to_char(dm_note_orgservice) as "dm_note_orgservice",
+		to_char(hp_mcsy_orgservice) as "hp_mcsy_orgservice",
+		to_char(hp_rlmr_orgservice) as "hp_rlmr_orgservice",
+		to_char(hp_approve_orgservice) as "hp_approve_orgservice",
+		to_char(hp_note_orgservice) as "hp_note_orgservice",
+		to_char(etfApproveMember) as "etfApproveMember",
+		to_char(dm_mcsy_comAlgTrad) as "dm_mcsy_comAlgTrad",
+		to_char(dm_rlmr_comAlgTrad) as "dm_rlmr_comAlgTrad",
+		to_char(dm_approve_comAlgTrad) as "dm_approve_comAlgTrad",
+		to_char(dm_note_comAlgTrad) as "dm_note_comAlgTrad",
+		to_char(hp_mcsy_comAlgTrad) as "hp_mcsy_comAlgTrad",
+		to_char(hp_rlmr_comAlgTrad) as "hp_rlmr_comAlgTrad",
+		to_char(hp_approve_comAlgTrad) as "hp_approve_comAlgTrad",
+		to_char(hp_note_comAlgTrad) as "hp_note_comAlgTrad",
+		to_char(dm_rlmr_investLine) as "dm_rlmr_investLine",
+		to_char(hp_rlmr_investLine) as "hp_rlmr_investLine"
+		from vm_Wf_productApprove where id = #id#
+	</select>
+
+	<!-- 根据表单名称查询配置表信息 -->
+	<select id="memberConfigInfoByTableName.select" parameterClass="java.lang.String"  resultClass="java.util.HashMap">
+		select name, field_info from cap_form_definition where name = #tableName#
+	</select>
+
+	<select id="memberConfigInfo.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+		$sqlParam$
+	</select>
+
+	<!-- 定时器每天同步cap4专户立项信息表数据 开始-->
+
+	<!-- 查询cap4专户立项信息表中没有的数据 -->
+	<select id="cap4SpecialAccountData.select"  resultClass="java.util.HashMap">
+		select
+		id as "id",
+		serialnumber as "serialnumber",
+		specialaccountflow as "specialaccountflow",
+		isqdii as "isqdii",
+		type as "type",
+		flowtype as "flowtype",
+		flowstartdate as "flowstartdate",
+		initiator as "initiator",
+		initiatdept as "initiatdept",
+		investmentmanager as "investmentmanager",
+		salesmanager as "salesmanager",
+		riskreviewers as "riskreviewers",
+		compliancereviewers as "compliancereviewers",
+		flowName as "flowName",
+		to_char(modify_date, 'yyyy-mm-dd HH24:mi:ss')  as "modifyTime"
+		from vm_specialaccount_cap3 f
+		where f.serialnumber not in (select serialnumber from vm_specialaccount_cap4)
+	</select>
+
+
+	<!-- 获取cap4专户立项信息表中所有的数据 -->
+	<select id="findAllSpecialAccount.select" resultClass="com.seeyon.apps.kk.productinfo.model.SpecialAccountModel">
+		select
+		id,
+		serialnumber,
+		specialaccountflow,
+		isqdii,
+		type,
+		flowtype,
+		flowstartdate,
+		initiator,
+		initiatdept,
+		investmentmanager,
+		salesmanager,
+		riskreviewers,
+		compliancereviewers,
+		flowName,
+		modifyTime
+		from
+		vm_specialaccount_cap4
+	</select>
+
+	<!-- 获取有更新过的cap3专户立项信息表 -->
+	<select id="findNeedUpdateSpecialAccount.select" resultClass="com.seeyon.apps.kk.productinfo.model.SpecialAccountModel">
+		select
+		f1.id,
+		f1.serialnumber,
+		f1.specialaccountflow,
+		f1.isqdii,
+		f1.type,
+		f1.flowtype,
+		f1.flowstartdate,
+		f1.initiator,
+		f1.initiatdept,
+		f1.investmentmanager,
+		f1.salesmanager,
+		f1.riskreviewers,
+		f1.compliancereviewers,
+		f1.flowName,
+		to_char(f1.modify_date, 'yyyy-mm-dd HH24:mi:ss') modifyTime
+		from
+		vm_specialaccount_cap3 f1
+		inner join vm_specialaccount_cap4 f2 on f2.id = f1.id
+		where to_char(f1.modify_date, 'yyyy-mm-dd HH24:mi:ss') > f2.modifyTime
+	</select>
+
+	<!-- 更新cap4专户立项信息 -->
+	<update id="specialaccount.update" parameterClass="com.seeyon.apps.kk.productinfo.model.SpecialAccountModel">
+		update vm_specialaccount_cap4
+		set
+		serialnumber = #serialnumber#,
+		specialaccountflow = #specialaccountflow#,
+		isqdii = #isqdii#,
+		type = #type#,
+		flowtype = #flowtype#,
+		flowstartdate = #flowstartdate#,
+		initiator = #initiator#,
+		initiatdept = #initiatdept#,
+		investmentmanager = #investmentmanager#,
+		salesmanager = #salesmanager#,
+		riskreviewers = #riskreviewers#,
+		compliancereviewers = #compliancereviewers#,
+		flowName = #flowName#,
+		modifyTime = #modifyTime#
+		where id=#id#
+	</update>
+
+	<!-- 定时器每天同步cap4专户立项信息表数据 结束-->
+
+	<!--公募变更立项流程  -->
+	<select id="cap4ChangeFlow.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+		select
+		investDeptManagerStr "investDeptManagerStr",
+		investManagerStr "investManagerStr",
+		orgBusinessMember "orgBusinessMember",
+		retailerBusinessMember "retailerBusinessMember",
+		digitalFianceBusinessMember "digitalFianceBusinessMember",
+		regularCheckMember as "regularCheckMember"
+		from vm_cap4ProductChange where serialNum = #serialNum#
+	</select>
+
+	<select id="findFundProductByPIRID.select"  resultClass="com.seeyon.apps.kk.productinfo.model.FundProductModel">
+		select
+		to_char(id)id,
+		PRDCODE,
+		util_common.getEnumShowById(FUNDKIND) FUNDKIND,
+		PIRID,
+		util_common.getEnumShowById(STATUS) STATUS,
+		PRDNAME,
+		FDSHOTNM,
+		to_char(productManager) productManager,
+		to_char(saleManager) saleManager,
+		to_char(fundAdmin) fundAdmin,
+		to_char(taOperateManager) taOperateManager,
+		util_common.getEnumShowById(investType) investType,
+		util_common.getEnumShowById(fundType) fundType,
+		util_common.getEnumShowById(prdInvestType) prdInvestType,
+		util_common.getEnumShowById(mixTypeDirect) mixTypeDirect,
+		to_char(regularMember) regularMember,
+		util_common.getEnumShowById(productTypeMonthly) productTypeMonthly,
+		mgrNameList,
+		util_common.getEnumShowById(customType)  customType,
+		util_common.getEnumShowById(proReleaseFrequency)  proReleaseFrequency,
+		util_common.getEnumShowById(fundShareOperMode)  fundShareOperMode,
+		util_common.getEnumShowById(isETFFund)  isETFFund,
+		dutiesNameList,
+		productAbbreviation,
+		productAdministrator
+		from vm_fundproductinfoCap4
+	</select>
+
+	<!-- 获取单一资产立项归档中需要流程穿透的数据 -->
+	<select id="findFundProductSonInfo.select"  resultClass="java.util.HashMap">
+		select  vfp.PIRID as "PIRID",
+		vcf.fundManager as "fundManager",
+		vcf.duties as "duties"
+		from vm_fundproductinfoCap4 vfp
+		left join vm_cap4_fundmanagers vcf on vcf.formmain_id = vfp.id
+	</select>
+
+	<!--  根据主表ID查询ColSummaryId -->
+	<select id = "getAssetColSummaryIdById.select" parameterClass="string" resultClass="java.lang.String">
+		select id from col_summary where form_recordid = #mainId# and case_id is not null
+	</select>
+	<!--  根据主表ID查询operationId -->
+	<select id="getAssetOperationId.select" resultClass="java.lang.String" parameterClass="map">
+		SELECT  to_char(replace(wm_concat(t.name || '.' || t.value),',','_'))  as id
+		FROM (select '/QueryList/Query[@name="' || #viewName# ||
+		'"]/ShowsThrough/Colum' XPATH,
+		f.*
+		from form_definition f
+		where f.name = #tableName#) f,
+		xmltable(f.XPATH passing xmltype(nvl(f.query_info, <![CDATA['<root/>']]>))
+		columns "NAME" path '@name',
+		"VALUE" path '@value') t
+	</select>
+	<!-- 获取单一资产立项归档中需要流程穿透的数据 -->
+	<select id="getSingleAssetAccountQuery.select"  resultClass="java.util.HashMap">
+		select  vcf.id as "flowId",
+		vs.id as "id",
+		vs.flowtype as "flowtype"
+		from vm_specialaccount_cap4 vs
+		left join formmain_5083 vcf on vcf.field0001 = vs.serialnumber
+		where vs.flowUrl is  null and vcf.id is not null
+	</select>
+	<!-- 获取集合资产立项归档中需要流程穿透的数据 -->
+	<select id="getCollectiveAssetAccountQuery.select"  resultClass="java.util.HashMap">
+		select  vcf.id as "flowId",
+		vs.id as "id",
+		vs.flowtype as "flowtype"
+		from vm_specialaccount_cap4 vs
+		left join formmain_5108 vcf on vcf.field0001 = vs.serialnumber
+		where vs.flowUrl is  null and vcf.id is not null
+	</select>
+	<!-- 根据id更新专户立项信息url链接 -->
+	<update id="updateAssetFlowUrlField.update" parameterClass="map">
+		update vm_specialaccount_cap4
+		set flowUrl=#flowUrl#
+		where id=#id#
+	</update>
+	<!-- 更新专户立项的古荡状态 -->
+	<update id="updateSpecialAccountFlowState.update">
+		UPDATE vm_specialaccount_cap4 a
+		SET a.isFlowFinish = -3841538853571705149
+		where exists(
+		SELECT 'x'
+		FROM vm_specialaccount_cap3 b
+		WHERE a.serialnumber = b.serialnumber and (a.isFlowFinish <![CDATA[<>]]>  -3841538853571705149 or a.isFlowFinish is null)  and b.isFlowFinish = -3841538853571705149
+		)
+	</update>
+
+	<!-- 插入基金产品数据 -->
+	<insert id="insertFundProductInfo.insert" parameterClass="java.util.HashMap">
+		insert into vm_cap4_fundproductinfo(
+		ID,
+		STATE,
+		START_MEMBER_ID,
+		START_DATE,
+		APPROVE_MEMBER_ID,
+		APPROVE_DATE,
+		FINISHEDFLAG,
+		RATIFYFLAG,
+		RATIFY_MEMBER_ID,
+		RATIFY_DATE,
+		SORT,
+		MODIFY_MEMBER_ID,
+		MODIFY_DATE,
+		prdcode,
+		fundkind,
+		pirid,
+		prdname,
+		fdshotnm,
+		status,
+		productManager,
+		fundAdmin,
+		saleManager,
+		regularMember,
+		productTypeMonthly,
+		taOperateManager,
+		investType,
+		fundType,
+		mgrNameList,
+		prdInvestType,
+		mixTypeDirect,
+		customType,
+		fundManages,
+		proReleaseFrequency,
+		fundShareOperMode,
+		isETFFund,
+		isDeleted,
+		dutiesNameList
+		) VALUES(
+		#id#,
+		1,
+		null,
+		sysdate,
+		null,
+		sysdate,
+		0,
+		0,
+		0,
+		sysdate,
+		0,
+		null,
+		sysdate,
+		#PRDCODE#,
+		#FUNDKIND#,
+		#PIRID#,
+		#PRDNAME#,
+		#FDSHOTNM#,
+		#STATUS#,
+		#productManager#,
+		#fundAdmin#,
+		#saleManager#,
+		#regularMember#,
+		#productTypeMonthly#,
+		#taOperateManager#,
+		#investType#,
+		#fundType#,
+		#mgrNameList#,
+		#prdInvestType#,
+		#mixTypeDirect#,
+		#customType#,
+		#fundManages#,
+		#proReleaseFrequency#,
+		#fundShareOperMode#,
+		#isETFFund#,
+		#isDeleted#,
+		#dutiesNameList#
+		)
+	</insert>
+
+	<!-- 更新基金产品数据 -->
+	<update id="updateFundProductInfo.update" parameterClass="java.util.HashMap" >
+		update vm_cap4_fundproductinfo
+		set
+		pirid = #PIRID#,
+		fundkind = #FUNDKIND#,
+		prdcode = #PRDCODE#,
+		prdname = #PRDNAME#,
+		fdshotnm = #FDSHOTNM#,
+		status = #STATUS#,
+		productManager = #productManager#,
+		fundAdmin = #fundAdmin#,
+		saleManager = #saleManager#,
+		regularMember = #regularMember#,
+		productTypeMonthly = #productTypeMonthly#,
+		taOperateManager = #taOperateManager#,
+		investType = #investType#,
+		fundType = #fundType#,
+		mgrNameList = #mgrNameList#,
+		prdInvestType = #prdInvestType#,
+		mixTypeDirect = #mixTypeDirect#,
+		customType = #customType#,
+		fundManages = #fundManages#,
+		proReleaseFrequency = #proReleaseFrequency#,
+		fundShareOperMode = #fundShareOperMode#,
+		isETFFund = #isETFFund#,
+		isDeleted = #isDeleted#,
+		dutiesNameList = #dutiesNameList#,
+		productAbbreviation = #productAbbreviation#,
+		productAdministrator = #productAdministrator#
+		where ID = #id#
+	</update>
+	<!-- 插入基金产品明细表数据 -->
+	<insert id="insertFundProductSonInfo.insert" parameterClass="java.util.HashMap" >
+		insert into vm_cap4_fundmanagers values(util_common.getAbsID, #formmainid#, #fundManager#, #duties#)
+	</insert>
+
+	<!-- 删除基金产品明细表数据 -->
+	<delete id="deleteFundProductSonInfo.delete" >
+		delete vm_cap4_fundmanagers  where formmain_id =  #id#
+	</delete>
+</sqlMap>

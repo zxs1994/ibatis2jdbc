@@ -7,36 +7,267 @@ import org.w3c.dom.NodeList;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.StringReader;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 
 import org.xml.sax.InputSource;
 
 public class IbatisToJdbcConverter {
+  private final Map<String, StatementReference> statementIndex = new LinkedHashMap<>();
+
   // 生成可直接查看/排查的最终 SQL，# 会被内联成字面量。
   public ConvertedSql convert(String xml, String statementId, Object parameters) {
-    return convertInternal(xml, statementId, parameters, true);
+    return convertInternal(xml, statementId, parameters);
   }
 
-  // 生成可执行的 JDBC SQL，# 会替换为 ?，并收集对应参数列表。
-  public ConvertedSql convertForExecution(String xml, String statementId, Object parameters) {
-    return convertInternal(xml, statementId, parameters, false);
+  // 先调用 loadSqlMapsFromClasspath 后，可仅传 statementId + parameters 直接转换。
+  public ConvertedSql convert(String statementId, Object parameters) {
+    StatementReference statementReference = statementIndex.get(statementId);
+    if (statementReference == null) {
+      throw new IllegalStateException(
+          "Cannot find statementId in memory index: " + statementId
+              + ". Please call loadSqlMapsFromClasspath() first.");
+    }
+    return convertInternal(statementReference.xml, statementReference.lookupStatementId, parameters);
   }
 
-  private ConvertedSql convertInternal(String xml, String statementId, Object parameters, boolean inlineMode) {
+  // 生成带 ? 占位符的 PreparedStatement SQL，getPreparedBindings() 返回按顺序排列的绑定值。
+  public ConvertedSql convertPrepared(String xml, String statementId, Object parameters) {
+    return convertInternalPrepared(xml, statementId, parameters);
+  }
+
+  // 先调用 loadSqlMapsFromClasspath 后，可仅传 statementId + parameters 生成 PreparedStatement SQL。
+  public ConvertedSql convertPrepared(String statementId, Object parameters) {
+    StatementReference statementReference = statementIndex.get(statementId);
+    if (statementReference == null) {
+      throw new IllegalStateException(
+          "Cannot find statementId in memory index: " + statementId
+              + ". Please call loadSqlMapsFromClasspath() first.");
+    }
+    return convertInternalPrepared(statementReference.xml, statementReference.lookupStatementId, parameters);
+  }
+
+  // 扫描 classpath 内所有 *sqlmap.xml 资源并建立 statementId 索引。
+  public synchronized int loadSqlMapsFromClasspath() {
+    statementIndex.clear();
+    Set<String> visitedSources = new HashSet<>();
+    String classPath = System.getProperty("java.class.path", "");
+    if (isBlank(classPath)) {
+      return 0;
+    }
+
+    String[] entries = classPath.split(File.pathSeparator);
+    for (String entry : entries) {
+      if (isBlank(entry)) {
+        continue;
+      }
+      Path path = Paths.get(entry);
+      if (Files.isDirectory(path)) {
+        loadSqlMapsFromDirectory(path, visitedSources);
+      } else if (Files.isRegularFile(path) && entry.toLowerCase(Locale.ROOT).endsWith(".jar")) {
+        loadSqlMapsFromJar(path, visitedSources);
+      }
+    }
+    return statementIndex.size();
+  }
+
+  public synchronized void clearLoadedSqlMaps() {
+    statementIndex.clear();
+  }
+
+  public synchronized int getLoadedStatementCount() {
+    return statementIndex.size();
+  }
+
+  private void loadSqlMapsFromDirectory(Path root, Set<String> visitedSources) {
+    try {
+      Files.walk(root)
+          .filter(Files::isRegularFile)
+          .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith("sqlmap.xml"))
+          .forEach(path -> {
+            String source = path.toAbsolutePath().toString();
+            if (!visitedSources.add(source)) {
+              return;
+            }
+            try {
+              String xml = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+              registerStatements(xml, source);
+            } catch (IOException exception) {
+              throw new IllegalStateException("Failed to read sqlmap xml: " + source, exception);
+            }
+          });
+    } catch (IOException exception) {
+      throw new IllegalStateException("Failed to scan classpath directory: " + root, exception);
+    }
+  }
+
+  private void loadSqlMapsFromJar(Path jarPath, Set<String> visitedSources) {
+    try (JarFile jarFile = new JarFile(jarPath.toFile())) {
+      Enumeration<JarEntry> entries = jarFile.entries();
+      while (entries.hasMoreElements()) {
+        JarEntry jarEntry = entries.nextElement();
+        if (jarEntry.isDirectory()) {
+          continue;
+        }
+        String name = jarEntry.getName();
+        if (!name.toLowerCase(Locale.ROOT).endsWith("sqlmap.xml")) {
+          continue;
+        }
+
+        String source = jarPath.toAbsolutePath() + "!" + name;
+        if (!visitedSources.add(source)) {
+          continue;
+        }
+
+        try (InputStream inputStream = jarFile.getInputStream(jarEntry)) {
+          String xml = new String(readAllBytes(inputStream), StandardCharsets.UTF_8);
+          registerStatements(xml, source);
+        }
+      }
+    } catch (IOException exception) {
+      throw new IllegalStateException("Failed to scan classpath jar: " + jarPath, exception);
+    }
+  }
+
+  private byte[] readAllBytes(InputStream inputStream) throws IOException {
+    byte[] buffer = new byte[8192];
+    int read;
+    List<byte[]> chunks = new ArrayList<>();
+    int total = 0;
+    while ((read = inputStream.read(buffer)) != -1) {
+      byte[] chunk = Arrays.copyOf(buffer, read);
+      chunks.add(chunk);
+      total += read;
+    }
+    byte[] all = new byte[total];
+    int offset = 0;
+    for (byte[] chunk : chunks) {
+      System.arraycopy(chunk, 0, all, offset, chunk.length);
+      offset += chunk.length;
+    }
+    return all;
+  }
+
+  private void registerStatements(String xml, String source) {
+    Document document;
+    try {
+      String normalizedXml = preprocessXml(xml);
+      DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+      factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+      factory.setNamespaceAware(false);
+      document = factory.newDocumentBuilder().parse(new InputSource(new StringReader(normalizedXml)));
+    } catch (Exception exception) {
+      throw new IllegalStateException("Failed to parse sqlmap xml: " + source, exception);
+    }
+
+    Element root = document.getDocumentElement();
+    String namespace = root == null ? "" : root.getAttribute("namespace");
+    NodeList nodes = document.getElementsByTagName("*");
+    for (int index = 0; index < nodes.getLength(); index++) {
+      Node node = nodes.item(index);
+      if (!(node instanceof Element)) {
+        continue;
+      }
+      Element element = (Element) node;
+      if (!IbatisXmlSupport.isStatementTag(element.getTagName())) {
+        continue;
+      }
+      String localId = element.getAttribute("id");
+      if (isBlank(localId)) {
+        continue;
+      }
+
+      StatementReference reference = new StatementReference(xml, localId, source);
+      // 无 namespace 的 statementId 必须全局唯一。
+      registerStatementId(localId, reference, isBlank(namespace));
+      if (!isBlank(namespace)) {
+        registerStatementId(namespace + "." + localId, reference, true);
+      }
+    }
+  }
+
+  private void registerStatementId(String statementId, StatementReference reference, boolean strict) {
+    StatementReference existing = statementIndex.get(statementId);
+    if (existing == null) {
+      statementIndex.put(statementId, reference);
+      return;
+    }
+    if (existing.source.equals(reference.source) && existing.lookupStatementId.equals(reference.lookupStatementId)) {
+      return;
+    }
+    if (strict) {
+      throw new IllegalStateException(
+          "Duplicate statementId detected while loading sqlmap.xml: " + statementId + " (" + existing.source
+              + " vs " + reference.source + ")");
+    }
+  }
+
+  private ConvertedSql convertInternalPrepared(String xml, String statementId, Object parameters) {
+    Objects.requireNonNull(xml, "xml");
+    String normalizedXml = preprocessXml(xml);
+    try {
+      DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+      factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+      factory.setNamespaceAware(false);
+      Document document = factory.newDocumentBuilder().parse(new InputSource(new StringReader(normalizedXml)));
+      Element statement = findStatement(document, statementId);
+      if (statement == null) {
+        throw new IllegalArgumentException("Cannot find statement: " + statementId);
+      }
+      Map<String, Element> sqlFragments = collectSqlFragments(document);
+      Map<String, Map<String, String>> resultMaps = collectResultMaps(document);
+      String statementType = statement.getTagName();
+      String resultClass = statement.getAttribute("resultClass");
+      String resultMapId = normalizeResultMapId(statement.getAttribute("resultMap"), resultMaps);
+
+      List<Object> bindingCollector = new ArrayList<>();
+      RenderContext renderContext;
+      if (parameters instanceof Map) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> paramMap = (Map<String, Object>) parameters;
+        renderContext = RenderContext.prepared(paramMap, sqlFragments, resultMaps, bindingCollector);
+      } else if (parameters instanceof Collection<?> || (parameters != null && parameters.getClass().isArray())) {
+        Map<String, Object> collectionContext = buildCollectionContext(parameters);
+        renderContext = RenderContext.prepared(collectionContext, sqlFragments, resultMaps, bindingCollector);
+      } else if (isSimpleParameterValue(parameters)) {
+        renderContext = RenderContext.preparedScalar(parameters, sqlFragments, resultMaps, bindingCollector);
+      } else {
+        renderContext = RenderContext.preparedBean(parameters, sqlFragments, resultMaps, bindingCollector);
+      }
+      String sql = renderNode(statement, renderContext);
+      return new ConvertedSql(normalizeSql(postprocessSql(sql)), parameters, statementType, resultClass,
+          resultMapId, Collections.unmodifiableList(bindingCollector));
+    } catch (Exception exception) {
+      throw new IllegalStateException("Failed to convert iBatis XML", exception);
+    }
+  }
+
+  private ConvertedSql convertInternal(String xml, String statementId, Object parameters) {
     Objects.requireNonNull(xml, "xml");
     // 预留 XML 预处理钩子，后续如果需要统一剥离 DOCTYPE、命名空间或做兼容修复，可集中放在这里。
     String normalizedXml = preprocessXml(xml);
@@ -59,41 +290,24 @@ public class IbatisToJdbcConverter {
       String resultClass = statement.getAttribute("resultClass");
       String resultMapId = normalizeResultMapId(statement.getAttribute("resultMap"), resultMaps);
 
-      List<Object> executionParams = inlineMode ? null : new ArrayList<>();
       RenderContext renderContext;
-      Object convertedParameters;
-
-      // List 参数在 iBatis 的 iterate 语义里通常以 ids/list 两个入口被访问，
-      // 这里先统一包装成 Map，再复用同一套属性解析逻辑。
-      // inline 模式返回原始参数，execution 模式返回 JDBC 参数列表。
+      // 统一内联模式，按参数类型包装成适当的 RenderContext。
       if (parameters instanceof Map) {
         @SuppressWarnings("unchecked")
         Map<String, Object> paramMap = (Map<String, Object>) parameters;
-        renderContext = inlineMode
-            ? RenderContext.inline(paramMap, sqlFragments, resultMaps)
-            : RenderContext.execution(paramMap, executionParams, sqlFragments, resultMaps);
-        convertedParameters = inlineMode ? parameters : executionParams;
+        renderContext = RenderContext.inline(paramMap, sqlFragments, resultMaps);
       } else if (parameters instanceof Collection<?> || (parameters != null && parameters.getClass().isArray())) {
         Map<String, Object> collectionContext = buildCollectionContext(parameters);
-        renderContext = inlineMode
-            ? RenderContext.inline(collectionContext, sqlFragments, resultMaps)
-            : RenderContext.execution(collectionContext, executionParams, sqlFragments, resultMaps);
-        convertedParameters = inlineMode ? parameters : executionParams;
+        renderContext = RenderContext.inline(collectionContext, sqlFragments, resultMaps);
       } else if (isSimpleParameterValue(parameters)) {
-        renderContext = inlineMode
-            ? RenderContext.inlineScalar(parameters, sqlFragments, resultMaps)
-            : RenderContext.executionScalar(parameters, executionParams, sqlFragments, resultMaps);
-        convertedParameters = inlineMode ? parameters : executionParams;
+        renderContext = RenderContext.inlineScalar(parameters, sqlFragments, resultMaps);
       } else {
-        renderContext = inlineMode
-            ? RenderContext.inlineBean(parameters, sqlFragments, resultMaps)
-            : RenderContext.executionBean(parameters, executionParams, sqlFragments, resultMaps);
-        convertedParameters = inlineMode ? parameters : executionParams;
+        renderContext = RenderContext.inlineBean(parameters, sqlFragments, resultMaps);
       }
 
       // renderNode 会递归展开动态标签和占位符，最后得到一条纯 SQL 字符串。
       String sql = renderNode(statement, renderContext);
-        return new ConvertedSql(normalizeSql(postprocessSql(sql)), convertedParameters, statementType, resultClass,
+      return new ConvertedSql(normalizeSql(postprocessSql(sql)), parameters, statementType, resultClass,
           resultMapId);
     } catch (Exception exception) {
       throw new IllegalStateException("Failed to convert iBatis XML", exception);
@@ -565,13 +779,13 @@ public class IbatisToJdbcConverter {
       if ("$".equals(marker)) {
         // iBatis $...$ is raw text substitution, not prepared-statement binding.
         matcher.appendReplacement(buffer, Matcher.quoteReplacement(toSqlRawText(value)));
-      } else if (context.inlineMode) {
+      } else if (context.bindingCollector != null) {
+        // prepared 模式：#...# 输出 ? 并将绑定值按序追加到 collector。
+        context.bindingCollector.add(value);
+        matcher.appendReplacement(buffer, "?");
+      } else {
         // convert 模式下，#...# 直接内联成 SQL 字面量，便于生成“可读 SQL 报告”。
         matcher.appendReplacement(buffer, Matcher.quoteReplacement(toSqlLiteral(value)));
-      } else {
-        // convertForExecution 模式下，#...# 转成 ? 并把值收集到 executionParams，供 JDBC 绑定。
-        context.executionParams.add(value);
-        matcher.appendReplacement(buffer, "?");
       }
     }
     matcher.appendTail(buffer);
@@ -825,72 +1039,81 @@ public class IbatisToJdbcConverter {
 
   private static final class RenderContext {
     // parameters 保存命名参数；defaultValue 用于简单类型参数（如 String/Long）；
-    // inlineMode 控制 #...# 是内联字面量还是 JDBC ?；
-    // executionParams 只在 execution 模式下收集顺序参数；
     // iterationProperty / iterationValue 用于 iterate 当前项解析。
+    // bindingCollector 非 null 时为 prepared 模式，#...# 输出 ? 并将值追加至此列表。
     private final Map<String, Object> parameters;
     private final Object defaultValue;
-    private final boolean inlineMode;
-    private final List<Object> executionParams;
     private final Map<String, Element> sqlFragments;
     private final Map<String, Map<String, String>> resultMaps;
     private final String iterationProperty;
     private final Object iterationValue;
     private final boolean parameterPresent;
+    private final List<Object> bindingCollector;
 
     private static RenderContext inline(Map<String, Object> parameters, Map<String, Element> sqlFragments,
         Map<String, Map<String, String>> resultMaps) {
-      return new RenderContext(parameters, null, true, null, sqlFragments, null, null, true, resultMaps);
+      return new RenderContext(parameters, null, sqlFragments, null, null, true, resultMaps, null);
     }
 
     private static RenderContext inlineScalar(Object scalarValue, Map<String, Element> sqlFragments,
         Map<String, Map<String, String>> resultMaps) {
-      return new RenderContext(Collections.emptyMap(), scalarValue, true, null, sqlFragments, null, null,
-          scalarValue != null, resultMaps);
+      return new RenderContext(Collections.emptyMap(), scalarValue, sqlFragments, null, null,
+          scalarValue != null, resultMaps, null);
     }
 
     private static RenderContext inlineBean(Object beanValue, Map<String, Element> sqlFragments,
         Map<String, Map<String, String>> resultMaps) {
-      return new RenderContext(Collections.emptyMap(), beanValue, true, null, sqlFragments, null, null,
-          beanValue != null, resultMaps);
+      return new RenderContext(Collections.emptyMap(), beanValue, sqlFragments, null, null,
+          beanValue != null, resultMaps, null);
     }
 
-    private static RenderContext execution(Map<String, Object> parameters, List<Object> executionParams,
-        Map<String, Element> sqlFragments, Map<String, Map<String, String>> resultMaps) {
-      return new RenderContext(parameters, null, false, executionParams, sqlFragments, null, null, true, resultMaps);
+    private static RenderContext prepared(Map<String, Object> parameters, Map<String, Element> sqlFragments,
+        Map<String, Map<String, String>> resultMaps, List<Object> bindingCollector) {
+      return new RenderContext(parameters, null, sqlFragments, null, null, true, resultMaps, bindingCollector);
     }
 
-    private static RenderContext executionScalar(Object scalarValue, List<Object> executionParams,
-        Map<String, Element> sqlFragments, Map<String, Map<String, String>> resultMaps) {
-      return new RenderContext(Collections.emptyMap(), scalarValue, false, executionParams, sqlFragments, null, null,
-          scalarValue != null, resultMaps);
+    private static RenderContext preparedScalar(Object scalarValue, Map<String, Element> sqlFragments,
+        Map<String, Map<String, String>> resultMaps, List<Object> bindingCollector) {
+      return new RenderContext(Collections.emptyMap(), scalarValue, sqlFragments, null, null,
+          scalarValue != null, resultMaps, bindingCollector);
     }
 
-    private static RenderContext executionBean(Object beanValue, List<Object> executionParams,
-        Map<String, Element> sqlFragments, Map<String, Map<String, String>> resultMaps) {
-      return new RenderContext(Collections.emptyMap(), beanValue, false, executionParams, sqlFragments, null, null,
-          beanValue != null, resultMaps);
+    private static RenderContext preparedBean(Object beanValue, Map<String, Element> sqlFragments,
+        Map<String, Map<String, String>> resultMaps, List<Object> bindingCollector) {
+      return new RenderContext(Collections.emptyMap(), beanValue, sqlFragments, null, null,
+          beanValue != null, resultMaps, bindingCollector);
     }
 
-    private RenderContext(Map<String, Object> parameters, Object defaultValue, boolean inlineMode,
-        List<Object> executionParams, Map<String, Element> sqlFragments, String iterationProperty,
-        Object iterationValue, boolean parameterPresent, Map<String, Map<String, String>> resultMaps) {
+    private RenderContext(Map<String, Object> parameters, Object defaultValue, Map<String, Element> sqlFragments,
+        String iterationProperty, Object iterationValue, boolean parameterPresent,
+        Map<String, Map<String, String>> resultMaps, List<Object> bindingCollector) {
       this.parameters = parameters;
       this.defaultValue = defaultValue;
-      this.inlineMode = inlineMode;
-      this.executionParams = executionParams;
       this.sqlFragments = sqlFragments;
       this.iterationProperty = iterationProperty;
       this.iterationValue = iterationValue;
       this.parameterPresent = parameterPresent;
       this.resultMaps = resultMaps;
+      this.bindingCollector = bindingCollector;
     }
 
     private RenderContext forIteration(String property, Object value, int iterationIndex) {
-      // 迭代时复用原上下文，只替换“当前项相关”的两个槽位。
-      return new RenderContext(parameters, defaultValue, inlineMode, executionParams, sqlFragments, property, value,
-          parameterPresent, resultMaps);
+      // 迭代时复用原上下文，只替换“当前项相关”的两个槽位；bindingCollector 共享引用保持顺序一致。
+      return new RenderContext(parameters, defaultValue, sqlFragments, property, value,
+          parameterPresent, resultMaps, bindingCollector);
     }
 
+  }
+
+  private static final class StatementReference {
+    private final String xml;
+    private final String lookupStatementId;
+    private final String source;
+
+    private StatementReference(String xml, String lookupStatementId, String source) {
+      this.xml = xml;
+      this.lookupStatementId = lookupStatementId;
+      this.source = source;
+    }
   }
 }

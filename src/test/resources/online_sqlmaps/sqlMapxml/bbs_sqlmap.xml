@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+    <!-- 公告板块（bul_type），根据板块名称获取板块ID-->
+    <select id="getBulletinId.select" resultClass="java.lang.String" parameterClass="map">
+        select id from bul_type where type_name = #name# and accountid = #accountId#
+    </select>
+    <!-- 公告信息板块（bul_data），根据板块ID更新相关参数-->
+    <update id="bulletin.update" parameterClass="map">
+    	update bul_data
+        set create_date = #createDate#, update_date = #updateDate#, publish_date = #publishDate# where id = #id#
+    </update>
+    <!--讨论模块 查询最新插入的讨论ID-->
+    <select id="getBbsByName.select" resultClass="java.lang.String" parameterClass="String">
+        select id from ( select * from BBS_ARTICLE ORDER BY ISSUE_TIME desc) where ROWNUM=1 and  article_name=#articleName#
+    </select>  
+    <!--讨论模块 查询最新插入的讨论ID-->
+    <select id="getBulsSection.select" resultClass="java.lang.String">
+        select ARGUMENTS from VM_BUL_SECTION
+    </select>
+    <select id="culturalConstruction.select" parameterClass="java.lang.String" resultClass="mapBean">
+        select id,body_type fileType,to_char(content) fileId from BUL_BODY
+        c where c.body_type != 'HTML' and id = #id#
+        union all
+        select id,body_type fileType,to_char(content) fileId from news_body
+        c where c.body_type != 'HTML' and id = #id#
+    </select>
+    
+</sqlMap>

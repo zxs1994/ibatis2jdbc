@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+    <!-- 根据用户id和流程模板id查询配置单  -->
+    <select id="queryCfgsByWfName.select" resultClass="java.util.HashMap" parameterClass="map">
+        SELECT id,
+        receiver,
+        creator,
+        wfTemplateName,
+        wfTemplateTitle,
+        matchingType,
+        reason,
+        createTime,
+        useable
+        from vm_msgShieldedCfg v1
+        where
+        <isEmpty property="templateId">
+            (wfTemplateName is null or wfTemplateName = '')
+        </isEmpty>
+        <isNotEmpty property="templateId">
+            wfTemplateName = (select SUBJECT from ctp_template where is_system=1 and is_delete=0 and state=0 and id =
+            #templateId#)
+        </isNotEmpty>
+        and #userId# in
+        (select COLUMN_VALUE from table (
+        util_common.split((select receiver from vm_msgShieldedCfg v2 where id = v1.id),',')))
+        and useable = '-286897663746683514' <!-- 是 -->
+
+    </select>
+
+    <select id="queryMessageConfigs.select" parameterClass="java.lang.String" resultClass="mapBean">
+        select
+        ID,
+        serialNo,
+        messageKeyword,
+        matchPattern ,
+        messageChannel,
+        creator,
+        receiver,
+        (select id from ctp_template f where f.templete_number = templateNo) templateNo,
+        blockReason,
+        enableFlag,
+        createTime,
+        recordLogFlag,
+        departments,
+        accounts,
+        to_char(isWhitelist) isWhitelist
+        from vm_cap4MessageConfigs where isWhitelist = #isWhitelist#
+    </select>
+
+</sqlMap>

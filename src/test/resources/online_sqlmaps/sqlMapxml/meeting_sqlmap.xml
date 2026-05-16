@@ -1,0 +1,504 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+	<!-- 获取附加信息表中的数据-->
+	<select id = "meetingRoomExtendInfo.select" resultClass = "com.seeyon.apps.kk.meeting.model.MeetingRoomExtendInfo">
+		select id, 
+			createmember,
+			createdate,
+			meetingroomid,
+		 	roomsystemcode,
+		  	roomname,
+		  	floor,
+		  	area, 
+		 	privilegedepart,
+		  	privilegemember, 
+		  	equipment, 
+		  	isprivileged, 
+		  	belongroomsystem 
+			from vm_meetingroomextendinfo
+	</select>
+	<!-- 获取会议室审批信息表内容 -->
+	<select id = "meetingRoomAppByMeetingId.select" parameterClass = "string" resultClass="com.seeyon.apps.kk.meeting.model.MeetingRoomApp">
+		select * from meeting_room_app where meetingsysmtid = #meetingId# and used_status = 0
+	</select>
+	<!-- 获取会议室审批 -->
+	<select id = "meetingRoomByAppId.select" parameterClass = "string" resultClass="com.seeyon.apps.kk.meeting.model.MeetingRoomPerm">
+		select * from meeting_room_perm m where m.appid  = #appId#
+	</select>	
+	<!-- 查询会议室审批信息 -->
+	<select id = "meetingRoomAppByTimeQuantum.select" parameterClass = "map" resultClass="com.seeyon.apps.kk.meeting.model.MeetingRoomApp">
+		select * from meeting_room_app
+		mra
+		where ((mra.startdatetime between #startDate# and #endDate#)
+  	 		or(mra.enddatetime between #startDate# and #endDate#)
+    		or(#startDate# between mra.startdatetime and  mra.enddatetime)
+    		or(#endDate# between mra.startdatetime and  mra.enddatetime))
+    		and meetingsysmtid is not null  
+	</select>
+		<select id = "meeingRoomBookNoSys.select" parameterClass = "map" resultClass="com.seeyon.apps.kk.meeting.model.MeetingRoomApp">
+		    select * from
+    	meeting_room_app  mra,
+   		 meeting_room_perm mrp
+		where
+		    mra.id = mrp.appid(+)
+    		and (mrp.ISALLOWED = 1 or mrp.ISALLOWED is null)  and mra.used_status = 0
+    		and
+			((mra.startdatetime between #startDate# and #endDate#)
+  	 		or(mra.enddatetime between #startDate# and #endDate#)
+    		or(#startDate# between mra.startdatetime and  mra.enddatetime)
+    		or(#endDate# between mra.startdatetime and  mra.enddatetime))
+    		and meetingsysmtid is  null
+			<isNotEmpty prepend="AND"  property="meetingroomid">
+				meetingroomid = #meetingroomid#
+			</isNotEmpty>
+
+	</select>
+
+
+
+	<select id = "queryBookedMeeingRoom.select" parameterClass = "map" resultClass="com.seeyon.apps.kk.meeting.model.MeetingRoomApp">
+		select * from
+		meeting_room_app
+		where
+
+		((startdatetime between #startDate# and #endDate#)
+		or(enddatetime between #startDate# and #endDate#)
+		or(#startDate# between startdatetime and  enddatetime)
+		or(#endDate# between startdatetime and  enddatetime))
+		and util_user.getLoginNameByMemId(perid) = #loginName#
+		and meetingsysmtid is not null
+		and meetingsysmtid != '0'
+		<isNotEmpty prepend="AND"  property="meetingroomid">
+			meetingroomid = #meetingroomid#
+		</isNotEmpty>
+
+	</select>
+	
+	<!-- 会议室信息插入 -->
+	<insert id = "meetingRoomApp.insert"  parameterClass = "com.seeyon.apps.kk.meeting.model.MeetingRoomApp">
+	insert into meeting_room_app
+	(ID, MEETINGROOMID, PERID, DEPARTMENTID, STARTDATETIME, ENDDATETIME, MEETINGID, DESCRIPTION, STATUS, APPDATETIME, AUDITING_ID, TEMPLATE_ID, PERIODICITY_ID, USED_STATUS, TIME_DIFF, ACCOUNT_ID, MEETINGSYSMTID)
+	values
+	(#ID#,#MEETINGROOMID#,#PERID#,#DEPARTMENTID#,#STARTDATETIME#,#ENDDATETIME#,#MEETINGID#,#DESCRIPTION#,#STATUS#,#APPDATETIME#,#AUDITING_ID#,#TEMPLATE_ID#,#PERIODICITY_ID#,#USED_STATUS#,#TIME_DIFF#,#ACCOUNT_ID#,#MEETINGSYSMTID#)
+	</insert>
+	<!-- 会议室审批额外信息插入 -->
+	<insert id = "meetingRoomPrem.insert" parameterClass = "com.seeyon.apps.kk.meeting.model.MeetingRoomPerm" >
+insert into meeting_room_perm (APPID, ISALLOWED, DESCRIPTION, PRODATETIME, DELFLAG, IS_PERIODICITY, AUDITING_ID, ID, MEETING_ROOM_ID, MEETING_ID, PROXY_ID)
+values (#APPID#,#ISALLOWED#,#DESCRIPTION#,#PRODATETIME#,#DELFLAG#,#IS_PERIODICITY#,#AUDITING_ID#,#ID#,#MEETING_ROOM_ID#,#MEETING_ID#,#PROXY_ID#)
+	</insert>
+	
+		<!-- 会议室信息插入 -->
+	<insert id = "meetingRoomAppCopy.insert"  parameterClass = "com.seeyon.apps.kk.meeting.model.MeetingRoomApp">
+		insert into meeting_room_app_copy 
+		(ID, MEETINGROOMID, PERID, DEPARTMENTID, STARTDATETIME, ENDDATETIME, MEETINGID, DESCRIPTION, STATUS, APPDATETIME, AUDITING_ID, TEMPLATE_ID, PERIODICITY_ID, USED_STATUS, TIME_DIFF, ACCOUNT_ID, MEETINGSYSMTID)
+	values
+	(#ID#,#MEETINGROOMID#,#PERID#,#DEPARTMENTID#,#STARTDATETIME#,#ENDDATETIME#,#MEETINGID#,#DESCRIPTION#,#STATUS#,#APPDATETIME#,#AUDITING_ID#,#TEMPLATE_ID#,#PERIODICITY_ID#,#USED_STATUS#,#TIME_DIFF#,#ACCOUNT_ID#,#MEETINGSYSMTID#)
+	</insert>
+	<!-- 会议室审批额外信息插入 -->
+	<insert id = "meetingRoomPremCopy.insert" parameterClass = "com.seeyon.apps.kk.meeting.model.MeetingRoomPerm" >
+	insert into meeting_room_perm_copy (APPID, ISALLOWED, DESCRIPTION, PRODATETIME, DELFLAG, IS_PERIODICITY, AUDITING_ID, ID, MEETING_ROOM_ID, MEETING_ID, PROXY_ID)
+values (#APPID#,#ISALLOWED#,#DESCRIPTION#,#PRODATETIME#,#DELFLAG#,#IS_PERIODICITY#,#AUDITING_ID#,#ID#,#MEETING_ROOM_ID#,#MEETING_ID#,#PROXY_ID#)
+	</insert>
+	
+	<!-- 会议室信息删除 -->
+	<delete  id = "meetingRoomAppById.delete" parameterClass = "string">
+		delete meeting_room_app where ID = #appid#
+	</delete >
+	<!-- 会议室额外信息删除 -->
+	<delete id = "meetingRoomPremById.delete" parameterClass = "string">
+		delete meeting_room_perm where appid = #appid#
+	</delete>
+	<!-- 根据人员名称查询人员信息 -->
+	<select id = "memberByName.select" parameterClass = "string" resultClass = "java.util.HashMap">
+		select id,org_department_id from org_member o where o.name like #name# and o.is_enable =1 and o.is_deleted = 0
+	</select>
+	<!-- Shkk.do 2019-11-29 humintiao-->
+	<!-- 会议室取消信息查询-->
+	<select id="failMeetingRoom.select" resultClass = "com.seeyon.apps.kk.meeting.model.MeetingRoomFailRecord">
+		select t.* from MEETINGROOM_CancleFail_record t
+		<!--  kk.do 20200525 cj 会议任务新增判断开始时间是否小于当前时间  start -->
+		left join meeting_room_app_copy m on t.meetingid=m.MEETINGSYSMTID
+		where sysDate <![CDATA[>]]> m.startDateTime
+		<!--  kk.do 20200525 cj 会议任务新增判断开始时间是否小于当前时间  end -->
+	</select>
+	<!-- 会议室取消失败信息删除 -->
+	<delete id="failMeetingRoom.delete" parameterClass="string">
+		delete from MEETINGROOM_CancleFail_record where meetingid = #meetingid#
+	</delete>
+	<update id="meetingRoonById.update" parameterClass = "java.util.HashMap" >
+		update meeting_room_app m set m.enddatetime = #date# where id = #id#
+	</update>
+	<update id="updateSysMtId.update" parameterClass = "java.util.HashMap" >
+		update meeting_room_app m set m.meetingsysmtid = #meetingSysId# where id = #id#
+	</update>
+
+
+	<!-- 根据申请ID获取会议室审批信息表内容 -->
+	<select id = "meetingRoomAppByApplyId.select" parameterClass = "map" resultClass="com.seeyon.apps.kk.meeting.model.MeetingRoomApp">
+		select * from meeting_room_app where id = #applyId#
+	</select>
+
+	<!-- 根据申请ID获取会议室审批信息表内容 -->
+	<select id = "queryMeeting.select" parameterClass = "map" resultClass="java.util.HashMap">
+		select
+		b.ID,
+		b.TITLE,
+		b.EMCEE_ID,
+		b.CONFEREES,
+		b.RECORDER_ID,
+		to_char(b.BEGIN_DATE,'yyyy-mm-dd hh24:mi') BEGIN_DATE,
+		to_char(b.END_DATE,'yyyy-mm-dd hh24:mi') END_DATE,
+		(select place from meeting_room where id = room) as roomaddress,
+		(select name from meeting_room where id = room) as roomname,
+		b.CREATE_DATE,
+		b.CREATE_USER,
+		b.STATE,
+		b.ACCOUNT_ID,
+		b.TITLE,
+		b.MT_TITLE,
+		b.MEET_PLACE
+		from
+		ctp_affair a left join meeting b on (a.subject = b.title and a.create_date = b.create_date)
+		where
+		b.state != 0
+		<isNotEmpty prepend="AND"  property="startDateTime">
+
+			(#startDateTime# &lt;= b.BEGIN_DATE and b.BEGIN_DATE &lt;= #endDateTime#
+			or #endDateTime# &gt;= b.END_DATE and b.END_DATE &gt;= #startDateTime#)
+		</isNotEmpty>
+		<isNotEmpty prepend="AND"  property="title">
+			b.TITLE like #title#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND"  property="isEndY">
+			sysdate &gt; b.END_DATE
+		</isNotEmpty>
+		<isNotEmpty prepend="AND"  property="isEndN">
+			sysdate &lt; b.END_DATE
+		</isNotEmpty>
+		<isNotEmpty prepend="AND"  property="memberId">
+			a.member_id = #memberId#
+		</isNotEmpty>
+	</select>
+
+	<!-- 组件平台查询所有会议信息 -->
+	<select id = "queryMeetingEomp.select" parameterClass = "map" resultClass="java.util.HashMap">
+		select
+		b.ID,
+		b.TITLE,
+		b.EMCEE_ID,
+		b.CONFEREES,
+		b.RECORDER_ID,
+		to_char(b.BEGIN_DATE,'yyyy-mm-dd hh24:mi') BEGIN_DATE,
+		to_char(b.END_DATE,'yyyy-mm-dd hh24:mi') END_DATE,
+		(select place from meeting_room where id = room) as roomaddress,
+		(select name from meeting_room where id = room) as roomname,
+		to_char(b.CREATE_DATE,'yyyy-mm-dd hh24:mi') CREATE_DATE,
+		to_char(b.UPDATE_DATE,'yyyy-mm-dd hh24:mi') UPDATE_DATE,
+		b.CREATE_USER,
+		b.STATE,
+		b.ACCOUNT_ID,
+		b.TITLE,
+		b.MT_TITLE,
+		b.MEET_PLACE
+		from
+		meeting b
+		where
+		0 = 0
+		<isNotEmpty prepend="AND"  property="startDateTime">
+
+			( (#startDateTime# &lt;= b.BEGIN_DATE and b.BEGIN_DATE &lt;= #endDateTime#)
+			or (#startDateTime# &lt;= b.END_DATE and b.END_DATE &lt;= #endDateTime#) )
+		</isNotEmpty>
+		<isNotEmpty prepend="AND"  property="createStartDate">
+			 (#createStartDate# &lt;= b.UPDATE_DATE and b.UPDATE_DATE &lt;= #createEndDate#)
+		</isNotEmpty>
+		<isNotEmpty prepend="AND"  property="title">
+			b.TITLE like #title#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND"  property="isEndY">
+			sysdate &gt; b.END_DATE
+		</isNotEmpty>
+		<isNotEmpty prepend="AND"  property="isEndN">
+			sysdate &lt; b.END_DATE
+		</isNotEmpty>
+		<isNotEmpty prepend="AND"  property="state">
+			state = #state#
+		</isNotEmpty>
+	</select>
+
+	<select id = "queryMeetingParticipate.select" parameterClass = "java.lang.String" resultClass="java.lang.String">
+		select
+		a.member_Id as memberId
+		from
+		ctp_affair a left join meeting b on (a.subject = b.title and a.create_date = b.create_date)
+		where
+
+		b.id = #id#
+	</select>
+
+
+	<!-- 按照部门id、岗位id或职务级别id查询用户id -->
+	<select id = "queryMembersId.select" parameterClass = "map" resultClass="java.lang.String">
+		select
+		ID
+
+		from
+		org_member
+		where
+		1=1
+		<isNotEmpty prepend="AND"  property="deptId">
+			org_department_id = #deptId#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND"  property="levelId">
+			org_level_id = #levelId#
+		</isNotEmpty>
+		<isNotEmpty prepend="AND"  property="postId">
+			org_post_id = #postId#
+		</isNotEmpty>
+		and is_enable = 1
+	</select>
+
+	<!-- 按照部门id、岗位id或职务级别id查询用户id -->
+	<select id = "queryMembersIdByTeam.select" parameterClass = "map" resultClass="java.lang.String">
+		select c.objective0_id from org_relationship c where c.source_id = #teamId#
+		and (select is_enable from org_member where id = c.objective0_id) = 1
+	</select>
+
+
+	<!-- 按照部门ID查询出部门描述信息 -->
+	<select id = "queryDeptDescription.select" parameterClass = "java.lang.String" resultClass="java.lang.String">
+		select DESCRIPTION from ORG_UNIT where id = #id#
+	</select>
+
+	<!-- 插入数据到OA部门扩展字段信息表中 -->
+	<insert id="oaDepartExtendInfo.insert">
+		insert into vm_department_extendInfo
+		(
+		id,
+		state,
+		start_member_id,
+		start_date,
+		approve_member_id,
+		approve_date,
+		finishedflag,
+		ratifyflag,
+		ratify_member_id,
+		ratify_date,
+		writter,
+		writeDate,
+		departId ,
+		TXMeetingDepartId,
+		isInvalidTXDepart,
+		updateDate,
+		account,
+		path
+		)
+		select
+		util_common.getAbsID,
+		1,
+		-6760911671874597139,
+		sysdate,
+		-6760911671874597139,
+		sysdate,
+		0,
+		0,
+		0,
+		null,
+		-6760911671874597139,
+		sysdate,
+		vm.id,
+		null,
+		-3841538853571705149,
+		sysdate,
+		vm.org_account_id,
+		path
+		from vm_org_unit vm
+		where vm.parent_id is not null
+		and code is not null
+		and vm.IS_INTERNAL = 1
+		and vm.id not in (select c.departId from vm_department_extendInfo c where   c.departId is not null)
+	</insert>
+	<!-- 插入OA部门扩展字段信息到正文表中 -->
+	<insert id="oaDepartExtendInfoContent.insert">
+		insert into ctp_content_all
+		(ID,
+		CREATE_ID,
+		CREATE_DATE,
+		MODIFY_ID,
+		MODIFY_DATE,
+		MODULE_TYPE,
+		MODULE_ID,
+		MODULE_TEMPLATE_ID,
+		CONTENT_TYPE,
+		CONTENT,
+		CONTENT_DATA_ID,
+		CONTENT_TEMPLATE_ID,
+		TITLE,
+		SORT)
+		select
+		util_common.getAbsID,
+		'-6760911671874597139',
+		sysdate,
+		'-6760911671874597139',
+		sysdate,
+		37,
+		id,
+		'-7450664796185736396',
+		'20',
+		'',
+		id,
+		'5703827208807141039',
+		'OA组织机构扩展信息表',
+		'0'
+		from vm_department_extendInfo vm where id not  in(select content_data_id from ctp_content_all c where c.content_template_id = 5703827208807141039 and content_data_id is not null)
+	</insert>
+	<!-- 查询那些是需要向腾讯会议中增加部门的 -->
+	<select id="needSysTXMeeting.select" resultClass="com.seeyon.apps.kk.meeting.model.OADepartExtendInfoModel">
+		select
+		id,
+		state,
+		start_member_id,
+		start_date,
+		approve_member_id,
+		approve_date,
+		finishedflag,
+		ratifyflag,
+		ratify_member_id,
+		ratify_date,
+		writter,
+		writeDate,
+		departId ,
+		util_org.getDeptNameByDeptId(departId) departName,
+		TXMeetingDepartId,
+		isInvalidTXDepart,
+		updateDate,
+		account
+		from vm_department_extendInfo vm where vm.TXMeetingDepartId is null and vm.isInvalidTXDepart = -3841538853571705149 order by path
+	</select>
+	<!-- 更新OA部门扩展字段表中的数据状态 -->
+	<update id="oaDepartExtendInfoState.update">
+		update vm_department_extendInfo v1 set v1.isInvalidTXDepart =  -1089048568118490234 ,v1.updateDate = sysdate
+		where  v1.departId not in(
+		select
+		vm.ID
+		from vm_org_unit vm
+		where vm.parent_id is not null
+		and code is not null
+		and vm.IS_INTERNAL = 1
+		)
+	</update>
+	<!-- 查询当前节点的父节点的腾讯会议部门ID -->
+	<select id="currentParentTXMeDepartId.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+		select TXMeetingDepartId
+		from vm_department_extendInfo
+		where departid = (select vm.parent_id from vm_org_unit vm where id =  #departId#)
+	</select>
+	<!-- 查询当前节点如果是二级部门-->
+	<select id="currentParentTXMeOrgId.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+		select TXMeetingDepartId
+		from vm_department_extendInfo vm1
+		where account = (select vm.parent_id from vm_org_unit vm where id = #departId#) and vm1.departId is null
+	</select>
+
+	<!-- 查询所有的OA部门扩展信息记录 -->
+	<select id="allOADepartExtendInfo.select" resultClass="com.seeyon.apps.kk.meeting.model.OADepartExtendInfoModel">
+		select
+		id,
+		state,
+		start_member_id,
+		start_date,
+		approve_member_id,
+		approve_date,
+		finishedflag,
+		ratifyflag,
+		ratify_member_id,
+		ratify_date,
+		writter,
+		writeDate,
+		departId ,
+		TXMeetingDepartId,
+		util_org.getDeptNameByDeptId(departId) departName,
+		isInvalidTXDepart,
+		updateDate from vm_department_extendInfo v1 where v1.departId is not null order by path desc
+	</select>
+	<!-- 腾讯会议更新 -->
+	<update id="txMeetingId.update" parameterClass="java.util.HashMap">
+		update vm_department_extendInfo set TXMeetingDepartId = #department_id# where departId = #departId#
+	</update>
+	<update id="TXMeetingDepartId.Update" parameterClass="java.lang.String">
+		update vm_department_extendInfo  set TXMeetingDepartId = null where  TXMeetingDepartId  = #departInfos#
+	</update>
+	<!-- 查找需要创建会议室的人员 -->
+	<select id="needCreateTXMeeting.select" resultClass="com.seeyon.apps.kk.meeting.model.TXMeetingUserModel" parameterClass="java.lang.String">
+		$sql$
+	</select>
+	<!-- 查找需要删除腾讯会议的用户 -->
+	<select id="invalidateTXMeetingUser.select" resultClass="java.lang.String">
+		$sql$
+	</select>
+
+	<select id="allTXMeetingUser.select" resultClass="com.seeyon.apps.kk.meeting.model.TXMeetingUserModel" parameterClass="java.lang.String">
+		$sql$
+	</select>
+	<!-- 更新腾讯会议的人员ID，更新是否开通腾讯会议为是 -->
+	<update id="TXMeetingInfo.update" parameterClass="java.util.HashMap">
+		update vm_baseMemberInfo set isOpenTXMeeting = -3841538853571705149, TXUserId = #TXUserId# where id = #id#
+	</update>
+	<update id="TXMeetingInfoDelete.update" parameterClass="java.lang.String">
+		update vm_baseMemberInfo set isOpenTXMeeting = -1089048568118490234, TXUserId = null where TXUserId = #TXUserId#
+	</update>
+
+	<!-- 查询所有可用的OA端会议室 -->
+	<select id = "queryAllUsableMeeringroom.select" parameterClass = "java.lang.String" resultClass="java.lang.String">
+		select name from meeting_room where delflag = 0
+	</select>
+
+	<!-- 查询所有在职员工手机号 -->
+	<select id = "getAllMembersPhoneNo.select" resultClass="java.lang.String">
+		select to_char(ext_attr_1) from org_member where state = 1 and IS_INTERNAL =1 and IS_LOGINABLE =1  and IS_VIRTUAL=0 and IS_ADMIN=0 and IS_ASSIGNED=1 and type = 1 and IS_ENABLE = 1 and IS_DELETED = 0  and STATUS = 1
+	</select>
+	<!-- 根据手机号查询员工id -->
+	<select id = "getMemberIdByPhoneNo.select" parameterClass="java.lang.String" resultClass="java.lang.Integer">
+		select count(id) from org_member where ext_attr_1 = #phoneNo#
+	</select>
+
+
+	<!-- 根据会议id查询会议室信息 -->
+	<select id = "queryMeetingRoomInfo.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+		select place as "place",name as "name" from meeting_room where id = (select room from meeting where id = #id#)
+	</select>
+
+	<select id = "getApplyMeetingTableData.select" parameterClass = "java.util.HashMap" resultClass="java.util.HashMap">
+		select id as "id",
+		roomName as "roomName",
+		perId as "perId",
+		appBeginDate as "appBeginDate",
+		appEndDate as "appEndDate",
+		description as "description",
+		appId as "appId",
+		roomTypeName as "roomTypeName",
+		status as "status"
+		from vm_meetingRoom_applyInfo where 1=1
+		<isNotEmpty prepend="AND"  property="endDate">
+			appBeginDate &gt;= to_date(#startDate#, 'yyyy-mm-dd hh24:mi:ss')
+		</isNotEmpty>
+		<isNotEmpty prepend="AND"  property="startDate">
+			appBeginDate &lt;= to_date(#endDate#, 'yyyy-mm-dd hh24:mi:ss')
+		</isNotEmpty>
+	</select>
+
+	<select id="findAllMeetingRoom" resultClass="mapBean">
+		select name, to_char(id) id,to_char(qr_code_apply) qr_code_apply from meeting_room
+	</select>
+
+	<!-- 组装会议室Id和会议室所属地区的关系 -->
+	<select id = "getMeetingRoomTypeMap.select"  resultClass="java.util.HashMap">
+		select
+		mr.id,
+		mrt.name
+		from meeting_room mr
+		left join meeting_room_type mrt on mrt.id = mr.room_type_id
+		where mr.delflag = 0 and mr.status = 0
+	</select>
+</sqlMap>

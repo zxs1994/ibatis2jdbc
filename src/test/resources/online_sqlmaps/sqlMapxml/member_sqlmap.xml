@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+    <!-- 用户信息主表（org_member），查询员工信息 -->
+    <select id="memberInfo.select" resultClass="mapBean" parameterClass="map">
+        select r.id ,case when r.state=2 then r.name||'(已离职)' else r.name end name
+        from org_member r
+        left join org_principal l
+        on r.id = l.member_id
+        where ( r.name like '%'||#name#||'%' or l.login_name like '%'||#loginname#||'%') 
+        and r.is_deleted = 0
+        and r.is_admin = 0
+        order by r.name
+    </select>
+    <!-- 用户信息主表（org_member），选人信息查询 -->
+    <select id="selectPeople.select" resultClass="mapBean"
+            parameterClass="map">
+        select case when r.state=2 then r.name||'(已离职)' else r.name end username,
+        case when r.is_internal is null then 0 else r.is_internal end
+        is_internal,
+        r.org_account_id,
+        r.org_department_id,
+        case when t.name is null then ' ' else t.name end deptname,
+        r.id,
+        r.sort_id,
+        r.org_post_id,
+        case when p.name is null then ' ' else p.name end postname,
+        r.org_level_id,
+        case when r.ext_attr_1 is null then ' ' else r.ext_attr_1 end tel,
+        case when r.ext_attr_2 is null then a.login_name||'@fullgoal.com.cn' else
+        r.ext_attr_2 end mail
+        from org_member r left join org_principal a on r.id=a.member_id
+        left join org_unit t on r.org_department_id = t.id
+        left join org_post p on r.org_post_id = p.id
+        where (a.login_name like '%'||#loginname#||'%' or r.name like '%'||#name#||'%') 
+        and r.is_deleted = 0
+        and r.is_admin = 0
+    </select>
+        <!-- org_relationship人员关系表，查询出所有的副岗信息 -->
+    <select id="findAllPostInfo.select" resultClass="mapBean">
+		select s1.memberId, s1.departId, s1.postId, s2.accId
+  		from (select distinct t.source_id memberId,
+                         to_char(wm_concat(t.objective0_id) over(partition by t.source_id order by t.objective0_id rows between unbounded following and unbounded following)) departId,
+                         to_char(wm_concat(t.objective1_id) over(partition by t.source_id order by t.objective0_id rows between unbounded following and unbounded following)) postId
+        from org_relationship t
+        where t.objective5_id = 'Second') s1,
+       (select distinct t.source_id memberId,
+                         to_char(wm_concat(t.objective0_id) over(partition by t.source_id order by t.objective0_id rows between unbounded following and unbounded following)) departId,
+                         to_char(wm_concat(t.org_account_id) over(partition by t.source_id order by t.objective0_id rows between unbounded following and unbounded following)) accId
+       from org_relationship t
+       where t.objective5_id = 'Second') s2
+ 	   where s1.memberId = s2.memberId
+       and s1.departId = s2.departId
+    </select>
+    <!-- 查询所有的人员信息 -->
+    <select id="findAllMemberInfo.select" resultClass="java.util.HashMap">
+    	select id,o.is_internal,name ,code from org_member o where o.is_enable=1 and o.is_deleted=0  
+    </select>
+    <!-- 查询所有的人员登录账户 -->
+    <select id="getAllPrincipal.select" resultClass="java.util.HashMap">
+        select member_id,login_name from org_principal t
+    </select>
+</sqlMap>

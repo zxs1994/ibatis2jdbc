@@ -1,0 +1,341 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+
+    <insert id="addNewActivity.insert" parameterClass="java.util.HashMap">
+        insert into vm_laborUnionActivity(id,
+
+        state             ,
+        start_member_id   ,
+        start_date        ,
+        approve_member_id ,
+        approve_date      ,
+        finishedflag      ,
+        ratifyflag        ,
+        ratify_member_id  ,
+        ratify_date       ,
+        sort              ,
+        modify_member_id  ,
+        modify_date       ,
+
+        activityName,activityChargeMember,articleDate,clubName,clubchargeMember,
+        defaultNumber,articleUrl,articleId,replyKeywords,signedNumber,keyWords)
+        select
+        util_common.getAbsID(),
+
+        1,-6760911671874597139,SYSDATE,0,SYSDATE,0,0,0,null,0,-6760911671874597139,SYSDATE,
+
+        atc.article_name,
+        atc.issue_user_id,
+        atc.issue_time,
+        luc.clubName,
+        luc.chargeMember,
+        luc.defaultNumber,
+        #urlpreffix#||atc.id,
+        atc.id,
+        luc.replyKeywords,
+        0,
+        luc.keyWords
+        from BBS_ARTICLE atc left join vm_laborUnionClub luc
+        on atc.article_name like
+        '%' || (luc.keyWords) || '%'
+        where atc.v3x_bbs_board_id is not null
+        and atc.v3x_bbs_board_id in
+        <iterate conjunction="," open="(" close=")" property="boardId">
+            #boardId[]#
+        </iterate>
+        and not exists(select 1 from vm_laborUnionActivity lua where lua.articleId = atc.id )
+        and luc.status = -4520706962260276520
+        and (atc.state = 0 or atc.state = 2)
+        and atc.issue_time > (sysdate - #preDays#)
+    </insert>
+
+
+    <insert id="addNewActivityContentAll.insert" parameterClass="java.util.HashMap">
+        insert into ctp_content_all
+        (ID,
+        CREATE_ID,
+        CREATE_DATE,
+        MODIFY_ID,
+        MODIFY_DATE,
+        MODULE_TYPE,
+        MODULE_ID,
+        MODULE_TEMPLATE_ID,
+        CONTENT_TYPE,
+        CONTENT,
+        CONTENT_DATA_ID,
+        CONTENT_TEMPLATE_ID,
+        TITLE,
+        SORT)
+        select
+        util_common.getAbsID,
+        '-6760911671874597139',
+        sysdate,
+        '-6760911671874597139',
+        sysdate,
+        37,
+        lua.id,
+        '6512334920732788514',
+        '20',
+        '',
+        lua.id,
+        '-9151066781654103757',
+        '工会俱乐部活动_管理',
+        '0'
+        from vm_laborUnionActivity lua where not exists
+        (
+        select 1 from ctp_content_all cca where cca.content_data_id = lua.id
+        )
+    </insert>
+
+
+    <insert id="addNewActivityDetail.insert">
+        insert into vm_activityDetail(
+        id,
+
+        state             ,
+        start_member_id   ,
+        start_date        ,
+        approve_member_id ,
+        approve_date      ,
+        finishedflag      ,
+        ratifyflag        ,
+        ratify_member_id  ,
+        ratify_date       ,
+        sort              ,
+        modify_member_id  ,
+        modify_date       ,
+
+        activityName,
+        articleId,
+        articleDate,
+        activityChargeMember,
+        clubchargeMember,
+        articleUrl,
+        member,
+        memberDept,
+        signDate,
+        signSeq,
+        isvalid,
+        isattend,
+        manualStatus,
+        clubName,
+        activityId,
+        replyId
+        )
+        select
+        id,
+
+        state             ,
+        start_member_id   ,
+        start_date        ,
+        approve_member_id ,
+        approve_date      ,
+        finishedflag      ,
+        ratifyflag        ,
+        ratify_member_id  ,
+        ratify_date       ,
+        sort              ,
+        modify_member_id  ,
+        modify_date       ,
+
+        activityName,
+        articleId,
+        articleDate,
+        activityChargeMember,
+        clubchargeMember,
+        articleUrl,
+        reply_user_id as member,
+        memberDept,
+        signDate,
+        signSeq,
+        isvalid,
+        isattend,
+        manualStatus,
+        clubName,
+        activityId,
+        replyId
+        from (
+        select row_number() over(partition by articleId,reply_user_id order by signDate) as row_num ,t.* from (
+        select util_common.getAbsID() as id,
+
+        1 as state,
+        -6760911671874597139 as start_member_id,
+        SYSDATE as start_date,
+        0 as approve_member_id,
+        SYSDATE as approve_date,
+        0 as finishedflag,
+        0 as ratifyflag,
+        0 as ratify_member_id,
+        null as ratify_date,
+        0 as sort,
+        -6760911671874597139 as modify_member_id,
+        SYSDATE as modify_date,
+
+        ba.article_name as activityName,
+        ba.id as articleId,
+        ba.issue_time articleDate,
+        ba.issue_user_id as activityChargeMember,
+        vc.chargeMember as clubchargeMember,
+        lua.articleUrl,
+        bar.reply_user_id,
+        om.org_department_id as memberDept,
+        bar.reply_time as signDate,
+        null as signSeq,
+        -1089048568118490234 as isvalid,
+        -1089048568118490234 as isattend,
+        '0' as manualStatus,
+        vc.clubName,
+        lua.id activityId,
+        bar.id replyId
+        from bbs_article ba,BBS_ARTICLE_REPLY bar,vm_laborunionclub vc,vm_laborUnionActivity lua,org_member om
+        where (ba.state=0/*正常*/ or ba.state=2/*结贴*/)
+        and bar.state=0/*正常*/
+        and ba.id=bar.v3x_bbs_article_id
+        and ba.article_name like '%' || vc.keyWords || '%'
+        and (vc.replyKeywords is null or dbms_lob.instr(bar.content,vc.replyKeywords)>0)
+        and lua.articleId=bar.v3x_bbs_article_id and om.id=bar.reply_user_id
+        ) t
+        ) where row_num=1 and (articleId,reply_user_id) not in (select ad.articleId,ad.member  from vm_activityDetail ad)
+
+
+    </insert>
+
+    <insert id="addNewActivityDetailContentAll.insert">
+        insert into ctp_content_all
+        (ID,
+        CREATE_ID,
+        CREATE_DATE,
+        MODIFY_ID,
+        MODIFY_DATE,
+        MODULE_TYPE,
+        MODULE_ID,
+        MODULE_TEMPLATE_ID,
+        CONTENT_TYPE,
+        CONTENT,
+        CONTENT_DATA_ID,
+        CONTENT_TEMPLATE_ID,
+        TITLE,
+        SORT)
+        select
+        util_common.getAbsID,
+        '-6760911671874597139',
+        sysdate,
+        '-6760911671874597139',
+        sysdate,
+        37,
+        ad.id,
+        '-937912537866547341',
+        '20',
+        '',
+        ad.id,
+        '9216606476516151238',
+        '工会俱乐部活动报名',
+        '0'
+        from vm_activityDetail ad where not exists
+        (
+        select 1 from ctp_content_all cca where cca.content_data_id = ad.id
+        )
+    </insert>
+
+
+    <update id="setActivityDetailSeq.update">
+        update vm_activityDetail ads
+        set ads.validSeq =
+        (select b.rowno
+        from (select row_number() over(partition by t.articleId order by t.signDate asc) rowno,
+        rowid browid
+        from vm_activityDetail t
+        where t.manualStatus = '0'
+        and t.articleId in
+        (select id from bbs_article a where a.issue_time > sysdate - #preDays#)) b
+        where b.browid = ads.rowid),
+        ads.signSeq =
+        (select b.rowno
+        from (select row_number() over(partition by t.articleId order by t.signDate asc) rowno,
+        rowid browid
+        from vm_activityDetail t
+        where t.articleId in
+        (select id from bbs_article a where a.issue_time > sysdate - #preDays#)) b
+        where b.browid = ads.rowid)
+        where ads.articleId in
+        (select id from bbs_article a where a.issue_time > sysdate - #preDays#)
+        and (ads.signSeq is null
+        and ads.validSeq is null
+        or ads.activityId in (select distinct activityId
+        from vm_activityDetail
+        where manualstatus = '1' and articleId in
+        (select id from bbs_article a where a.issue_time > sysdate - #preDays#)))
+
+    </update>
+
+
+    <update id="resetActivityDetailValid.update">
+        update vm_activityDetail ads
+        set ads.isValid = -1089048568118490234
+        where ads.manualStatus = '0'
+        or ads.isattend = -1089048568118490234
+    </update>
+
+    <update id="setActivityDetailValid.update">
+        update vm_activityDetail ads
+        set ads.isValid = -3841538853571705149
+        where ads.validSeq &lt;= (
+        select lua.defaultNumber-(select count(*) from vm_activityDetail ad where ad.activityId = lua.id and
+        ad.isvalid=-3841538853571705149
+        and ad.manualStatus = '1')
+        from vm_laborUnionActivity lua
+        where lua.id = ads.activityId
+        )
+
+    </update>
+
+
+    <delete id="removeNoRecordReply.delete">
+        delete from vm_activityDetail ad
+        where ad.replyId in (select id from bbs_article_reply where state = 1 )
+    </delete>
+
+
+    <update id="updateMemberLimit.update" parameterClass="java.util.HashMap">
+        update vm_laborUnionActivity lua set lua.defaultNumber = #memberLimit# where lua.id in
+        <iterate conjunction="," open="(" close=")" property="idList">
+            #idList[]#
+        </iterate>
+    </update>
+
+    <select id="getOverLimitActivivyInfo.select" parameterClass = "java.util.HashMap" resultClass="java.util.HashMap">
+        select
+        lua.activityName as "activityName",
+        lua.defaultNumber as "defaultNumber",
+        adValid.validCount as "validCount"
+        from vm_laborUnionActivity lua left join
+        (select ad.articleId,count(ad.articleId) validCount from vm_activityDetail ad where ad.isvalid =
+        -3841538853571705149
+        group by ad.articleId) adValid
+        on lua.articleId = adValid.articleId
+        where lua.id in
+        <iterate conjunction="," open="(" close=")" property="idList">
+            #idList[]#
+        </iterate>
+    </select>
+
+
+    <update id="updateClubChargeMember.update" parameterClass="java.util.HashMap">
+        update vm_laborUnionActivity lua set lua.clubchargeMember = #clubChargeMember#
+        where lua.clubName = (select luc.clubName from vm_laborUnionClub luc where luc.id =  #id#    )
+    </update>
+
+    <update id="updateClubChargeMemberDetail.update" parameterClass="java.util.HashMap">
+        update vm_activityDetail ad set ad.clubchargeMember = #clubChargeMember#
+        where ad.clubName = (select luc.clubName from vm_laborUnionClub luc where luc.id =  #id#    )
+    </update>
+
+    <update id="updateActivitySignedNumber.update" parameterClass="java.util.HashMap">
+        update vm_laborUnionActivity lua set lua.signedNumber =
+        (
+        select count(1) from vm_activityDetail ad where ad.articleId = lua.articleId
+        )
+    </update>
+
+</sqlMap>

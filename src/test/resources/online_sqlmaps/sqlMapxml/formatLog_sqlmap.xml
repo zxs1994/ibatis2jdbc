@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+
+    <!-- 查询所有需要格式化的日志 -->
+    <select id="formLog.need.select" resultClass="com.seeyon.apps.kk.formatLog.model.FormLog" parameterClass="map">
+		select f.id as id,
+		f.form_id as formId,
+		f.operate_type as operateType,
+		f.description as description
+		from form_log f 
+		where Form_type = '2' <!-- 底表 -->
+		and operate_type in ('92','99') <!-- 修改的类型 -->
+		and f.description not like '[F]%' and f.description not like '[UF]%'
+		<isNotEmpty prepend="and" property="formId">
+			form_id = #formId#
+		</isNotEmpty>
+    </select>
+    
+    <!-- 更新任务描述 -->
+    <update id="formLog.update"  parameterClass="map">
+		update form_log v set v.description = #formatStr# 
+		where v.id = #id#
+	</update>
+    <insert id="formLogInsert.insert" parameterClass="com.seeyon.apps.kk.formatLog.model.RecordFormLog">
+		insert into form_log values(util_common.getID,#form_id#,#record_id#,#form_type#,#operator#,#operate_type#,sysdate,#creator#,sysdate,#description#)
+	</insert>
+</sqlMap>

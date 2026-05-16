@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+    <!-- 部门岗位变更备选人员查询  -->
+    <select id="getRiskAssessCheckFlow.select" resultClass="java.util.HashMap" parameterClass="java.util.HashMap">
+        select
+            main.riskSendSerialNumber as "riskSendSerialNumber",
+            main.sendUser  as "sendUser",
+            main.sendDepart  as "sendDepart",
+            main.sendDate as "sendDate",
+            main.departs as "departs",
+            main.sendAccount as "sendAccount",
+            main.subjectMatter as "subjectMatter",
+            main.id as "riskAssessSendFlowKey",
+            main.flowName as "riskAssessSendFlowName",
+            sub.regularDepartCode as "regularDepartCode",
+            sub.riskNote as "riskNote"
+        from
+            vm_wf_RISK_assess_send_flow main
+        right join
+            vm_wf_RISK_assess_send_son sub
+        on
+            main.id = sub.formmain_id
+        where
+            main.id = #id#
+    </select>
+
+    <select id="getHandledRiskAssess.select" resultClass="java.util.HashMap" parameterClass="java.util.HashMap">
+        select
+            sendUser as "sendUser",
+            sentDepart as "sentDepart",
+            sendDate as "sendDate",
+            sentDepartUnion as "sentDepartUnion",
+            riskSerialNumber as "riskSerialNumber",
+            riskSendSerialNumber as "riskSendSerialNumber",
+            executor as "executor",
+            riskAssessSummary as "riskAssessSummary",
+            subjectMatter as "subjectMatter",
+            regularDepart as "regularDepart",
+            flowId as "flowId",
+            riskAssessSendFlowKey as "riskAssessSendFlowKey",
+            riskAssessSendFlowName as "riskAssessSendFlowName",
+            riskAssessFlowName as "riskAssessFlowName",
+            riskNote as "riskNote",
+            regularDepartCode as "regularDepartCode"
+        from
+            vm_wf_risk_assess_flow
+        where
+            riskAssessSendFlowKey = #id#
+    </select>
+
+</sqlMap>

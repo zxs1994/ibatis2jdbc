@@ -1,0 +1,1233 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+	<!-- 合同档案（formmain_0535），根据合同编号查询合同数据ID  -->
+	<select id="contractId.select" parameterClass="map" resultClass="java.lang.String">
+		select ID from formmain_0535 where field0002 = #contractNo#
+	</select>
+	<!-- 合同档案（formmain_0535），根据更新时间查询合同信息  -->
+	<select id="contract.select" parameterClass="map" resultClass="contract">
+		    select
+    decode(vm.id,null,'0','1') as isSendOAContractMaintain,
+    field0001 as subject,
+    field0002 as contractNo,
+    ORG_PRINCIPAL.LOGIN_NAME as sponsor,
+    ORG_UNIT.CODE as sponsorDepartment,
+    '' as linkSign,
+    field0005 as linkSignSubject,
+    field0007 as sourceSystem,
+    '' as sourceSystemID,
+    '' as sourceSystemURL,
+    enum_item_contractType.SHOWVALUE as contractPayType,
+    enum_item_contractClassify.SHOWVALUE as contractClassify,
+    enum_item_contractPayType.SHOWVALUE as contractType,
+    '' as contractCategory,
+    field0014 as amount,
+    field0015 as amountInWord,
+    field0016 as startTime,
+    field0017 as endTime,
+    enum_item_state.SHOWVALUE as state,
+    field0019 as mainBody,
+    field0021 as attachment,
+    field0022 as analogueContact,
+    field0023 as analogueName,
+    field0024 as contactType,
+    field0025 as contactAddress,
+    enum_item_payType.SHOWVALUE as payType,
+    enum_item_payWay.SHOWVALUE as payWay,
+    field0028 as sealAttachment,
+    '' as bidProcess,
+    field0030 as bidAttachment,
+    field0031 as stateChangeDeclare,
+    '' as participant,
+    '' as negotiateDate,
+    '' as negotiateFile,
+    field0035 as stateModifyNo,
+    to_char(formmain_0535.start_date,'yyyy-mm-dd hh24:mi:dd') as createTime,
+    field0057 as destroyTime,
+    to_char(formmain_0535.start_date,'YYYY-MM-DD hh:mi:dd') as fileTime
+    from ORG_PRINCIPAL
+    RIGHT OUTER JOIN formmain_0535
+    ON ORG_PRINCIPAL.MEMBER_ID = formmain_0535.field0003
+    LEFT OUTER JOIN vm_wfcontractmaintain  vm
+    on field0002 = vm.contractFileNo
+    LEFT OUTER JOIN ORG_UNIT ON formmain_0535.field0004 = ORG_UNIT.ID
+    LEFT OUTER JOIN CTP_ENUM_ITEM enum_item_contractPayType ON formmain_0535.field0010 = enum_item_contractPayType.ID
+    LEFT OUTER JOIN CTP_ENUM_ITEM enum_item_contractClassify ON formmain_0535.field0011 = enum_item_contractClassify.ID
+    LEFT OUTER JOIN CTP_ENUM_ITEM enum_item_contractType on formmain_0535.field0012 = enum_item_contractType.ID
+    LEFT OUTER JOIN CTP_ENUM_ITEM enum_item_contractCategory on formmain_0535.field0013 = enum_item_contractCategory.ID
+    LEFT OUTER JOIN CTP_ENUM_ITEM enum_item_state on formmain_0535.field0018 = enum_item_state.ID
+    LEFT OUTER JOIN CTP_ENUM_ITEM enum_item_payType on formmain_0535.field0026 = enum_item_payType.ID
+    LEFT OUTER JOIN CTP_ENUM_ITEM enum_item_payWay on formmain_0535.field0027 = enum_item_payWay.ID
+  where modify_date >= to_date(#datetime#,'YYYY-MM-DD HH24:MI:SS') and
+    field0002 is not null
+	</select>
+	<!-- 合同变更信息（formson_0538），根据合同数据ID获取合同变更信息 -->
+	<select id="modifyTerms.select" parameterClass="map" resultClass="java.util.HashMap">
+		select field0049 as changeNo,<!-- 变更单单号 -->
+		field0050 as changeDate,     <!-- 变更日期 -->
+		field0051 as applicat,       <!-- 变更申请人 -->
+		field0052 as changeType,     <!-- 变更类型 -->
+		field0053 as changeAmount,   <!-- 变更标的金额 -->
+		field0054 as term,           <!-- 变更条款 -->
+		field0055 as changeAttachment   <!-- 变更合同附件 -->
+		from formson_0538 where formmain_id = #formmain_id#
+	</select>
+	<!-- 合同支付计划（formson_0536），根据合同数据ID获取合同支付计划 -->
+	<select id="exceptPay.select" parameterClass="map" resultClass="java.util.HashMap">
+		select field0036 as no,
+		field0037 as payBatch,
+		field0038 as payAmount,
+		field0039 as percentage,
+		field0040 as paymentTerms,
+		'' as deliverable,
+		field0042 as "comment"
+		from formson_0536 where formmain_id = #formmain_id#
+	</select>
+	<!-- 合同支付情况（formson_0537），根据合同编号删除空的合同支付情况 -->
+	<delete id="exceptPay.delete" parameterClass="map">
+		delete  formson_0537 where field0043 = 1 and field0045 is null and field0046 is null
+		and FORMMAIN_ID in (select id from formmain_0535  where field0002 =#contractNo#)
+	</delete>
+	<!-- 合同支付情况（formson_0537），增加新的合同支付数据 -->
+	<insert id="payment.insert" parameterClass="map">
+		insert into formson_0537(ID,formmain_id,sort,field0043,field0044,field0045,field0046,field0047,field0048)
+		values(#ID#,#formmain_id#,#no:numeric:NULL#,#no:numeric:NULL#,#payBatch#,#payAmount:numeric:NULL#,#percentage:numeric:NULL#,to_date(#paymentDate:datetime:NULL#,'YYYY-MM-DD HH24:MI:SS'),#paymentSerialNumber#)
+	</insert>
+	<!-- 供应商档案（formmain_0328），根据供应商编号查询供应商信息 -->
+	<select id="supplier.select" resultClass="java.util.HashMap" parameterClass="map" >
+		select * from  formmain_0328 t where t.field0001= #supplierNo#
+	</select>
+	<!-- 供应商档案（formmain_0328），根据供应商编号更新供应商信息 -->
+	<update id="supplier.update" parameterClass="supplier" >
+		update formmain_0328
+		set FIELD0001=#supplierNo# ,FIELD0002=#supplierName#  ,FIELD0003=#supplierType# ,
+		FIELD0005=#ifEffective# ,FIELD0006=to_date(#createDate#,'yyyy-MM-dd'), FIELD0007=#supplierContacts# ,
+		FIELD0009=#supplierPhone#, FIELD0010=#supplierAddress#
+		where field0001=#supplierNo# and not(field0006 >= to_date(#createDate#,'yyyy-MM-dd'))
+	</update>
+	<!-- 供应商档案（formmain_0328），插入新的供应商信息 -->
+	<insert id="supplier.insert"  parameterClass="supplier" >
+	insert into
+vm_supplierInfo
+(
+id,
+state,
+start_member_id,
+start_date,
+approve_member_id,
+approve_date,
+supplierNo,
+supplierName,
+supplierType,
+ifEffective,
+createDate,
+supplierContacts,
+supplierTypeStr,
+supplierPhone,
+supplierAddress,
+creditCode,
+channelType
+)values
+(
+#id#,
+'1',
+'0',
+sysdate,
+null,
+sysdate,
+#supplierNo#,
+#supplierName#,
+#supplierType#,
+#ifEffective#,
+sysdate,
+#supplierContacts#,
+#supplierTypeStr#,
+#supplierPhone#,
+#supplierAddress#,
+#creditCode#,
+#channelType#
+)
+	</insert>
+	<!-- 合同审批（formmain_0578），将无标的合同的合同金额设置为0 -->
+	<update id="contractAmount.update"  parameterClass="map">
+		update formmain_0578 set field0011=0
+		where id = #formId# and field0008 = -3439448072536899479
+	</update>
+	<!-- 合同审批付款计划（formson_0579），将无标的合同的付款计划清空 -->
+	<delete id="contractPayPlan.delete"  parameterClass="map">
+		delete formson_0579　
+		where　formmain_id in (SELECT id from formmain_0578　where　id = #formId# and field0008 = -3439448072536899479)
+	</delete>
+
+	<insert id="contractProjectInfo.insert" parameterClass="com.seeyon.apps.kk.contract.model.ProjectInfo">
+		insert into vm_fwprojectInfo(
+		id,
+		state,
+		start_member_id,
+		start_date,
+		approve_member_id,
+		approve_date,
+		finishedflag,
+		ratifyflag,
+		ratify_member_id,
+		ratify_date,
+		serialNumber,
+		projectNumber,
+		projectName,
+		leader,
+		LeadingDepart,
+		applyDate,
+		projectId,
+		indicatorId,
+		leadingDepartId,
+		leaderKMId,
+		projectDetailsUrl,
+		ProjectStatus,
+		indicatorName,
+		indicatorIdBelongDepart,
+		indicatorDepartName
+		)
+		values(
+		#id#,
+		#state#,
+		#start_member_id#,
+		#start_date#,
+		#approve_member_id#,
+		#approve_date#,
+		#finishedflag#,
+		#ratifyflag#,
+		#ratify_member_id#,
+		#ratify_date#,
+		#serialNumber#,
+		#projectNumber#,
+		#projectName#,
+		#leader#,
+		#LeadingDepart#,
+		to_date(#applyDate#,'yyyy/mm/dd HH24:MI:SS'),
+		#projectId#,
+		#indicatorId#,
+		#leadingDepartId#,
+		#leaderKMId#,
+		#projectDetailsUrl#,
+		#ProjectStatus#,
+		#indicatorName#,
+		#indicatorIdBelongDepart#,
+		#indicatorDepartName#
+		)
+	</insert>
+	<select id = "projectInfoByProjectId.select" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.contract.model.ProjectInfo">
+		select
+		id,
+		state,
+		start_member_id,
+		start_date,
+		approve_member_id,
+		approve_date,
+		finishedflag,
+		ratifyflag,
+		ratify_member_id,
+		ratify_date,
+		serialNumber,
+		   projectNumber,
+		projectName,
+		leader,
+		LeadingDepart,
+		     applyDate,
+		projectId,
+		indicatorId,
+		leadingDepartId ,
+		  leaderKMId,
+		projectDetailsUrl,
+		ProjectStatus
+		from vm_fwprojectInfo vm where vm.projectId = #projectId#
+	</select>
+
+	<insert id="procurementMatters.insert" parameterClass="com.seeyon.apps.kk.contract.model.ProcurementMatters">
+		insert into vm_itpromatters
+		values(
+		#id#,
+		#state#,
+		#start_member_id#,
+		#start_date#,
+		#approve_member_id#,
+		#approve_date#,
+		#finishedflag#,
+		#ratifyflag#,
+		#ratify_member_id#,
+		#ratify_date#,
+		#serialNumber#,
+		#ITProMattersNumber#,
+		#ITProMattersName#,
+		#ownerOfMatters#,
+		#money#,
+		#itemType#,
+		#proSubjectMatter#,
+		#ITProMattersId#,
+		#indicatorId#,
+		#itDetailUrl#,#updateTime#)
+	</insert>
+	<select id = "procurementMatters.select" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.contract.model.ProcurementMatters">
+		select
+		id,
+		state,
+		start_member_id,
+		start_date,
+		approve_member_id,
+		approve_date,
+		finishedflag,
+		ratifyflag,
+		ratify_member_id,
+		ratify_date,
+		serialNumber,
+		ITProMattersNumber,
+		ITProMattersName,
+		ownerOfMatters,
+		money,
+		itemType,
+		proSubjectMatter,
+		ITProMattersId,
+		indicatorId
+		from vm_itpromatters vm where vm.ITProMattersId = #ITProMattersId#
+	</select>
+
+	<insert id="personInfoSave.insert" parameterClass="com.seeyon.apps.kk.contract.model.PersonInfo">
+		insert into vm_personinfo
+		values(
+		#id#,
+		#state#,
+		#start_member_id#,
+		#start_date#,
+		#approve_member_id#,
+		#approve_date#,
+		#finishedflag#,
+		#ratifyflag#,
+		#ratify_member_id#,
+		#ratify_date#,
+		#personName#,
+		#departName#,
+		#personId#,
+		#personKMCode#,
+		#departmentId#,#updateTime#)
+	</insert>
+	<select id = "personInfoById.select" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.contract.model.PersonInfo">
+		select
+		id,
+		state,
+		start_member_id,
+		start_date,
+		approve_member_id,
+		approve_date,
+		finishedflag,
+		ratifyflag,
+		ratify_member_id,
+		ratify_date,
+		personName,
+		departName,
+		personId,
+		personKMCode,
+		departmentId
+		from vm_personinfo vm where vm.personId = #personId#
+	</select>
+
+	<delete id = "deletePersonInfo.delete">
+		delete from vm_personinfo
+	</delete>
+
+	<insert id="organizationInfoSave.insert" parameterClass="com.seeyon.apps.kk.contract.model.OrganizationInfo">
+		insert into vm_fkorganization
+		values(
+		#id#,
+		#state#,
+		#start_member_id#,
+		#start_date#,
+		#approve_member_id#,
+		#approve_date#,
+		#finishedflag#,
+		#ratifyflag#,
+		#ratify_member_id#,
+		#ratify_date#,
+		#departmentName#,
+		#departmentId#,
+		#departmentSuperId#,
+		#departmentCode#,
+		#isBottomLevel#,
+		#OADepartId#,
+		#departmentKMCode#,
+		#updateTime#
+		)
+	</insert>
+	<select id = "organizationInfById.select" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.contract.model.OrganizationInfo">
+		select
+		id,
+		state,
+		start_member_id,
+		start_date,
+		approve_member_id,
+		approve_date,
+		finishedflag,
+		ratifyflag,
+		ratify_member_id,
+		ratify_date,
+		departmentName,
+		departmentId,
+		departmentSuperId,
+		departmentCode,
+		isBottomLevel
+		from vm_fkorganization vm where vm.departmentId = #departmentId#
+	</select>
+
+	<delete id = "deleteOrganizationInfo.delete">
+		delete from vm_fkorganization
+	</delete>
+	<!--指标信息插入 -->
+	<insert id="indicatorInfo.insert" parameterClass="com.seeyon.apps.kk.contract.model.IndicatorInfo">
+		insert into vm_IndicatorInfo values
+		( #id#,#state#,#start_member_id#,#start_date#,#approve_member_id#,
+		#approve_date#,#finishedflag#,#ratifyflag#,#ratify_member_id#,
+		#ratify_date#,#departName#,#indicatorName#,#indicatorId#,#indicatorSuperId#,
+		#indicatorCode#,#isBottomLevel#,#departId#,#note#,#updateTime#)
+	</insert>
+	<!--指标信息删除-->
+	<delete id="indicatorInfo.delete" parameterClass="java.util.HashMap">
+		delete 	from vm_IndicatorInfo where indicatorId = #indicatorId# and departId = #departId#
+	</delete>
+	<insert id="contractStateChange.insert" parameterClass="com.seeyon.apps.kk.contract.model.ContractStateChange">
+insert into vm_contractstatechange
+values
+(
+#id#,
+#state#,
+#start_member_id#,
+#start_date#,
+#approve_member_id#,
+#approve_date#,
+#finishedflag#,
+#ratifyflag#,
+#ratify_member_id#,
+#ratify_date#,
+#contractFlow#,
+#contractStatus#,
+#colSummaryId#,
+#dataMainId#,
+#contractFileNo#
+)
+	</insert>
+
+	<select id="contractStateChangeByState.select" resultClass="com.seeyon.apps.kk.contract.model.ContractStateChange" parameterClass="java.lang.String">
+		select
+id                ,
+state              ,
+start_member_id            ,
+start_date        ,
+approve_member_id  ,
+approve_date      ,
+finishedflag      ,
+ratifyflag        ,
+ratify_member_id  ,
+ratify_date        ,
+contractFlow,
+contractStatus,
+colSummaryId,
+datamainId,
+contractFileNo
+from
+vm_contractstatechange where contractStatus != #contractStatus#
+	</select>
+	<update id="contractState.update" parameterClass="java.util.HashMap">
+		update vm_contractstatechange set contractStatus = #contractState#
+		where contractFileNo = #contractFileNo#
+	</update>
+	<select id="contractMartin.select" parameterClass="java.lang.Long"   resultClass="java.lang.String">
+	select state from vm_wfcontractmaintain where id = #dataMainId#
+	</select>
+	<select id="contractStateByContractFileNo.select" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.contract.model.ContractStateChange">
+				select
+id                ,
+state              ,
+start_member_id            ,
+start_date        ,
+approve_member_id  ,
+approve_date      ,
+finishedflag      ,
+ratifyflag        ,
+ratify_member_id  ,
+ratify_date        ,
+contractFlow,
+contractStatus,
+colSummaryId,
+datamainId,
+contractFileNo
+from
+vm_contractstatechange where contractFileNo = #contractFileNo#
+</select>
+<select id="bankInfoByBankId.select" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.contract.model.BankOutletInformationModel">
+select
+id,
+state,
+start_member_id,
+start_date,
+approve_member_id,
+approve_date,
+finishedflag,
+ratifyflag,
+ratify_member_id,
+ratify_date,
+bankCode,
+bankOfDeposit,
+province,
+city,
+bankName,
+bankIBPS,
+freezeOrNot
+from vm_bankoutletinformation where bankCode = #bankCode#
+</select>
+<insert id="bankInfo.insert" parameterClass="com.seeyon.apps.kk.contract.model.BankOutletInformationModel">
+insert into vm_bankoutletinformation
+(id,
+state,
+start_member_id,
+start_date,
+approve_member_id,
+approve_date,
+finishedflag,
+ratifyflag,
+ratify_member_id,
+ratify_date,
+bankCode,
+bankOfDeposit,
+province,
+city,
+bankName,
+freezeOrNot,
+bankIBPS)
+values
+(#id#,
+#state#,
+#start_member_id#,
+#start_date#,
+#approve_member_id#,
+#approve_date#,
+#finishedflag#,
+#ratifyflag#,
+#ratify_member_id#,
+#ratify_date#,
+#bankCode#,
+#bankOfDeposit#,
+#province#,
+#city#,
+#bankName#,
+#freezeOrNot#,
+#bankIBPS#)
+</insert>
+<!--更新银行网点信息-->
+<update id="bankInfo.update" parameterClass="com.seeyon.apps.kk.contract.model.BankOutletInformationModel">
+	update vm_bankoutletinformation
+	set state=#state#,
+	start_member_id=#start_member_id#,
+	start_date=#start_date#,
+	approve_member_id=#approve_member_id#,
+	approve_date=#approve_date#,
+	finishedflag=#finishedflag#,
+	ratifyflag=#ratifyflag#,
+	ratify_member_id=#ratify_member_id#,
+	ratify_date=#ratify_date#,
+	bankCode =#bankCode#,
+	bankOfDeposit=#bankOfDeposit#,
+	province=#province#,
+	city=#city#,
+	bankName=#bankName#,
+	freezeOrNot=#freezeOrNot#,
+	bankIBPS=#bankIBPS#
+	where id = #id#
+</update>
+<!-- 查询IT供应商库信息 -->
+<select id="supplierManager.select" parameterClass="java.util.HashMap" resultClass="com.seeyon.apps.kk.contract.model.ITSupplierManagerModel">
+	select id,
+	modify_date,
+	applyUser,
+	applyDate,
+	applyDepart,
+	supplierName,
+	supplierNo,
+	util_common.getEnumValueById(qualificationsOfTaxpayer) qualificationsOfTaxpayer,
+	supplierAddress,
+	taxpayerIdentificationNumber,
+	dateOfIncorporation,
+	 supplierType,
+	specialSupplierNumber,
+	util_common.getEnumValueById(supplierStatus) supplierStatus,
+	isSpecialSupplier
+	from vm_itsuppliermanager
+	where 1 = 1
+	<isNotEmpty prepend="and" property="key">
+		modify_date  <![CDATA[>]]> to_date(#key#,'yyyymmdd')
+	</isNotEmpty>
+</select>
+<!--查询银行网点信息 -->
+<select id="bankInfoByFormMainId.select" resultClass="com.seeyon.apps.kk.contract.model.BankOutletInformationModel" parameterClass="java.lang.Long">
+select
+id,
+formmain_id,
+bankOfDeposit,
+bankAccount,
+accountName,
+bankName,
+bankIBPS,
+province,
+city,
+util_common.getEnumValueById(freezeOrNot) as freezeOrNot,
+bankCode
+from
+vm_ITSupplierBankoutletInfoson
+where  formmain_id = #formmainId#
+</select>
+
+
+
+<!--供应商信息查询，是否存在数据 -->
+	<select id = "supplierInfoSerach.select" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.contract.model.Supplier">
+		select id,creditCode,supplierNo,supplierName,supplierType
+		from vm_supplierInfo vm where vm.supplierNo = #supplierNo#
+	</select>
+
+	<!--供应商信息插入 -->
+	<insert id="SupplierInfoDatas.insert" parameterClass="com.seeyon.apps.kk.contract.model.Supplier">
+insert into vm_supplierinfo
+(
+id,
+state,
+start_member_id,
+start_date,
+approve_member_id,
+approve_date,
+finishedflag,
+ratifyflag,
+ratify_member_id,
+sort,
+modify_member_id,
+modify_date,
+supplierNo,
+supplierName,
+supplierType,
+ifEffective,
+createDate,
+supplierContacts,
+supplierTypeStr,
+supplierPhone,
+supplierAddress,
+creditCode,
+channelType,
+		belongOrg,
+		belongOrgStr
+)
+values
+(
+#id#,
+1,
+-6760911671874597139,
+sysdate,
+0,
+sysdate,
+0,
+0,
+0,
+0,
+-6760911671874597139,
+to_date(#createDate#,'yyyy-mm-dd'),
+#supplierNo#,
+#supplierName#,
+-3986095288122979941,
+5118794060043470886,
+to_date(#createDate#,'yyyy-mm-dd'),
+#supplierContacts#,
+'零售渠道',
+#supplierPhone#,
+#supplierAddress#,
+#creditCode#,
+#channelType#,
+		#belongOrg#,
+		#belongOrgStr#
+)
+	</insert>
+
+	<!--供应商信息更新 -->
+	<update id="supplierInfo.update" parameterClass="com.seeyon.apps.kk.contract.model.Supplier">
+		update vm_supplierInfo set supplierName = #supplierName#,
+		modify_date = to_date(#createDate#,'yyyy-mm-dd'),
+		channelType= #channelType#, creditCode = #creditCode# ,supplierType = -3986095288122979941,belongOrg = #belongOrg#
+		,belongOrgStr=#belongOrgStr#
+		 where supplierNo = #supplierNo#
+	</update>
+
+	<select id="ctpVmAffairInfo.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		select
+		id,
+		to_char(is_cover_time) IS_COVER_TIME            ,/* 是否超期*/
+		to_char(member_id) member_id                ,/* 人员ID*/
+		sender_id                ,/* 发送人ID*/
+		subject                  ,/* 标题  */
+		app                      ,/* 应用   */
+		object_id                ,/* 主应用ID*/
+		sub_object_id            ,/* 对应worktime_id状态*/
+		state                    ,/* 状态    */
+		sub_state                ,/* 子状态   */
+		hasten_times             ,/* 催办次数  */
+		remind_date              ,/* 提醒时间  */
+		to_char(deadline_date)  deadline_date            ,/* 节点期限  */
+		can_due_remind           ,/* 是否到期提醒    */
+		create_date              ,/*   节点创建时间  */
+		to_char(receive_time, 'yyyy-MM-dd HH24:mi:ss')  receive_time            ,/*   接收时间  */
+		to_char(complete_time, 'yyyy-MM-dd HH24:mi:ss')  complete_time            ,/*   完成时间  */
+		remind_interval          ,/* 提醒周期    */
+		is_delete                ,/* 是否被删除   */
+		track                    ,/* 是否跟踪    */
+		archive_id               ,/* 归档ID    */
+		addition                 ,/* 属性    text*/
+		ext_props                ,/* 扩展属性    */
+		update_date              ,/*   更新时间  */
+		is_finish                ,/* 是否结束    */
+		body_type                ,/* 正文类型    */
+		important_level          ,/* 重要程度    */
+		resent_time              ,/* 重复次数    */
+		forward_member           ,/* 转发人   text*/
+		identifier               ,/* 标识符   text*/
+		transactor_id            ,/* 代理人   text*/
+		node_policy              ,/* 节点权限    */
+		activity_id              ,/* 工作流节点ID   */
+		form_app_id              ,/* 表单应用ID    */
+		form_id                  ,/* 表单视图ID    */
+		form_operation_id        ,/* 表单操作ID    */
+		to_char(templete_id)   templete_id           ,/* 模板ID    */
+		from_id                  ,/* 会签操作来源ID  */
+		over_worktime            ,/* 按工作时间计算超期时间 */
+		run_worktime             ,/* 按工作时间计算运行时间 */
+		over_time                ,/* 按自然时间计算超期时间 */
+		run_time                 ,/* 按自然日计算运行时间  */
+		deal_term_type           ,/* 处理期限到处理类型 */
+		deal_term_userid         ,/* 处理前线到处理类型1的辅*/
+		sub_app                  ,/* 子应用ID   */
+		expected_process_time    ,/*   执行时间  */
+		org_account_id           ,/* 单位ID    */
+		process_id               ,/* 实列ID    */
+		is_process_over_time     ,/* is_process_o*/
+		form_multi_operation_id  ,/* 记录视图权限ID串 */
+		back_from_id             ,/* 回退人的ID    */
+		form_relative_static_ids ,/* OA任务状态    */
+		form_relative_query_ids  ,/* FORM_RELATIV*/
+		task_state               ,/* FORM_RELATIV*/
+		has_favorite             ,/* 是否收藏    */
+		to_char(from_type)  from_type              ,/* 加签等操作类型   */
+		to_char(form_recordid)  form_recordid          ,/* 表单数据记录ID  */
+		case_id                  ,/* 流程case_id数据关*/
+		relation_data_id         ,/* 数据关联id    */
+		firstview_period         ,/* 首次查看时长    */
+		firstview_date           ,/*   首次查看时间点 */
+		firstresponse_period     ,/* 首次响应耗时    */
+		signleview_period        ,/* 首次查看耗时    */
+		pre_approver             ,/* 上一处理人   */
+		auto_run                 ,/* 是否自动发起流程  */
+		summary_state            ,/* 节点流程状态    */
+		top_time                 ,/*   置顶时间  */
+		sort_weight              ,/* 智能排序权重值   */
+		ai_processing            ,/* 智能处理标记    */
+		process_deadline_time    ,/* 流程期限    */
+		proxy_member_id          ,/* 代理人ID   */
+		match_department_id      ,/* 匹配的部门ID   */
+		match_post_id            ,/* 匹配的岗位ID   */
+		node_name                ,/* 节点名称    */
+		match_account_id         ,/* 匹配的单位ID   */
+		print_nm                 ,/* 是否打印_打印此时 */
+		message_rule_id        /* 消息规则ID    */
+		from VM_OVERTIME_TASK_INFO
+		where 1=1
+		<isNotEmpty prepend="and" property="affairId">
+			id = #affairId#
+		</isNotEmpty>
+		<isNotEmpty prepend="and" property="from_type">
+			from_type in (1,3)
+		</isNotEmpty>
+		<isNotEmpty prepend="and" property="form_recordid">
+			form_recordid = #form_recordid#
+		</isNotEmpty>
+	</select>
+	<select id="ctpAffairInfo.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		select
+		id,
+		to_char(is_cover_time) IS_COVER_TIME            ,/* 是否超期*/
+		to_char(member_id) member_id                ,/* 人员ID*/
+		sender_id                ,/* 发送人ID*/
+		subject                  ,/* 标题  */
+		app                      ,/* 应用   */
+		object_id                ,/* 主应用ID*/
+		sub_object_id            ,/* 对应worktime_id状态*/
+		state                    ,/* 状态    */
+		sub_state                ,/* 子状态   */
+		hasten_times             ,/* 催办次数  */
+		remind_date              ,/* 提醒时间  */
+		to_char(deadline_date)  deadline_date            ,/* 节点期限  */
+		can_due_remind           ,/* 是否到期提醒    */
+		create_date              ,/*   节点创建时间  */
+		to_char(receive_time, 'yyyy-MM-dd HH24:mi:ss')  receive_time            ,/*   接收时间  */
+		to_char(complete_time, 'yyyy-MM-dd HH24:mi:ss')  complete_time            ,/*   完成时间  */
+		remind_interval          ,/* 提醒周期    */
+		is_delete                ,/* 是否被删除   */
+		track                    ,/* 是否跟踪    */
+		archive_id               ,/* 归档ID    */
+		addition                 ,/* 属性    text*/
+		ext_props                ,/* 扩展属性    */
+		update_date              ,/*   更新时间  */
+		is_finish                ,/* 是否结束    */
+		body_type                ,/* 正文类型    */
+		important_level          ,/* 重要程度    */
+		resent_time              ,/* 重复次数    */
+		forward_member           ,/* 转发人   text*/
+		identifier               ,/* 标识符   text*/
+		transactor_id            ,/* 代理人   text*/
+		node_policy              ,/* 节点权限    */
+		activity_id              ,/* 工作流节点ID   */
+		form_app_id              ,/* 表单应用ID    */
+		form_id                  ,/* 表单视图ID    */
+		form_operation_id        ,/* 表单操作ID    */
+		to_char(templete_id)   templete_id           ,/* 模板ID    */
+		from_id                  ,/* 会签操作来源ID  */
+		over_worktime            ,/* 按工作时间计算超期时间 */
+		run_worktime             ,/* 按工作时间计算运行时间 */
+		over_time                ,/* 按自然时间计算超期时间 */
+		run_time                 ,/* 按自然日计算运行时间  */
+		deal_term_type           ,/* 处理期限到处理类型 */
+		deal_term_userid         ,/* 处理前线到处理类型1的辅*/
+		sub_app                  ,/* 子应用ID   */
+		expected_process_time    ,/*   执行时间  */
+		org_account_id           ,/* 单位ID    */
+		process_id               ,/* 实列ID    */
+		is_process_over_time     ,/* is_process_o*/
+		form_multi_operation_id  ,/* 记录视图权限ID串 */
+		back_from_id             ,/* 回退人的ID    */
+		form_relative_static_ids ,/* OA任务状态    */
+		form_relative_query_ids  ,/* FORM_RELATIV*/
+		task_state               ,/* FORM_RELATIV*/
+		has_favorite             ,/* 是否收藏    */
+		to_char(from_type)  from_type              ,/* 加签等操作类型   */
+		to_char(form_recordid)  form_recordid          ,/* 表单数据记录ID  */
+		case_id                  ,/* 流程case_id数据关*/
+		relation_data_id         ,/* 数据关联id    */
+		firstview_period         ,/* 首次查看时长    */
+		firstview_date           ,/*   首次查看时间点 */
+		firstresponse_period     ,/* 首次响应耗时    */
+		signleview_period        ,/* 首次查看耗时    */
+		pre_approver             ,/* 上一处理人   */
+		auto_run                 ,/* 是否自动发起流程  */
+		summary_state            ,/* 节点流程状态    */
+		top_time                 ,/*   置顶时间  */
+		sort_weight              ,/* 智能排序权重值   */
+		ai_processing            ,/* 智能处理标记    */
+		process_deadline_time    ,/* 流程期限    */
+		proxy_member_id          ,/* 代理人ID   */
+		match_department_id      ,/* 匹配的部门ID   */
+		match_post_id            ,/* 匹配的岗位ID   */
+		node_name                ,/* 节点名称    */
+		match_account_id         ,/* 匹配的单位ID   */
+		print_nm                 ,/* 是否打印_打印此时 */
+		message_rule_id        /* 消息规则ID    */
+		from ctp_affair
+		where 1=1
+		<isNotEmpty prepend="and" property="affairId">
+			id = #affairId#
+		</isNotEmpty>
+		<isNotEmpty prepend="and" property="from_type">
+			from_type in (1,3)
+		</isNotEmpty>
+		<isNotEmpty prepend="and" property="form_recordid">
+			form_recordid = #form_recordid#
+		</isNotEmpty>
+	</select>
+	<!-- 查询是否需要进行超期提醒 -->
+	<select id = "memberIsOverManager.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+		select to_char(count(*)) from org_member om
+		left join org_level ol
+		on ol.id = om.org_level_id and ol.org_account_id = om.org_account_id
+		where om.is_enable = 1 and ((ol.level_id > 7 and ol.org_account_id = 97839079791739420) or
+		(ol.org_account_id = -8906103683992302519 and ol.level_id > 4) or
+		(ol.org_account_id = -2948740806339441327 and ol.level_id > 4)) and om.id = #memberId#
+	</select>
+
+
+	<!-- 查询是否需要进行超期提醒 -->
+	<select id = "memberIsOverOrEqManager.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+		select to_char(count(*)) from org_member om
+		left join org_level ol
+		on ol.id = om.org_level_id and ol.org_account_id = om.org_account_id
+		where om.is_enable = 1 and ((ol.level_id >= 7 and ol.org_account_id = 97839079791739420) or
+		(ol.org_account_id = -8906103683992302519 and ol.level_id >= 4) or
+		(ol.org_account_id = -2948740806339441327 and ol.level_id >= 4)) and om.id = #memberId#
+	</select>
+
+	<select id="overTimeInfo.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+		select
+		case
+		when ((ol.level_id = 7 and ol.org_account_id = 97839079791739420) or
+		(ol.org_account_id = -8906103683992302519 and ol.level_id = 4) or
+		(ol.org_account_id = -2948740806339441327 and ol.level_id = 4)) then
+		'true'
+		else
+		'false'
+		end isDepartManager，
+		c.is_cover_time,
+		util_user.getMemberNameByMemId(c.member_id) memberName,
+		c.node_name,
+		to_char(c.deadline_date) deadline_date,
+		to_char(c.receive_time, 'yyyy-MM-dd HH24:mi:ss')  receive_time,
+		to_char(c.complete_time, 'yyyy-MM-dd HH24:mi:ss') complete_time
+		from VM_OVERTIME_TASK_INFO c
+		left join org_member om
+		on om.id = c.member_id
+		and om.org_account_id = c.org_account_id
+		left join org_level ol
+		on ol.id = om.org_level_id
+		and ol.org_account_id = om.org_account_id
+		where ((ol.level_id >= 7 and ol.org_account_id = 97839079791739420) or
+		(ol.org_account_id = -8906103683992302519 and ol.level_id >= 4) or
+		(ol.org_account_id = -2948740806339441327 and ol.level_id >= 4))
+		and c.node_desc like '%isShowNoteManagerOverTime:1%'
+		and
+		c.form_recordid = #recordId#
+	</select>
+	<select id="taskExpireNote.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+		select *  from vm_taskexpirednotiinfo v1
+		left join ctp_template v2
+		on v1.templateId =v2.templete_number where  v2.id =#templateId#
+		and util_common.getEnumShowById(useable) = '是' and util_common.getEnumShowById(cfgtype) = '加签超期提醒'
+	</select>
+
+	<select id="userManualCalcWorkTime.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+		select COUNT('X')
+		from dual
+		WHERE (to_char(to_date(#currentDate#, 'yyyy-mm-dd HH24:mi:ss'), 'HH24mi') between
+		'0000' AND '0845')
+		OR (to_char(to_date(#currentDate#, 'yyyy-mm-dd HH24:mi:ss'), 'HH24mi') between
+		'1730' AND '2359')    OR util_common.isWorkDay(to_date(#currentDate#, 'yyyy-MM-dd HH24:mi:ss')) = 0
+	</select>
+
+
+	<select id="queryContractExtraCheckFlowBySerialNo.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+		select
+		main.id as "id",
+		serialNo as "serialNo",
+		writeTime as "writeTime",
+		applyMember as "applyMember",
+		applyDept as "applyDept",
+		applyAccount as "applyAccount",
+		contractTitle as "contractTitle",
+		contractPayType as "contractPayType",
+		contractType as "contractType",
+		contractCatagory as "contractCatagory",
+		contractStartDate as "contractStartDate",
+		contractEndDate as "contractEndDate",
+		productCode as "productCode",
+		contractName as "contractName",
+		contractModelNo as "contractModelNo",
+		contractModelName as "contractModelName",
+		contractCount as "contractCount",
+		contractModelFile as "contractModelFile",
+		sealedPrintType as "sealedPrintType",
+		companySeal as "companySeal",
+		corporateSeal as "corporateSeal",
+		corporateSign as "corporateSign",
+		attachFile as "attachFile",
+		remark as "remark",
+		deptBusinessLeader as "deptBusinessLeader",
+		deptBusinessGroup as "deptBusinessGroup",
+		contractSeriesCount as "contractSeriesCount",
+		extraContractCount as "extraContractCount",
+
+		counterpartySeq as "counterpartySeq",
+		contractHandleType as "contractHandleType",
+		counterparty as "counterparty",
+		counterpartyType as "counterpartyType",
+		isSaved as "isSaved",
+		contractRemark as "contractRemark",
+		counterpartyContractNo as "counterpartyContractNo",
+		rfsop as "rfsop"
+		from vm_wf_one2manyContractAddCheck main right join vm_wf_one2manyCounterparty_son son
+		on main.id = son.formmain_id
+		where main.serialNo = #serialNo# and son.isSaved = -1089048568118490234
+	</select>
+
+	<select id="queryContractExtraCheckFlowTodoBySerialNo.select" parameterClass="java.lang.String" resultClass="java.util.HashMap">
+		select
+		main.id as "id",
+		serialNo as "serialNo",
+		writeTime as "writeTime",
+		applyMember as "applyMember",
+		applyDept as "applyDept",
+		applyAccount as "applyAccount",
+		contractTitle as "contractTitle",
+		contractPayType as "contractPayType",
+		contractType as "contractType",
+		contractCatagory as "contractCatagory",
+		contractStartDate as "contractStartDate",
+		contractEndDate as "contractEndDate",
+		productCode as "productCode",
+		contractName as "contractName",
+		contractModelNo as "contractModelNo",
+		contractModelName as "contractModelName",
+		contractCount as "contractCount",
+		contractModelFile as "contractModelFile",
+		sealedPrintType as "sealedPrintType",
+		companySeal as "companySeal",
+		corporateSeal as "corporateSeal",
+		corporateSign as "corporateSign",
+		attachFile as "attachFile",
+		remark as "remark",
+		deptBusinessLeader as "deptBusinessLeader",
+		deptBusinessGroup as "deptBusinessGroup",
+		contractSeriesCount as "contractSeriesCount",
+		extraContractCount as "extraContractCount",
+
+		counterpartySeq as "counterpartySeq",
+		contractHandleType as "contractHandleType",
+		counterparty as "counterparty",
+		counterpartyType as "counterpartyType",
+		isSaved as "isSaved",
+		contractRemark as "contractRemark",
+		counterpartyContractNo as "counterpartyContractNo",
+		rfsop as "rfsop"
+		from vm_wf_one2manyContractAddCheck main right join vm_wf_one2manyCounterparty_son son
+		on main.id = son.formmain_id
+		where main.serialNo = #serialNo# and son.isSaved = -1089048568118490234
+		and contractHandleType != -8576853803970704870
+	</select>
+
+
+	<select id="queryContractExtraCheckFlowById.select" parameterClass="java.lang.Long" resultClass="java.util.HashMap">
+		select
+		main.id as "id",
+		serialNo as "serialNo",
+		writeTime as "writeTime",
+		applyMember as "applyMember",
+		applyDept as "applyDept",
+		applyAccount as "applyAccount",
+		contractTitle as "contractTitle",
+		contractPayType as "contractPayType",
+		contractType as "contractType",
+		contractCatagory as "contractCatagory",
+		contractStartDate as "contractStartDate",
+		contractEndDate as "contractEndDate",
+		productCode as "productCode",
+		contractName as "contractName",
+		contractModelNo as "contractModelNo",
+		contractModelName as "contractModelName",
+		contractCount as "contractCount",
+		contractModelFile as "contractModelFile",
+		sealedPrintType as "sealedPrintType",
+		companySeal as "companySeal",
+		corporateSeal as "corporateSeal",
+		corporateSign as "corporateSign",
+		attachFile as "attachFile",
+		remark as "remark",
+		deptBusinessLeader as "deptBusinessLeader",
+		deptBusinessGroup as "deptBusinessGroup",
+		contractSeriesCount as "contractSeriesCount",
+		extraContractCount as "extraContractCount",
+
+		counterpartySeq as "counterpartySeq",
+		contractHandleType as "contractHandleType",
+		counterparty as "counterparty",
+		counterpartyType as "counterpartyType",
+		isSaved as "isSaved",
+		contractRemark as "contractRemark",
+		counterpartyContractNo as "counterpartyContractNo",
+		rfsop as "rfsop"
+		from vm_wf_one2manyContractAddCheck main right join vm_wf_one2manyCounterparty_son son
+		on main.id = son.formmain_id
+		where main.id = #id# and son.isSaved = -1089048568118490234
+	</select>
+
+	<update id="updateContractExtraCheckFlowIsSaved.update" parameterClass="java.util.HashMap">
+		update vm_wf_one2manyCounterparty_son  set isSaved = -3841538853571705149
+		where formmain_Id = #formmainId# and counterpartySeq = #counterpartySeq#
+	</update>
+
+
+
+	<insert id="insertCounterpartySonRecord.insert" parameterClass="java.util.HashMap">
+		insert into vm_wf_one2manyCounterparty_son(
+		id,
+		sort,
+		formmain_id,
+		contractHandleType,
+		counterpartySeq,
+		copyCounterpartySeq,
+		isSaved
+		)
+		values
+		(
+		util_common.getAbsID,
+		#seq#,
+		#formmainId#,
+		-8576853803970704870,
+		#counterpartySeq#,
+		#copyCounterpartySeq#,
+		-1089048568118490234
+		)
+	</insert>
+
+	<select id="countProceedOne2ManyContract.select"  resultClass="java.lang.Integer" parameterClass="java.lang.String">
+		select count(1) from col_summary where form_recordId in (select id from vm_wf_one2manyContractAddSave  where productCode = #productCode# and
+		contractHandleType = -6872678870404281961) and  state = 3
+	</select>
+
+	<update id="updateCheckFlowCatagory.update" parameterClass="java.lang.Long">
+		update vm_wf_one2manyContractAddCheck  set contractCatagory = -173591692096352527
+		where id = #id#
+	</update>
+	<select id="allIndicatorInfo.select" resultClass="com.seeyon.apps.kk.contract.model.IndicatorInfo">
+		select
+		indicatorId,
+		indicatorSuperId,
+		indicatorName,
+		indicatorCode,
+		isBottomLevel,
+		departId,
+		note,
+		departName,
+		updateTime
+		from vm_IndicatorInfo
+	</select>
+	<update id="indicatorInfo.update" parameterClass="com.seeyon.apps.kk.contract.model.IndicatorInfo">
+		update vm_IndicatorInfo set
+		indicatorSuperId = #indicatorSuperId#,
+		indicatorName = #indicatorName#,
+		indicatorCode = #indicatorCode#,
+		isBottomLevel = #isBottomLevel#,
+		departName = #departName#
+		where indicatorId = #indicatorId# and  departId = #departId#
+	</update>
+
+
+
+	<select id="getITSupplierSonId.select" resultClass="java.lang.String">
+		select
+		id
+		from vm_wf_itsupplierCheck_son
+		where formmain_id = #formMainId#
+		and supplierName = #supplierWholeName#
+	</select>
+
+	<select id="contractMeetingInfo.select" resultClass="com.seeyon.apps.kk.contract.model.MeetingInfo">
+		select
+		a.id,
+		a.tableType,
+		a.contractNo
+		, o.name as initiator
+		, to_char(o.ext_attr_22,'yyyy-MM-dd') as hireDate
+		, u.name as department
+		, a.amount
+		,to_char(a.contractstartTime, 'yyyy-mm-dd') startTime
+		, cs.id  as objectId
+		, cl.id as transId
+		, 1 as transState
+		, o.code as empKMCode
+		, u.code as deptKMCode
+		from
+		(select
+		id,
+		'cap3' tableType,
+		contractNo,
+		initiator,
+		department,
+		type,
+		amount,
+		contractstartTime
+		from vm_wf_contractApprove
+		union all
+		select
+		id,
+		'cap4' tableType,
+		contractNo,
+		initiator,
+		department,
+		TO_CHAR(type) TYPE,
+		amount,
+		contractstartTime
+		from vm_wf_contractapprovecap4
+		)  a
+		left join org_member o on a.initiator = o.id
+		left join org_unit u on u.id = a.department
+		left join col_summary cs on  a.id = cs.form_recordid
+		left join ctp_process_log cl  on cl.process_id = cs.process_id
+		where  u.path like '000000010008%'
+		and a.type in (6392553218480033760,-6218287431535212809, 3770742154700737459, -4940602325090024640) and cl.action_id in (1,2,37)
+		and cs.state is not null and cs.state in (0,1,2)
+		and to_date(to_char(cs.create_date, 'yyyy-mm-dd'), 'yyyy-mm-dd') between to_date(#startDate#,'yyyy-MM-dd') and to_date(#endDate#,'yyyy-MM-dd')
+		order by startTime
+	</select>
+	<select id="collectPensionAttachment.select" parameterClass="java.util.HashMap"  resultClass="java.util.HashMap">
+		select
+		"flowId",
+		"loginName",
+		"deptName",
+		"chineseName",
+		"oaProcessDate",
+		"contractNum",
+		"productName",
+		"productCode"
+		from vm_pension_contract_push
+		where "flowId" = #flowId#
+		<isNotEmpty prepend="AND"  property="productStatus">
+			"productStatus" not in ($productStatus$)
+		</isNotEmpty>
+		<isNotEmpty prepend="AND"  property="productType">
+			"productType" not in ($productType$)
+		</isNotEmpty>
+	</select>
+	<!-- 查找CAP3公司库中，黑名单供应商的信息 -->
+	<select id = "findSupplierDarkList.select.count" parameterClass="java.lang.String" resultClass="java.lang.Integer">
+		select count('x')
+		from vm_itsuppliermanager
+		where     supplierType =  9083492222702405265 and  taxpayerIdentificationNumber = #taxpayerIdentificationNumber#
+	</select>
+	<!-- 查找CAP3IT供应商库中，是否有正常的非特批IT供应商信息 -->
+	<select id="findITSupplierList.select.count" parameterClass="java.lang.String" resultClass="java.lang.Integer">
+		select count('x') from vm_itsuppliermanager where supplierStatus = 2071864719110065567 and taxpayerIdentificationNumber = #tax# and( isSpecialSupplier = -1089048568118490234  or isSpecialSupplier is null)
+	</select>
+	<!-- 根据纳税人识别号还有签报流水查询数据 -->
+	<select id="findSupplierBySign.select.count" parameterClass="java.util.HashMap" resultClass="java.lang.Integer">
+		select count('x') from vm_itsuppliermanager f where taxpayerIdentificationNumber = #tax# and specialSupplierNumber = #signOffSerialNumber#
+	</select>
+	<!-- 根据纳税人识别号查询公司库的账号信息 -->
+	<select id="findSupplierNoByTax.select" parameterClass="java.lang.String" resultClass="java.lang.String">
+		select supplierNo
+		from vm_cap4_supplier f
+		where f.supplierState = 2071864719110065567
+		and (f.enableState = -3841538853571705149 or f.enableState is null)
+		and taxpayerIdentificationNumber = #tax#
+	</select>
+	<!-- 查询所有的渠道类供应商信息 -->
+	<select id="findAllChannelSupplier.select" resultClass="mapBean">
+		select taxpayerIdentificationNumber,dealerCode,dealerType,shortName,belongOrg
+		from vm_cap4_supplier f
+		where
+		f.supplierState = 2071864719110065567
+		and f.taxpayerIdentificationNumber is not null
+		and (f.enableState is null or f.enableState = -3841538853571705149)
+	</select>
+
+	<select id = "findBankInfoByMainId.select" resultClass="mapBean" parameterClass="java.lang.String">
+		select
+		id,
+		formmain_id,
+		bankOfDeposit khyh,
+		bankAccount yhzh,
+		accountName zhmc,
+		bankName yhhm,
+		province sf,
+		city ds,
+		freezeOrNot zhsfdj,
+		bankCode yhbh,
+		bankId,
+		bankIBPS
+		from VM_ITSUPPLIERBANKOUTLETINFOSON where formmain_id  = #formId#
+	</select>
+</sqlMap>

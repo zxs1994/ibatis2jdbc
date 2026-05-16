@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+
+
+    <select id="complianceTip.selelct" resultClass="com.seeyon.apps.kk.flowsend.model.ComplianceTip"
+            parameterClass="java.lang.String">
+        select id, complianceCode, sendUserNo, noteTitle,
+        noteContent, attacheId, complianceType, sendDepartment,noteMember,noteDepart,noteCompa,noteRemoveMember from
+        imy_complictip
+        where id = #id#
+    </select>
+
+    <select id="complianceTipCap4.selelct" resultClass="com.seeyon.apps.kk.flowsend.model.ComplianceTip"
+            parameterClass="java.lang.String">
+        select id, complianceCode, sendUserNo, noteTitle,
+        noteContent, attacheId, complianceType, sendDepartment,noteMember,noteDepart,noteCompa,noteRemoveMember from
+        imy_complictip_cap4
+        where id = #id#
+    </select>
+
+    <select id="complianceTipFlow.selelct" resultClass="com.seeyon.apps.kk.flowsend.model.ComplianceTip"
+            parameterClass="java.lang.String">
+        select id, complianceCode, sendUserNo, noteTitle,
+        noteContent, attacheId, complianceType, sendDepartment,noteMember,noteDepart,noteCompa,noteRemoveMember from
+        imy_complictip_flow
+        where id = #id#
+    </select>
+
+    <select id="complianceTipFlowCap4.selelct" resultClass="com.seeyon.apps.kk.flowsend.model.ComplianceTip"
+            parameterClass="java.lang.String">
+        select id, complianceCode, sendUserNo, noteTitle,
+        noteContent, attacheId, complianceType, sendDepartment,noteMember,noteDepart,noteCompa,noteRemoveMember from
+        imy_complictip_flow_cap4
+        where id = #id#
+    </select>
+
+    <select id="compFlowData.select" resultClass="com.seeyon.apps.kk.flowsend.model.ComplianceTip"
+            parameterClass="java.lang.String">
+        select
+        id,
+        compliancecode,
+        senduserno,
+        notetitle,
+        notecontent,
+        attacheid,
+        compliancetype,
+        attachemark,
+        notedepart,
+        notemember,
+        finishedflag
+        from wf_complictip w where w.compliancecode = #code#
+    </select>
+    <select id="compFlowDataCap4.select" resultClass="com.seeyon.apps.kk.flowsend.model.ComplianceTip"
+            parameterClass="java.lang.String">
+        select
+        id,
+        compliancecode,
+        senduserno,
+        notetitle,
+        notecontent,
+        attacheid,
+        compliancetype,
+        attachemark,
+        notedepart,
+        notemember,
+        finishedflag
+        from wf_complictip_cap4 w where w.compliancecode = #code#
+    </select>
+    <select id="complianceTipNoFinish.selelct" resultClass="com.seeyon.apps.kk.flowsend.model.ComplianceTip"
+            parameterClass="java.lang.String">
+        select
+        id,
+        compliancecode,
+        senduserno,
+        notetitle,
+        notecontent,
+        attacheid,
+        compliancetype,
+        attachemark,
+        notedepart,
+        notemember,
+        finishedflag
+        from wf_complictip w where w.compliancecode = #code#
+    </select>
+
+    <select id="complianceTipNoFinishCap4.selelct" resultClass="com.seeyon.apps.kk.flowsend.model.ComplianceTip"
+            parameterClass="java.lang.String">
+        select
+        id,
+        compliancecode,
+        senduserno,
+        notetitle,
+        notecontent,
+        attacheid,
+        compliancetype,
+        attachemark,
+        notedepart,
+        notemember,
+        finishedflag
+        from wf_complictip_cap4 w where w.compliancecode = #code#
+    </select>
+    <!-- 根据有合规培训编号查询合规培训流程 -->
+    <select id="compcpTrainFlowData.select" resultClass="com.seeyon.apps.kk.flowsend.model.CompcpTrain"
+            parameterClass="java.lang.String">
+        select
+        id,
+        finishedflag,
+        traincode,
+        senduserno,
+        senddate,
+        jointranmembe,
+        jointrandepar,
+        trainsubject,
+        traincontent,
+        note,
+        attacheid,
+        senddepart,
+        isfinishstudy,
+        contactdepart,
+        attachmark,
+        flowid
+        from wf_compcptrain w where w.traincode = #code#
+    </select>
+
+    <select id="compcpTrainFlowDataCap4.select" resultClass="com.seeyon.apps.kk.flowsend.model.CompcpTrain"
+            parameterClass="java.lang.String">
+        select
+        id,
+        finishedflag,
+        traincode,
+        senduserno,
+        senddate,
+        jointranmembe,
+        jointrandepar,
+        trainsubject,
+        traincontent,
+        note,
+        attacheid,
+        senddepart,
+        isfinishstudy,
+        contactdepart,
+        attachmark,
+        flowid
+        from wf_compcptrain_cap4 w where w.traincode = #code#
+    </select>
+
+
+    <update id="updateComplianceTipsResultById.update" parameterClass="java.lang.String">
+
+        update imy_complictipson i1
+        set i1.signedmember =
+        (select decode(i1.signedmember,
+        null,
+        w.notemember,
+        i1.signedmember || ',' || w.notemember)
+        from wf_complictip w, imy_complictip i, imy_complictipson s
+        where w.compliancecode = i.compliancecode
+        and i.id = s.formmainid
+        and w.notedepart = s.signdep
+        and i1.signdep = w.notedepart
+        and i.id = i1.formmainid
+        and i.id = #formId#),
+        i1.signmember  =
+        (select replace(i1.signmember, w.notemember, '')
+        from wf_complictip w, imy_complictip i, imy_complictipson s
+        where w.compliancecode = i.compliancecode
+        and i.id = s.formmainid
+        and w.notedepart = s.signdep
+        and i1.signdep = w.notedepart
+        and i.id = i1.formmainid
+        and i.id = #formId#)
+        where exists (select 1
+        from wf_complictip w, imy_complictip i, imy_complictipson s
+        where w.compliancecode = i.compliancecode
+        and i.id = s.formmainid
+        and w.notedepart = s.signdep
+        and i.id = i1.formmainid
+        and i1.signdep = w.notedepart
+        and i.id = #formId#)
+
+    </update>
+</sqlMap>

@@ -1,0 +1,462 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+
+
+    <insert id="addMemberAuthInfo.insert" parameterClass="map">
+        insert into
+        vm_authview_member_auth
+        (
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        memberName,
+        memberCode,
+        authObjName,
+        authObjType,
+        memberId,
+        authObjId,
+        memberState,
+        authObjCode,
+        updateTime,
+        extendStr
+        )
+
+        select
+        util_common.getAbsID() as id,1,-6760911671874597139,sysdate,0,sysdate,0,0,0,null,0,-6760911671874597139,sysdate,
+        member_name as membername,
+        util_user.getMemCodeByMemId(member_id) as membercode,
+        object_name as authObjName,
+        object_type as authObjType,
+        object_id as authObjId,
+        member_id as memberId,
+        (select is_enable from org_member where id = member_id) as memberState,
+        object_code authObjCode,
+        update_time as updateTime,
+        extendStr
+
+        from table(util_user.getAllUserRightObjects())
+
+    </insert>
+
+    <!--人员-授权对象视图删除 -->
+    <delete id="removeMemberAuthInfo.delete">
+        delete from vm_authview_member_auth
+    </delete>
+
+
+
+    <insert id="addAuthMenuInfo.insert" parameterClass="map">
+        insert into
+        vm_authview_auth_menu
+        (
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        menuName,
+        firstMenu,
+        menuType,
+        menuDef,
+        authObjId,
+        authObjName,
+        authObjType,
+        extendStr,
+        authObjCode
+        )
+
+        select
+        util_common.getAbsID() as id,1,-6760911671874597139,sysdate,0,sysdate,0,0,0,null,0,-6760911671874597139,sysdate,
+        MENU_NAME as menuName,
+        LEVEL1_MENU as firstMenu,
+        MODULE_TYPE_NAME as menuType,
+        1 as menuDef,
+        OBJECT_ID as authObjId,
+        OBJECT_NAME as authObjName,
+        OBJECT_TYPE as authObjType,
+        extend_str as extendStr,
+        OBJECT_CODE as authObjCode
+        from table(util_auth.getAllMenuAuths)
+
+    </insert>
+
+    <!--人员-授权对象视图删除 -->
+    <delete id="removeAuthMenuInfo.delete">
+        delete from vm_authview_auth_menu
+    </delete>
+
+    <!--授权对象-查询权限视图插入 -->
+    <insert id="addAuthDataQryInfo.insert" parameterClass="map">
+        insert into
+        vm_authview_auth_dataqry
+        (
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        qryName, /*查询名称  */
+        qryExpr, /*  查询表达式 */
+        authObjName, /*授权对象名称*/
+        authObjType, /*授权对象类型*/
+        qryAuthName, /*查询权限名称*/
+        authObjId, /*授权对象ID */
+        qryId, /*查询ID  */
+        authObjCode, /*授权对象代码  */
+        wholeExpr, /*完整表达式 */
+        extendStr
+        )
+
+        select
+        util_common.getAbsID() as id,1,-6760911671874597139,sysdate,0,sysdate,0,0,0,null,0,-6760911671874597139,sysdate,
+        QUERY_NAME as qryName,
+        FORMULA_CLAUSE as qryExpr,
+        OBJECT_NAME as authObjName,
+        OBJECT_TYPE as authObjType,
+        FORMALA_AUTH_NAME as qryAuthName,
+        OBJECT_ID as authObjId,
+        QUERY_ID as qryId,
+        OBJECT_CODE as authObjCode,
+        FORMULA_EXPRESSION as wholeExpr,
+        extendStr
+        from table(util_auth.getAllQuerExpOrClauseAuth)
+
+    </insert>
+
+    <!--授权对象-查询权限视图删除 -->
+    <delete id="removeAuthDataQryInfo.delete">
+        delete from vm_authview_auth_dataqry
+    </delete>
+
+    <!--人员-查询权限视图插入 -->
+    <insert id="addMemberDataQryInfo.insert" parameterClass="java.lang.String">
+        insert into
+        vm_authview_member_dataqry
+        (
+        id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        qryName,
+        qryExpr,
+        authObjName,
+        authObjType,
+        qryAuthName,
+        authObjId,
+        qryId,
+        authObjCode,
+        wholeExpr,
+        memberName,
+        memberId,
+        extendStr
+        )
+
+        select
+        util_common.getAbsID() as id,1,-6760911671874597139,sysdate,0,sysdate,0,0,0,null,0,-6760911671874597139,sysdate,
+        QUERY_NAME as qryName,
+        FORMULA_CLAUSE as qryExpr,
+        OBJECT_NAME as authObjName,
+        OBJECT_TYPE as authObjType,
+        FORMALA_AUTH_NAME as qryAuthName,
+        OBJECT_ID as authObjId,
+        QUERY_ID as qryId,
+        OBJECT_CODE as authObjCode,
+        FORMULA_EXPRESSION as wholeExpr,
+        util_user.getMemberNameByMemId(#memberId#) as memberName,
+        #memberId# as memberId,
+        extendStr
+        from table(util_auth.getAllQuerExpOrClauseMember(#memberId#))
+
+    </insert>
+
+    <!--人员-查询权限视图删除 -->
+    <delete id="removeMemberDataQryInfo.delete">
+        delete from vm_authview_member_dataqry
+    </delete>
+
+    <delete id="memberToFunction.delete">
+        delete from vm_memberToFunctionSearch
+    </delete>
+    <insert id="memberToFunction.insert" parameterClass="java.util.HashMap">
+        insert into vm_memberToFunctionSearch
+        (id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        memberId    ,
+        functionModel ,
+        functionName  ,
+        functionType  ,
+        isAutoMenu    ,
+        authObjectName  ,
+        authObjectId  ,
+        authObjectType  ,
+        authObjectCode  ,
+        extendField,
+        memberName
+        )select util_common.getAbsID,1,-6760911671874597139,sysdate,0,sysdate,0,0,0,null,0,-6760911671874597139,sysdate,#memberId#, t.level1_menu, t.menu_name,module_type_name,1,
+        object_name,object_id,object_type,object_code,extend_str,#memberName#
+        from table(util_auth.getMenus4Member('',#memberId#,'')) t where menu_name is not null
+    </insert>
+
+
+    <insert id = "authObjectToNode.insert">
+        insert into vm_authObjectToNode
+        (id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        flowName,
+        nodeName,
+        authObjectId,
+        objectType,
+        authObjectName,
+        flowTemplateNumber,
+        nodeId,
+        functionModel,
+        extendStr
+        )select util_common.getAbsID,1,-6760911671874597139,sysdate,0,sysdate,0,0,0,null,0,-6760911671874597139,sysdate,t.wf_process_name,t.wf_activity_name,object_id,object_type,object_name,t1.templete_number,t.wf_activity_id,form_name,extendStr
+        from (table(util_auth.getAllWFActivityAuths)) t
+        left join   ctp_template t1
+        on t.wf_template_id = t1.workflow_id
+    </insert>
+    <delete id="authObjectToNode.delete">
+        delete from vm_authObjectToNode
+    </delete>
+
+    <insert id = "memberToNode.insert" parameterClass="java.util.HashMap">
+        insert into vm_memberToNode
+        (id,
+        state,
+        start_member_id,
+        start_date,
+        approve_member_id,
+        approve_date,
+        finishedflag,
+        ratifyflag,
+        ratify_member_id,
+        ratify_date,
+        sort,
+        modify_member_id,
+        modify_date,
+        flowName,
+        nodeName,
+        authObjectId,
+        objectType,
+        authObjectName,
+        flowTemplateNumber,
+        nodeId,
+        functionModel,
+        memberName,
+        extendStr
+        )select util_common.getAbsID,1,-6760911671874597139,sysdate,0,sysdate,0,0,0,null,0,-6760911671874597139,sysdate,t.wf_process_name,
+        t.wf_activity_name,object_id,object_type,object_name,t1.templete_number,t.wf_activity_id,form_name,#memberName#
+        ,extendStr
+        from table(util_auth.getWFActivity4Member(#loginName#)) t
+        left join   ctp_template t1
+        on t.wf_template_id = t1.workflow_id
+    </insert>
+    <delete id="memberToNode.delete">
+        delete from vm_memberToNode
+    </delete>
+
+    <select id = "wfActivition.select" resultClass="java.lang.String">
+        select case when sysdate - max(update_date) &gt; 1/24/6 or count(1) &lt;= 0 then '1' else '0' end invalid  from FG_WFACTIVITYINFO
+    </select>
+
+    <update id="truncateWorkFlow">
+        truncate table FG_WFACTIVITYINFO
+    </update>
+
+    <insert id="workFlowInfo.insert">
+        insert into FG_WFACTIVITYINFO(
+        form_id                      ,
+        form_name                    ,
+        wf_template_id               ,
+        wf_process_name              ,
+        wf_activity_id               ,
+        wf_activity_name             ,
+        wf_activity_desc             ,
+        wf_activity_performer_type   ,
+        wf_activity_performer_value  ,
+        wf_activity_performer_desc   ,
+        wf_activity_performer_account,
+        wf_activity_right_code       ,
+        wf_activity_right_name       ,
+        update_date
+        )
+        select
+        form_id                      ,
+        form_name                    ,
+        wf_template_id               ,
+        wf_process_name              ,
+        wf_activity_id               ,
+        wf_activity_name             ,
+        wf_activity_desc             ,
+        wf_activity_performer_type   ,
+        wf_activity_performer_value  ,
+        wf_activity_performer_desc   ,
+        wf_activity_performer_account,
+        wf_activity_right_code       ,
+        wf_activity_right_name       ,
+        sysdate as update_date
+        from VM_WFACTIVITYINFO
+    </insert>
+    <insert id="addMemberAuthInfoContentAll.insert">
+        insert into ctp_content_all
+        (ID,
+        CREATE_ID,
+        CREATE_DATE,
+        MODIFY_ID,
+        MODIFY_DATE,
+        MODULE_TYPE,
+        MODULE_ID,
+        MODULE_TEMPLATE_ID,
+        CONTENT_TYPE,
+        CONTENT,
+        CONTENT_DATA_ID,
+        CONTENT_TEMPLATE_ID,
+        TITLE,
+        SORT)
+        select
+        util_common.getAbsID,
+        '-6760911671874597139',
+        sysdate,
+        '-6760911671874597139',
+        sysdate,
+        '37',
+        f.ID,
+        '9051295399629898964',
+        '20',
+        null,
+        f.ID,
+        '470204954798539098',
+        '权限视图_人员-授权对象',
+        '0'
+        from
+        vm_authview_member_auth f
+    </insert>
+    <insert id="addAuthDataQryInfoContent.insert">
+        insert into ctp_content_all
+        (ID,
+        CREATE_ID,
+        CREATE_DATE,
+        MODIFY_ID,
+        MODIFY_DATE,
+        MODULE_TYPE,
+        MODULE_ID,
+        MODULE_TEMPLATE_ID,
+        CONTENT_TYPE,
+        CONTENT,
+        CONTENT_DATA_ID,
+        CONTENT_TEMPLATE_ID,
+        TITLE,
+        SORT)
+        select
+        util_common.getAbsID,
+        '-6760911671874597139',
+        sysdate,
+        '-6760911671874597139',
+        sysdate,
+        '37',
+        f.ID,
+        '8283373005032017605',
+        '20',
+        null,
+        f.ID,
+        '8827553393709633247',
+        '权限视图_数据查询-授权对象',
+        '0'
+        from
+        vm_authview_auth_dataqry f
+    </insert>
+
+    <insert id="memberToNodeContent.insert">
+        insert into ctp_content_all
+        (ID,
+        CREATE_ID,
+        CREATE_DATE,
+        MODIFY_ID,
+        MODIFY_DATE,
+        MODULE_TYPE,
+        MODULE_ID,
+        MODULE_TEMPLATE_ID,
+        CONTENT_TYPE,
+        CONTENT,
+        CONTENT_DATA_ID,
+        CONTENT_TEMPLATE_ID,
+        TITLE,
+        SORT)
+        select
+        util_common.getAbsID,
+        '-6760911671874597139',
+        sysdate,
+        '-6760911671874597139',
+        sysdate,
+        '37',
+        f.ID,
+        '703405371387891107',
+        '20',
+        null,
+        f.ID,
+        '3360814543773386519',
+        '权限视图_授权对象-流程节点',
+        '0'
+        from
+        vm_memberToNode f
+    </insert>
+</sqlMap>

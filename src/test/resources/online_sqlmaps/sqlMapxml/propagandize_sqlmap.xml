@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+    <!-- 根据流水号查询宣传推介材料审批流程子表数据  -->
+    <select id="getPropagandizeFlowSonBySerialNo.select" resultClass="java.util.HashMap" parameterClass="java.lang.String">
+        select
+        productCode as "productCode",
+        productName as "productName",
+        productType as "productType",
+        checkMembers as "checkMembers",
+        recordCount as "recordCount",
+        fundCode as "fundCode"
+        from vm_wf_propagandize_pdson where formmain_id = (select id from VM_LAUNCHMATERIALPROCESS where serialNum = #serialNo#)
+    </select>
+
+
+    <!-- 根据流水号查询宣传推介材料审批流程数据  -->
+    <select id="getPropagandizeFlowBySerialNo.select" resultClass="java.util.HashMap" parameterClass="java.lang.String">
+        select
+        uploadEndDraft as "uploadEndDraft",
+        applyDept as "applyDept",
+        applyUser as "applyUser"
+        from VM_LAUNCHMATERIALPROCESS where serialNum = #serialNo#
+    </select>
+
+
+
+</sqlMap>

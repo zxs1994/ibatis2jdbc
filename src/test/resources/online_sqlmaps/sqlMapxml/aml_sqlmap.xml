@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap>
+<select id="AMLTaskSendById.select" resultClass="com.seeyon.apps.kk.aml.model.AMITaskSendModel" parameterClass="java.lang.String">
+    select distinct util_user.getMemCodeByMemId(f1.sendUserId) sendUserNo,
+    f1.id as sendFlowFormId,
+    f1.serialNum || t1.column_value flowId,
+    'FXQ_RWSJ_T001' flowType,
+    f1.sendDepartId,
+    to_char(f1.sendDate, 'yyyy-mm-dd') sendDate,
+    to_char(f1.latestFeedbackTime, 'yyyy-mm-dd') latestFeedbackTime,
+    taskName,
+    FlowName sendFlowName,
+    f1.serialNum sendFlowSerialNum,
+    t1.column_value feedbackMember,
+    util_user.getDeptIdByMemId(t1.column_value) feedbackDepart,
+    nvl(relevanceFlow, ' ') relevanceFlow,
+    nvl(attachmentId, ' ') attachmentId
+    from vm_wf_aml_task_send f1
+    left join (select *
+    from vm_wf_aml_task_send_detail,
+    TABLE(UTIL_COMMON.SPLIT(feedbackMembers, ','))) t1
+    on f1.id = t1.formmain_id
+    where f1.id = #formId#
+</select>
+<insert id="collectDetail.insert" parameterClass="java.lang.String">
+    insert into vm_wf_aml_task_collect_detail
+    (
+    id,
+    formmain_id,
+    feedbackSubject,
+    feedbackAskFor
+    )
+    select
+    util_common.getAbsID,
+    f2.id,
+    des.feedbackSubject,
+    des.feedbackAskFor
+    from (select
+    f1.id,
+    f1.serialNum,
+    t1.column_value feedbackMember,
+    t1.feedbackSubject,
+    t1.feedbackAskFor
+    from vm_wf_aml_task_send f1
+    left join (select *
+    from vm_wf_aml_task_send_detail,
+    TABLE(UTIL_COMMON.SPLIT(feedbackMembers, ','))) t1
+    on f1.id = t1.formmain_id) des
+    left join vm_wf_aml_task_collect  f2
+    on des.feedbackMember = f2.feedbackMember
+    and  des.serialNum = sendFlowSerialNum
+    where f2.id is not null and des.id = #formId#
+</insert>
+
+<select id="findAttachmentList.select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+    select
+    ID,
+    ATT_REFERENCE,
+    SUB_REFERENCE,
+    CATEGORY,
+    TYPE,
+    FILENAME,
+    FILE_URL,
+    MIME_TYPE,
+    CREATEDATE,
+    ATTACHMENT_SIZE,
+    to_char(DESCRIPTION) DESCRIPTION,
+    GENESIS_ID,
+    SORT
+    from ctp_attachment v1 where v1.att_reference= #flowId# and v1.sub_reference=#referID#
+</select>
+    <insert id="AMIattachment.insert" parameterClass="java.util.HashMap">
+        insert into ctp_attachment
+        (
+        ID, ATT_REFERENCE, SUB_REFERENCE, CATEGORY, TYPE, FILENAME, FILE_URL, MIME_TYPE, CREATEDATE,
+        ATTACHMENT_SIZE, GENESIS_ID, SORT, DESCRIPTION
+        )
+        select
+        util_common.getAbsID,
+        f2.id,
+        #SUB_REFERENCE#,
+        #CATEGORY#,
+        #TYPE#,
+        #FILENAME#,
+        #FILE_URL#,
+        #MIME_TYPE#,
+        #CREATEDATE#,
+        #ATTACHMENT_SIZE#,
+        #GENESIS_ID#,
+        #SORT#,
+        #DESCRIPTION#
+        from vm_wf_aml_task_collect f1
+        left join col_summary f2
+        on f1.id = f2.form_recordid
+        where f1.sendFlowSerialNum = #flowId#
+    </insert>
+    <delete id="amiCollectBlankRecord.delete" parameterClass="java.lang.String">
+        delete vm_wf_aml_task_collect_detail f where f.feedbackSubject is null and   f.formmain_id in(
+        select id from vm_wf_aml_task_collect   f1 where f1.sendFlowSerialNum = #flowId#
+        )
+    </delete>
+
+    <select id="amiPerformanceSendFlow.select" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.aml.model.AMIPerformanceAssessModel">
+        select distinct
+        util_user.getMemCodeByMemId(vf1.sendUserId) sendUserNo,
+        vf1.id as sendFlowId,
+        vf1.serialNum || vf2.memberUnderAssessment flowId,
+        'FXQ_KHZBZD_T001' flowType,
+        vf1.sendDepartId,
+        to_char(vf1.sendDate, 'yyyy-mm-dd') sendDate,
+        annual,
+        nvl(associatedFlow, ' ') associatedFlow,
+        util_user.getDeptIdByMemId(memberUnderAssessment) departUnderAssessment,
+        memberUnderAssessment,
+        flowName sendFlowName
+        from
+        vm_wf_ami_Inspect_APPLY vf1
+        left join
+        vm_wf_ami_Inspect_APPLY_son vf2
+        on vf1.id = vf2.formmain_id  where vf1.id = #formId#
+    </select>
+
+    <insert id="amiPerformanceConfirmSon.insert" parameterClass="java.lang.String">
+        insert into  vm_wf_ami_Inspect_confirm_son
+        (
+        id,
+        formmain_id,
+        content,
+        indexWeight,
+        indexCode,
+        attachment
+        )
+        select
+        util_common.getAbsID,
+        f.id,
+        f2.content,
+        f2.indexWeight,
+        f2.indexCode,
+        f2.attachment
+        from
+        vm_wf_ami_Inspect_confirm f
+        left join
+        vm_wf_ami_Inspect_APPLY_son  f2
+        on f.memberUnderAssessment = f2.memberUnderAssessment and f2.formmain_id = f.sendFlowId
+        where f2.formmain_id = #formId#
+    </insert>
+
+    <delete id="performanceAssess.delete">
+        delete from vm_wf_ami_Inspect_confirm_son  f where f.content is null
+    </delete>
+
+    <select id="performanceResultFlow.select" parameterClass="java.lang.String" resultClass="com.seeyon.apps.kk.aml.model.AMIPerformanceAssessModel">
+        select distinct
+        util_user.getMemCodeByMemId(vf1.sendUserId) sendUserNo,
+        vf1.id as sendFlowId,
+        vf1.serialNum || vf2.memberUnderAssessment flowId,
+        'FXQ_KHZBQR_T0001' flowType,
+        vf1.sendDepartId,
+        to_char(vf1.sendDate, 'yyyy-mm-dd') sendDate,
+        annual,
+        nvl(associatedFlow, ' ') associatedFlow,
+        util_user.getDeptIdByMemId(memberUnderAssessment) departUnderAssessment,
+        memberUnderAssessment,
+        flowName sendFlowName
+        from
+        vm_wf_ami_result_APPLY  vf1
+        left join
+        vm_wf_ami_result_APPLY_son  vf2
+        on vf1.id = vf2.formmain_id  where vf1.id = #formId#
+    </select>
+
+    <insert id="performanceResult.insert" parameterClass="java.lang.String">
+        insert into  vm_wf_ami_result_confirm_son
+        (
+        id,
+        formmain_id,
+        content,
+        indexWeight,
+        indexCode,
+        attachment,
+        evaluationResult,
+        remark
+        )
+        select
+        util_common.getAbsID,
+        f.id,
+        f2.content,
+        f2.indexWeight,
+        f2.indexCode,
+        f2.attachment,
+        evaluationResult,
+        remark
+        from
+        vm_wf_ami_result_confirm  f
+        left join
+        vm_wf_ami_result_APPLY_son    f2
+        on f.memberUnderAssessment = f2.memberUnderAssessment and f2.formmain_id = f.sendFlowId
+        where f2.formmain_id = #formId#
+    </insert>
+
+    <delete id="performanceResult.delete">
+        delete from vm_wf_ami_result_confirm_son  f where f.content is null
+    </delete>
+</sqlMap>

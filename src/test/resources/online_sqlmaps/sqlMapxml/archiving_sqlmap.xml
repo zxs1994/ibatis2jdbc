@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap> 
+	<!-- 执行检查sql -->
+    <select id="archiving.select.count"  parameterClass="map" resultClass="long">
+        $sql$
+    </select>
+    
+    <!-- 当执行插入sql -->
+	<insert id="archiving.insert" parameterClass="map">
+		$sql$		
+	</insert>
+	
+	<!-- 当执行更新sql  -->
+	<update id="archiving.update"  parameterClass="map">
+		$sql$	
+	</update>
+
+	<!-- 定时数据归档，数据查询  -->
+	<select id="universalData.select"  parameterClass="java.lang.String" resultClass="java.util.HashMap">
+		select
+		timeTaskName ,executeSequence ,IFSQL ,TRUESQL ,FALSESQL
+		from vm_universalProcessConfig vm where vm.timeTaskName = #timeTaskName# order by executeSequence
+	</select>
+
+	<select id="executeIfSql.select"  parameterClass="map" resultClass="java.util.HashMap">
+		$sql$
+	</select>
+
+	<select id="executeIfSqlUniversalProcess.select" parameterClass="map" resultClass="java.lang.Long">
+		$sql$
+	</select>
+	<update id="executeSql.update"  parameterClass="map">
+		$sql$
+	</update>
+</sqlMap>
