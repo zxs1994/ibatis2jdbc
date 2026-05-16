@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static com.blackbox.ibatis2jdbc.TestSupport.listOf;
@@ -361,6 +360,35 @@ class IbatisToJdbcConverterTest {
 
 		assertTrue(exception.getCause() instanceof IllegalArgumentException);
 		assertEquals("Cannot find resultMap: notExists", exception.getCause().getMessage());
+	}
+
+	/**
+	 * 测试热更新xml：先加载一版，验证SQL，再模拟热更新（替换为新版xml），重新加载并验证新SQL和新增statement。
+	 */
+	@Test
+	void hotReloadsXmlAndReflectsChanges() throws Exception {
+		IbatisToJdbcConverter hotReloadConverter = new IbatisToJdbcConverter();
+		String xml1 = "src/test/resources/sqlmaps/test-hot-reload-1.xml";
+		String xml2 = "src/test/resources/sqlmaps/test-hot-reload-2.xml";
+
+		// 1. 加载第一个xml，验证SQL
+		hotReloadConverter.loadSqlMapsFromClasspath(xml1);
+		ConvertedSql v1 = hotReloadConverter.convertPrepared("findUserById", mapOf("id", 42L));
+		assertEquals("SELECT id, name FROM users WHERE id = ?", v1.getSql());
+		assertEquals(listOf(42L), v1.getPreparedBindings());
+
+		// 2. 模拟热更新：加载第二个xml（内容有变化）
+		hotReloadConverter.loadSqlMapsFromClasspath(xml2);
+
+		// 3. 验证SQL已更新
+		ConvertedSql v2 = hotReloadConverter.convertPrepared("findUserById", mapOf("id", 99L));
+		assertEquals("SELECT id, name, status FROM users WHERE id = ?", v2.getSql());
+		assertEquals(listOf(99L), v2.getPreparedBindings());
+
+		// 4. 验证新增的statement也可用
+		ConvertedSql v3 = hotReloadConverter.convertPrepared("findUserByName", mapOf("name", "Alice"));
+		assertEquals("SELECT id, name FROM users WHERE name = ?", v3.getSql());
+		assertEquals(listOf("Alice"), v3.getPreparedBindings());
 	}
 
 	private static final class UserFilter {

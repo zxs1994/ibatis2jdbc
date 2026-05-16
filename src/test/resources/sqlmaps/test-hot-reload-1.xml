@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sqlMap namespace="testHotReload">
+    <select id="findUserById" parameterClass="long">
+        SELECT id, name FROM users WHERE id = #id#
+    </select>
+</sqlMap>

@@ -45,14 +45,13 @@ import java.util.jar.JarFile;
 import org.xml.sax.InputSource;
 
 public class IbatisToJdbcConverter {
-	private final Map<String, StatementReference> statementIndex = new LinkedHashMap<>();
-	private final Map<String, Element> sqlFragmentIndex = new LinkedHashMap<>();
-	private final Map<String, Map<String, String>> resultMapIndex = new LinkedHashMap<>();
+	private volatile IndexSnapshot activeSnapshot = IndexSnapshot.empty();
 
 	// 先调用 loadSqlMapsFromClasspath 后，可仅传 statementId + parameters 生成
 	// PreparedStatement SQL。
 	public ConvertedSql convertPrepared(String statementId, Object parameters) {
-		StatementReference statementReference = statementIndex.get(statementId);
+		IndexSnapshot snapshot = activeSnapshot;
+		StatementReference statementReference = snapshot.statementIndex.get(statementId);
 		if (statementReference == null) {
 			throw new IllegalStateException(
 					"Cannot find statementId in memory index: " + statementId
@@ -60,8 +59,8 @@ public class IbatisToJdbcConverter {
 		}
 		List<Object> bindingCollector = new ArrayList<>();
 		ConvertedSql result = convertCore(statementReference.sqlMapXml, statementReference.lookupStatementId,
-				sqlFragmentIndex,
-				resultMapIndex,
+				snapshot.sqlFragmentIndex,
+				snapshot.resultMapIndex,
 				parameters,
 				bindingCollector);
 		return new ConvertedSql(result.getSql(), result.getParameters(), result.getStatementType(),
@@ -69,18 +68,20 @@ public class IbatisToJdbcConverter {
 	}
 
 	/**
-	 * 扫描 classpath 内所有 *sqlmap.xml 资源并建立 statementId 索引。
+	 * 扫描 classpath 内所有 *_sqlmap.xml 资源并建立 statementId 索引。
 	 * 如果 fileOrDirPaths 为空，则默认扫描 classpath。
 	 * 否则只扫描指定的文件或目录（可为单个 xml 文件、目录、jar 包）。
+	 * 目录/jar 扫描只匹配 *_sqlmap.xml；仅在显式传入单个文件时允许任意 .xml。
 	 */
 	public synchronized int loadSqlMapsFromClasspath(String... fileOrDirPaths) {
-		statementIndex.clear();
-		sqlFragmentIndex.clear();
-		resultMapIndex.clear();
+		Map<String, StatementReference> nextStatementIndex = new LinkedHashMap<>();
+		Map<String, Element> nextSqlFragmentIndex = new LinkedHashMap<>();
+		Map<String, Map<String, String>> nextResultMapIndex = new LinkedHashMap<>();
 		Set<String> visitedSources = new HashSet<>();
 		if (fileOrDirPaths == null || fileOrDirPaths.length == 0) {
 			String classPath = System.getProperty("java.class.path", "");
 			if (isBlank(classPath)) {
+				activeSnapshot = IndexSnapshot.empty();
 				return 0;
 			}
 			String[] entries = classPath.split(File.pathSeparator);
@@ -90,9 +91,11 @@ public class IbatisToJdbcConverter {
 				}
 				Path path = Paths.get(entry);
 				if (Files.isDirectory(path)) {
-					loadSqlMapsFromDirectory(path, visitedSources);
+					loadSqlMapsFromDirectory(path, visitedSources, nextStatementIndex, nextSqlFragmentIndex,
+							nextResultMapIndex);
 				} else if (Files.isRegularFile(path) && entry.toLowerCase(Locale.ROOT).endsWith(".jar")) {
-					loadSqlMapsFromJar(path, visitedSources);
+					loadSqlMapsFromJar(path, visitedSources, nextStatementIndex, nextSqlFragmentIndex,
+							nextResultMapIndex);
 				}
 			}
 		} else {
@@ -101,50 +104,55 @@ public class IbatisToJdbcConverter {
 					continue;
 				Path path = Paths.get(fileOrDir);
 				if (Files.isDirectory(path)) {
-					loadSqlMapsFromDirectory(path, visitedSources);
+					loadSqlMapsFromDirectory(path, visitedSources, nextStatementIndex, nextSqlFragmentIndex,
+							nextResultMapIndex);
 				} else if (Files.isRegularFile(path)) {
 					String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
 					if (name.endsWith(".xml")) {
 						try {
 							String xml = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
-							registerStatements(xml, path.toAbsolutePath().toString());
+							registerStatements(xml, path.toAbsolutePath().toString(), nextStatementIndex,
+									nextSqlFragmentIndex,
+									nextResultMapIndex);
 						} catch (IOException exception) {
 							throw new IllegalStateException("Failed to read sqlmap xml: " + path, exception);
 						}
 					} else if (name.endsWith(".jar")) {
-						loadSqlMapsFromJar(path, visitedSources);
+						loadSqlMapsFromJar(path, visitedSources, nextStatementIndex, nextSqlFragmentIndex,
+								nextResultMapIndex);
 					}
 				}
 			}
 		}
-		return statementIndex.size();
+		activeSnapshot = IndexSnapshot.of(nextStatementIndex, nextSqlFragmentIndex, nextResultMapIndex);
+		return nextStatementIndex.size();
 	}
 
 	public synchronized void clearLoadedSqlMaps() {
-		statementIndex.clear();
-		sqlFragmentIndex.clear();
-		resultMapIndex.clear();
+		activeSnapshot = IndexSnapshot.empty();
 	}
 
 	public synchronized int getLoadedStatementCount() {
-		return statementIndex.size();
+		return activeSnapshot.statementIndex.size();
 	}
 
 	public synchronized int getLoadedSqlMapSourceCount() {
+		IndexSnapshot snapshot = activeSnapshot;
 		Set<String> sources = new LinkedHashSet<>();
-		for (StatementReference reference : statementIndex.values()) {
+		for (StatementReference reference : snapshot.statementIndex.values()) {
 			sources.add(reference.source);
 		}
 		return sources.size();
 	}
 
 	public synchronized Set<String> getLoadedStatementIds() {
-		return new LinkedHashSet<>(statementIndex.keySet());
+		return new LinkedHashSet<>(activeSnapshot.statementIndex.keySet());
 	}
 
 	public synchronized List<LoadedStatementInfo> getLoadedStatementInfos() {
+		IndexSnapshot snapshot = activeSnapshot;
 		List<LoadedStatementInfo> infos = new ArrayList<>();
-		for (Map.Entry<String, StatementReference> entry : statementIndex.entrySet()) {
+		for (Map.Entry<String, StatementReference> entry : snapshot.statementIndex.entrySet()) {
 			StatementReference reference = entry.getValue();
 			infos.add(new LoadedStatementInfo(entry.getKey(), reference.lookupStatementId, reference.source,
 					reference.sqlMapXml, reference.parameterClass, reference.resultClass));
@@ -152,7 +160,10 @@ public class IbatisToJdbcConverter {
 		return Collections.unmodifiableList(infos);
 	}
 
-	private void loadSqlMapsFromDirectory(Path root, Set<String> visitedSources) {
+	private void loadSqlMapsFromDirectory(Path root, Set<String> visitedSources,
+			Map<String, StatementReference> targetStatementIndex,
+			Map<String, Element> targetSqlFragmentIndex,
+			Map<String, Map<String, String>> targetResultMapIndex) {
 		try {
 			Files.walk(root)
 					.filter(Files::isRegularFile)
@@ -164,7 +175,8 @@ public class IbatisToJdbcConverter {
 						}
 						try {
 							String xml = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
-							registerStatements(xml, source);
+							registerStatements(xml, source, targetStatementIndex, targetSqlFragmentIndex,
+									targetResultMapIndex);
 						} catch (IOException exception) {
 							throw new IllegalStateException("Failed to read sqlmap xml: " + source, exception);
 						}
@@ -174,7 +186,10 @@ public class IbatisToJdbcConverter {
 		}
 	}
 
-	private void loadSqlMapsFromJar(Path jarPath, Set<String> visitedSources) {
+	private void loadSqlMapsFromJar(Path jarPath, Set<String> visitedSources,
+			Map<String, StatementReference> targetStatementIndex,
+			Map<String, Element> targetSqlFragmentIndex,
+			Map<String, Map<String, String>> targetResultMapIndex) {
 		try (JarFile jarFile = new JarFile(jarPath.toFile())) {
 			Enumeration<JarEntry> entries = jarFile.entries();
 			while (entries.hasMoreElements()) {
@@ -183,7 +198,8 @@ public class IbatisToJdbcConverter {
 					continue;
 				}
 				String name = jarEntry.getName();
-				if (!name.toLowerCase(Locale.ROOT).endsWith("sqlmap.xml")) {
+				String lowerName = name.toLowerCase(Locale.ROOT);
+				if (!lowerName.endsWith("_sqlmap.xml")) {
 					continue;
 				}
 
@@ -194,7 +210,8 @@ public class IbatisToJdbcConverter {
 
 				try (InputStream inputStream = jarFile.getInputStream(jarEntry)) {
 					String xml = new String(readAllBytes(inputStream), StandardCharsets.UTF_8);
-					registerStatements(xml, source);
+					registerStatements(xml, source, targetStatementIndex, targetSqlFragmentIndex,
+							targetResultMapIndex);
 				}
 			}
 		} catch (IOException exception) {
@@ -221,7 +238,10 @@ public class IbatisToJdbcConverter {
 		return all;
 	}
 
-	private void registerStatements(String xml, String source) {
+	private void registerStatements(String xml, String source,
+			Map<String, StatementReference> targetStatementIndex,
+			Map<String, Element> targetSqlFragmentIndex,
+			Map<String, Map<String, String>> targetResultMapIndex) {
 		Document document;
 		try {
 			String normalizedXml = preprocessXml(xml);
@@ -233,8 +253,8 @@ public class IbatisToJdbcConverter {
 			throw new IllegalStateException("Failed to parse sqlmap xml: " + source, exception);
 		}
 
-		registerSqlFragments(document, source);
-		registerResultMaps(document, source);
+		registerSqlFragments(document, source, targetSqlFragmentIndex);
+		registerResultMaps(document, source, targetResultMapIndex);
 
 		Element root = document.getDocumentElement();
 		String namespace = root == null ? "" : root.getAttribute("namespace");
@@ -260,14 +280,14 @@ public class IbatisToJdbcConverter {
 					element.getAttribute("parameterClass"),
 					element.getAttribute("resultClass"));
 			// 无 namespace 的 statementId 必须全局唯一。
-			registerStatementId(localId, reference, isBlank(namespace));
+			registerStatementId(localId, reference, isBlank(namespace), targetStatementIndex);
 			if (!isBlank(namespace)) {
-				registerStatementId(namespace + "." + localId, reference, true);
+				registerStatementId(namespace + "." + localId, reference, true, targetStatementIndex);
 			}
 		}
 	}
 
-	private void registerSqlFragments(Document document, String source) {
+	private void registerSqlFragments(Document document, String source, Map<String, Element> targetSqlFragmentIndex) {
 		NodeList nodes = document.getElementsByTagName("sql");
 		for (int index = 0; index < nodes.getLength(); index++) {
 			Node node = nodes.item(index);
@@ -279,16 +299,17 @@ public class IbatisToJdbcConverter {
 			if (isBlank(id)) {
 				continue;
 			}
-			Element existing = sqlFragmentIndex.get(id);
+			Element existing = targetSqlFragmentIndex.get(id);
 			if (existing != null) {
 				throw new IllegalStateException("Duplicate <sql id> detected while loading sqlmap.xml: " + id
 						+ " (source: " + source + ")");
 			}
-			sqlFragmentIndex.put(id, (Element) element.cloneNode(true));
+			targetSqlFragmentIndex.put(id, (Element) element.cloneNode(true));
 		}
 	}
 
-	private void registerResultMaps(Document document, String source) {
+	private void registerResultMaps(Document document, String source,
+			Map<String, Map<String, String>> targetResultMapIndex) {
 		NodeList nodes = document.getElementsByTagName("resultMap");
 		for (int index = 0; index < nodes.getLength(); index++) {
 			Node node = nodes.item(index);
@@ -300,7 +321,7 @@ public class IbatisToJdbcConverter {
 			if (isBlank(id)) {
 				continue;
 			}
-			if (resultMapIndex.containsKey(id)) {
+			if (targetResultMapIndex.containsKey(id)) {
 				throw new IllegalStateException("Duplicate <resultMap id> detected while loading sqlmap.xml: " + id
 						+ " (source: " + source + ")");
 			}
@@ -318,14 +339,15 @@ public class IbatisToJdbcConverter {
 					}
 				}
 			}
-			resultMapIndex.put(id, propertyMappings);
+			targetResultMapIndex.put(id, propertyMappings);
 		}
 	}
 
-	private void registerStatementId(String statementId, StatementReference reference, boolean strict) {
-		StatementReference existing = statementIndex.get(statementId);
+	private void registerStatementId(String statementId, StatementReference reference, boolean strict,
+			Map<String, StatementReference> targetStatementIndex) {
+		StatementReference existing = targetStatementIndex.get(statementId);
 		if (existing == null) {
-			statementIndex.put(statementId, reference);
+			targetStatementIndex.put(statementId, reference);
 			return;
 		}
 		if (existing.source.equals(reference.source)
@@ -336,6 +358,43 @@ public class IbatisToJdbcConverter {
 			throw new IllegalStateException(
 					"Duplicate statementId detected while loading sqlmap.xml: " + statementId + " (" + existing.source
 							+ " vs " + reference.source + ")");
+		}
+	}
+
+	private static final class IndexSnapshot {
+		private final Map<String, StatementReference> statementIndex;
+		private final Map<String, Element> sqlFragmentIndex;
+		private final Map<String, Map<String, String>> resultMapIndex;
+
+		private IndexSnapshot(Map<String, StatementReference> statementIndex,
+				Map<String, Element> sqlFragmentIndex,
+				Map<String, Map<String, String>> resultMapIndex) {
+			this.statementIndex = statementIndex;
+			this.sqlFragmentIndex = sqlFragmentIndex;
+			this.resultMapIndex = resultMapIndex;
+		}
+
+		private static IndexSnapshot empty() {
+			return new IndexSnapshot(Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
+		}
+
+		private static IndexSnapshot of(Map<String, StatementReference> statementIndex,
+				Map<String, Element> sqlFragmentIndex,
+				Map<String, Map<String, String>> resultMapIndex) {
+			Map<String, StatementReference> frozenStatementIndex = Collections
+					.unmodifiableMap(new LinkedHashMap<>(statementIndex));
+			Map<String, Element> frozenSqlFragmentIndex = Collections.unmodifiableMap(new LinkedHashMap<>(sqlFragmentIndex));
+			Map<String, Map<String, String>> frozenResultMapIndex = freezeResultMapIndex(resultMapIndex);
+			return new IndexSnapshot(frozenStatementIndex, frozenSqlFragmentIndex, frozenResultMapIndex);
+		}
+
+		private static Map<String, Map<String, String>> freezeResultMapIndex(
+				Map<String, Map<String, String>> source) {
+			Map<String, Map<String, String>> frozen = new LinkedHashMap<>();
+			for (Map.Entry<String, Map<String, String>> entry : source.entrySet()) {
+				frozen.put(entry.getKey(), Collections.unmodifiableMap(new LinkedHashMap<>(entry.getValue())));
+			}
+			return Collections.unmodifiableMap(frozen);
 		}
 	}
 
