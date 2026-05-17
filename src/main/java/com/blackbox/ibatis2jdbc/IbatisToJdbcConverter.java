@@ -810,53 +810,6 @@ public class IbatisToJdbcConverter {
 		return IbatisXmlSupport.CDATA_OPERATOR_PATTERN.matcher(sql).replaceAll("$1");
 	}
 
-	private Map<String, Element> collectSqlFragments(Document document) {
-		Map<String, Element> fragments = new LinkedHashMap<>();
-		NodeList nodes = document.getElementsByTagName("sql");
-		for (int index = 0; index < nodes.getLength(); index++) {
-			Node node = nodes.item(index);
-			if (!(node instanceof Element)) {
-				continue;
-			}
-			Element element = (Element) node;
-			String id = element.getAttribute("id");
-			if (!isBlank(id)) {
-				fragments.put(id, element);
-			}
-		}
-		return fragments;
-	}
-
-	private Map<String, Map<String, String>> collectResultMaps(Document document) {
-		Map<String, Map<String, String>> resultMaps = new LinkedHashMap<>();
-		NodeList nodes = document.getElementsByTagName("resultMap");
-		for (int index = 0; index < nodes.getLength(); index++) {
-			Node node = nodes.item(index);
-			if (!(node instanceof Element)) {
-				continue;
-			}
-			Element element = (Element) node;
-			String id = element.getAttribute("id");
-			if (!isBlank(id)) {
-				Map<String, String> propertyMappings = new LinkedHashMap<>();
-				NodeList resultChildren = element.getChildNodes();
-				for (int childIndex = 0; childIndex < resultChildren.getLength(); childIndex++) {
-					Node childNode = resultChildren.item(childIndex);
-					if (childNode instanceof Element) {
-						Element childElement = (Element) childNode;
-						String property = childElement.getAttribute("property");
-						String column = childElement.getAttribute("column");
-						if (!isBlank(property) && !isBlank(column)) {
-							propertyMappings.put(column, property);
-						}
-					}
-				}
-				resultMaps.put(id, propertyMappings);
-			}
-		}
-		return resultMaps;
-	}
-
 	private String renderNode(Node node, RenderContext context) {
 		// 文本节点和 CDATA 节点最终都会走同一套占位符渲染逻辑。
 		if (node.getNodeType() == Node.TEXT_NODE || node.getNodeType() == Node.CDATA_SECTION_NODE) {
@@ -1467,15 +1420,6 @@ public class IbatisToJdbcConverter {
 			}
 		}
 		return result;
-	}
-
-	private String extractStatementInnerXml(Element statementElement) {
-		StringBuilder builder = new StringBuilder();
-		NodeList children = statementElement.getChildNodes();
-		for (int index = 0; index < children.getLength(); index++) {
-			builder.append(nodeToXml(children.item(index)));
-		}
-		return builder.toString().trim();
 	}
 
 	private String nodeToXml(Node node) {

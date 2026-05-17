@@ -45,10 +45,12 @@ class SqlMapXmlReportTest {
 			String finalSql = null;
 			String resolvedStatementType = statementCase.statementType;
 			try {
-				ConvertedSql convertedSql = converter.convertPrepared(statementCase.statementId, statementCase.parameters);
+				ConvertedSql convertedSql = converter.convertPrepared(statementCase.statementId,
+						statementCase.parameters);
 				finalSql = convertedSql.toPreviewSql();
 				resolvedStatementType = convertedSql.getStatementType();
-				assertTrue(finalSql != null && !finalSql.trim().isEmpty(), statementCase.statementId + " generated blank SQL");
+				assertTrue(finalSql != null && !finalSql.trim().isEmpty(),
+						statementCase.statementId + " generated blank SQL");
 				assertTrue(!IbatisXmlSupport.containsDynamicTagMarkup(finalSql) && !finalSql.contains("<![CDATA["),
 						statementCase.statementId + " still contains XML/dynamic tags");
 				assertSqlStructure(statementCase.statementId, finalSql);
@@ -116,62 +118,6 @@ class SqlMapXmlReportTest {
 			}
 		}
 		return cases;
-	}
-
-	private boolean containsDynamicTags(String statementXml) {
-		if (statementXml == null || statementXml.trim().isEmpty()) {
-			return false;
-		}
-		String lower = statementXml.toLowerCase();
-		return lower.contains("<dynamic")
-				|| lower.contains("<isnotempty")
-				|| lower.contains("<isempty")
-				|| lower.contains("<isnull")
-				|| lower.contains("<isnotnull")
-				|| lower.contains("<ispropertyavailable")
-				|| lower.contains("<isnotpropertyavailable")
-				|| lower.contains("<isparameterpresent")
-				|| lower.contains("<isnotparameterpresent")
-				|| lower.contains("<isequal")
-				|| lower.contains("<isnotequal")
-				|| lower.contains("<isgreaterthan")
-				|| lower.contains("<isgreaterequal")
-				|| lower.contains("<islessthan")
-				|| lower.contains("<islessequal")
-				|| lower.contains("<iterate");
-	}
-
-	private Object buildEmptyBranchParameters(Object parameters) {
-		if (!(parameters instanceof Map<?, ?>)) {
-			return parameters;
-		}
-		Map<?, ?> source = (Map<?, ?>) parameters;
-		java.util.LinkedHashMap<String, Object> target = new java.util.LinkedHashMap<>();
-		for (Map.Entry<?, ?> entry : source.entrySet()) {
-			String key = String.valueOf(entry.getKey());
-			Object value = entry.getValue();
-			target.put(key, toEmptyLikeValue(value));
-		}
-		return target;
-	}
-
-	private Object toEmptyLikeValue(Object value) {
-		if (value == null) {
-			return null;
-		}
-		if (value instanceof String) {
-			return "";
-		}
-		if (value instanceof Collection<?>) {
-			return new ArrayList<>();
-		}
-		if (value.getClass().isArray()) {
-			return new Object[0];
-		}
-		if (value instanceof Number || value instanceof Boolean || value instanceof Character) {
-			return null;
-		}
-		return null;
 	}
 
 	private void assertSqlStructure(String statementId, String sql) {

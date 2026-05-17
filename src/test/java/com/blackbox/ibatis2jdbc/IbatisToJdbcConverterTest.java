@@ -131,7 +131,8 @@ class IbatisToJdbcConverterTest {
 
 		// 空 List：iterate 输出空括号或 (null)
 		ConvertedSql emptyListResult = converter.convertPrepared("findUsersByIdsList", listOf());
-		assertEquals("SELECT id, name, status, created_at FROM users where id IN (null)", emptyListResult.toPreviewSql());
+		assertEquals("SELECT id, name, status, created_at FROM users where id IN (null)",
+				emptyListResult.toPreviewSql());
 		assertEquals(listOf(), emptyListResult.getParameters());
 	}
 
