@@ -44,6 +44,15 @@ import java.util.jar.JarFile;
 
 import org.xml.sax.InputSource;
 
+/**
+ * 核心转换器类，负责将 iBatis SQL Map XML 中的 statement 元素转换为 JDBC 可执行的 SQL 语句。
+ * <p>
+ * 设计目标：
+ * 1. 提供一个线程安全的实现，允许在多线程环境中同时加载 SQL Maps 和执行转换。
+ * 2. 支持从 classpath 中扫描并加载多个 SQL Map XML 文件，建立高效的内存索引以快速定位 statement。
+ * 3. 实现核心的 prepared 模式转换逻辑，将 iBatis 的 #{} 占位符替换为 JDBC 的 ?，并按顺序收集绑定值。
+ * 4. 预留对动态 SQL 标签（如 <if>、<choose> 等）的支持，以便未来扩展更复杂的转换功能。
+ */
 public class IbatisToJdbcConverter {
 	private volatile IndexSnapshot activeSnapshot = IndexSnapshot.empty();
 

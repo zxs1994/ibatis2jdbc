@@ -1,10 +1,24 @@
 package com.blackbox.ibatis2jdbc;
 
+/**
+ * 封装 iBatis SQL 转换后的结果，包括最终可执行的 SQL、原始参数对象、语句类型、结果映射信息，以及按占位符顺序排列的 JDBC 绑定值列表。
+ * <p>
+ * 设计目标：
+ * 1. 提供一个不可变的对象来承载转换结果，确保线程安全和数据完整性。
+ * 2. 包含原始参数对象以便在需要时回溯上下文信息，支持更复杂的转换逻辑。
+ * 3. 提供一个方法将带 ? 占位符的 SQL 渲染为仅用于预览的最终 SQL，方便调试和日志记录。
+ * 4. 预留语句类型和结果映射信息字段，以支持未来可能的功能扩展，如基于语句类型的执行优化或结果映射自动化。
+ */
 public final class ConvertedSql {
+  // JDBC 可执行 SQL（使用 ? 占位符）。
   private final String sql;
+  // 转换时传入的原始参数对象（用于回溯上下文）。
   private final Object parameters;
+  // 语句类型，如 select/insert/update/delete。
   private final String statementType;
+  // iBatis 声明的 resultClass 元数据。
   private final String resultClass;
+  // iBatis 声明的 resultMap id。
   private final String resultMapId;
   // 单一模式：按占位符顺序排列的 PreparedStatement 绑定值（永远非 null）。
   private final java.util.List<Object> preparedBindings;

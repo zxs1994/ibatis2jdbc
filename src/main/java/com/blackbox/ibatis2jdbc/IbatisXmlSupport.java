@@ -6,6 +6,14 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * iBatis SQL Map XML 相关的静态工具类，提供常用的正则表达式模式和标签分类方法。
+ * <p>
+ * 设计目标：
+ * 1. 集中管理与 iBatis XML 结构相关的常量和工具方法，避免散布在代码中的硬编码字符串。
+ * 2. 提供清晰的标签分类方法，便于在转换过程中快速判断标签类型和处理逻辑。
+ * 3. 包含一个实用方法用于检测文本中是否包含任何动态 SQL 标签的标记，以优化转换流程。
+ */
 final class IbatisXmlSupport {
   static final Pattern DOCTYPE_PATTERN = Pattern.compile("(?is)<!DOCTYPE[^>]*>");
   static final Pattern CDATA_OPERATOR_PATTERN = Pattern.compile("<!\\[CDATA\\[(\\W+)]]>");
