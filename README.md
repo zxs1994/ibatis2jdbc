@@ -24,6 +24,99 @@
 - `<![CDATA[ >= ]]>` 这类操作符 CDATA 清理
 - XML `DOCTYPE` 预处理剥离，避免解析外部 DTD
 
+## 快速开始
+
+### 基本使用
+
+#### 1. 初始化转换器
+
+```java
+IbatisToJdbcConverter converter = new IbatisToJdbcConverter();
+converter.loadSqlMapsFromClasspath(); // 扫描 classpath 中所有 XMLMap 文件
+```
+
+#### 2. 转换 iBatis SQL 为 JDBC 形式
+
+```java
+// 准备参数（支持 Map、POJO 或任何类型的对象）
+Map<String, Object> params = new HashMap<>();
+params.put("userId", 123);
+params.put("status", "active");
+
+// 转换为 JDBC PreparedStatement 形式
+ConvertedSql converted = converter.convertPrepared("selectUserById", params);
+
+// 获取结果
+String sql = converted.getSql();                    // SELECT ... WHERE id = ? AND status = ?
+List<Object> bindings = converted.getPreparedBindings(); // [123, "active"]
+```
+
+### Spring JdbcTemplate 集成（推荐）
+
+#### 1. 添加依赖
+
+pom.xml 中已包含 spring-jdbc 5.3.31 作为可选依赖。若使用 Spring Boot，通常已自动引入。
+
+#### 2. 创建执行器
+
+```java
+@Service
+public class UserService {
+  @Autowired
+  private JdbcTemplate jdbcTemplate;
+  
+  private JdbcExecutor executor;
+  private IbatisToJdbcConverter converter;
+  
+  @PostConstruct
+  public void init() {
+    converter = new IbatisToJdbcConverter();
+    converter.loadSqlMapsFromClasspath();
+    executor = new SpringJdbcExecutor(jdbcTemplate, converter);
+  }
+  
+  // 查询多行
+  public List<Map<String, Object>> findUsersByStatus(String status) {
+    return executor.queryForList("selectUsersByStatus", 
+      Collections.singletonMap("status", status));
+  }
+  
+  // 查询单行
+  public Map<String, Object> findUserById(Integer userId) {
+    return executor.queryForMap("selectUserById", 
+      Collections.singletonMap("userId", userId));
+  }
+  
+  // 执行更新
+  public int updateUserStatus(Integer userId, String newStatus) {
+    Map<String, Object> params = new HashMap<>();
+    params.put("userId", userId);
+    params.put("status", newStatus);
+    return executor.update("updateUserStatus", params);
+  }
+}
+```
+
+#### 3. 参数支持
+
+`JdbcExecutor` 支持多种参数类型：
+
+```java
+// 使用 Map
+Map<String, Object> mapParams = new HashMap<>();
+mapParams.put("status", "active");
+executor.queryForList("selectUsersByStatus", mapParams);
+
+// 使用 POJO 对象
+UserQuery query = new UserQuery();
+query.setStatus("active");
+query.setDepartmentId(10);
+executor.queryForList("selectUsersByStatus", query);
+
+// 使用任何对象
+executor.queryForList("selectUsersByStatus", anyObject);
+```
+
 ## 环境要求
 
 - JDK 8
