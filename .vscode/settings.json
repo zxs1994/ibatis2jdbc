@@ -1,14 +1,19 @@
 {
-  "java.configuration.updateBuildConfiguration": "interactive",
-  "java.configuration.runtimes": [
-    {
-      "name": "JavaSE-1.8",
-      "path": "/Users/xusheng/Library/Java/JavaVirtualMachines/corretto-1.8.0_492/Contents/Home",
-      "default": true
-    }
-  ],
-  "terminal.integrated.env.osx": {
-    "JAVA_HOME": "/Users/xusheng/Library/Java/JavaVirtualMachines/corretto-1.8.0_492/Contents/Home"
-  },
-  "java.debug.settings.onBuildFailureProceed": true
+	"java.configuration.updateBuildConfiguration": "interactive",
+	"[java]": {
+		"editor.tabSize": 4,
+		"editor.insertSpaces": true
+	},
+	"java.configuration.runtimes": [
+		{
+			"name": "JavaSE-1.8",
+			"path": "/Users/xusheng/Library/Java/JavaVirtualMachines/corretto-1.8.0_492/Contents/Home",
+			"default": true
+		}
+	],
+	"terminal.integrated.env.osx": {
+		"JAVA_HOME": "/Users/xusheng/Library/Java/JavaVirtualMachines/corretto-1.8.0_492/Contents/Home"
+	},
+	"java.debug.settings.onBuildFailureProceed": true,
+	"java.compile.nullAnalysis.mode": "automatic"
 }

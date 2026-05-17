@@ -53,49 +53,8 @@ List<Object> bindings = converted.getPreparedBindings(); // [123, "active"]
 
 ### Spring JdbcTemplate 集成（推荐）
 
-#### 1. 添加依赖
-
-pom.xml 中已包含 spring-jdbc 5.3.31 作为可选依赖。若使用 Spring Boot，通常已自动引入。
-
-#### 2. 创建执行器
-
-```java
-@Service
-public class UserService {
-  @Autowired
-  private JdbcTemplate jdbcTemplate;
-  
-  private JdbcExecutor executor;
-  private IbatisToJdbcConverter converter;
-  
-  @PostConstruct
-  public void init() {
-    converter = new IbatisToJdbcConverter();
-    converter.loadSqlMapsFromClasspath();
-    executor = new SpringJdbcExecutor(jdbcTemplate, converter);
-  }
-  
-  // 查询多行
-  public List<Map<String, Object>> findUsersByStatus(String status) {
-    return executor.queryForList("selectUsersByStatus", 
-      Collections.singletonMap("status", status));
-  }
-  
-  // 查询单行
-  public Map<String, Object> findUserById(Integer userId) {
-    return executor.queryForMap("selectUserById", 
-      Collections.singletonMap("userId", userId));
-  }
-  
-  // 执行更新
-  public int updateUserStatus(Integer userId, String newStatus) {
-    Map<String, Object> params = new HashMap<>();
-    params.put("userId", userId);
-    params.put("status", newStatus);
-    return executor.update("updateUserStatus", params);
-  }
-}
-```
+依赖说明保留在 pom.xml 中；具体注入与调用示例已移动到
+`SpringJdbcExecutor` 类注释中，避免 README 与代码示例重复维护。
 
 #### 3. 参数支持
 
@@ -130,7 +89,7 @@ List<UserDto> userList = executor.queryForList(
 );
 
 // 单值/单列查询（例如 count）
-Long total = executor.queryForObject("countUsersByStatus", 
+Long total = executor.queryForObject("countUsersByStatus",
   Collections.singletonMap("status", "active"), Long.class);
 
 // 按 RowMapper 映射为对象列表

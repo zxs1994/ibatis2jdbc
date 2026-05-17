@@ -1,5 +1,7 @@
 package com.blackbox.ibatis2jdbc;
 
+import org.springframework.stereotype.Component;
+
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -55,6 +57,7 @@ import org.xml.sax.InputSource;
  * 3. 实现核心的 prepared 模式转换逻辑，将 iBatis 的 #{} 占位符替换为 JDBC 的 ?，并按顺序收集绑定值。
  * 4. 预留对动态 SQL 标签（如 <if>、<choose> 等）的支持，以便未来扩展更复杂的转换功能。
  */
+@Component
 public class IbatisToJdbcConverter {
 	private volatile IndexSnapshot activeSnapshot = IndexSnapshot.empty();
 
@@ -80,6 +83,15 @@ public class IbatisToJdbcConverter {
 				result.getResultClass(), result.getResultMapId(), Collections.unmodifiableList(bindingCollector));
 	}
 
+	/**
+	 * 在执行 SQL 渲染前，对入参按 iBatis2 的 parameterClass 做类型校验与归一化。
+	 * 目的：将类型错配尽早在应用层 fail-fast，避免在 JDBC/数据库阶段才暴露异常。
+	 * 规则：
+	 * 1) 未声明 parameterClass 或参数为 null 时直接放行；
+	 * 2) map/collection/array 按契约严格校验；
+	 * 3) string/number/boolean/char 支持有限可控的类型转换；
+	 * 4) 不可转换时抛出带 statementId 的 IllegalArgumentException。
+	 */
 	private Object normalizeParametersForIbatis2(String declaredParameterClass, Object parameters, String statementId) {
 		if (isBlank(declaredParameterClass) || parameters == null) {
 			return parameters;
@@ -143,6 +155,12 @@ public class IbatisToJdbcConverter {
 		return parameters;
 	}
 
+	/**
+	 * 解析 iBatis parameterClass 声明的类型，支持常见别名和数组语法。
+	 * 
+	 * @param declaredType 声明的类型字符串
+	 * @return 对应的 Class 对象，如果无法解析则返回 null（保持与 iBatis2 兼容：未知别名不强制校验）。
+	 */
 	private Class<?> resolveIbatisParameterClass(String declaredType) {
 		String normalized = declaredType == null ? "" : declaredType.trim();
 		if (normalized.isEmpty()) {
@@ -694,7 +712,8 @@ public class IbatisToJdbcConverter {
 				Map<String, Map<String, String>> resultMapIndex) {
 			Map<String, StatementReference> frozenStatementIndex = Collections
 					.unmodifiableMap(new LinkedHashMap<>(statementIndex));
-			Map<String, Element> frozenSqlFragmentIndex = Collections.unmodifiableMap(new LinkedHashMap<>(sqlFragmentIndex));
+			Map<String, Element> frozenSqlFragmentIndex = Collections
+					.unmodifiableMap(new LinkedHashMap<>(sqlFragmentIndex));
 			Map<String, Map<String, String>> frozenResultMapIndex = freezeResultMapIndex(resultMapIndex);
 			return new IndexSnapshot(frozenStatementIndex, frozenSqlFragmentIndex, frozenResultMapIndex);
 		}
