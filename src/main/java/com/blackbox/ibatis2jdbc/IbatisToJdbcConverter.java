@@ -20,6 +20,8 @@ import java.io.StringReader;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -66,14 +68,314 @@ public class IbatisToJdbcConverter {
 					"Cannot find statementId in memory index: " + statementId
 							+ ". Please call loadSqlMapsFromClasspath() first.");
 		}
+		Object normalizedParameters = normalizeParametersForIbatis2(statementReference.parameterClass, parameters,
+				statementReference.lookupStatementId);
 		List<Object> bindingCollector = new ArrayList<>();
 		ConvertedSql result = convertCore(statementReference.sqlMapXml, statementReference.lookupStatementId,
 				snapshot.sqlFragmentIndex,
 				snapshot.resultMapIndex,
-				parameters,
+				normalizedParameters,
 				bindingCollector);
-		return new ConvertedSql(result.getSql(), result.getParameters(), result.getStatementType(),
+		return new ConvertedSql(result.getSql(), normalizedParameters, result.getStatementType(),
 				result.getResultClass(), result.getResultMapId(), Collections.unmodifiableList(bindingCollector));
+	}
+
+	private Object normalizeParametersForIbatis2(String declaredParameterClass, Object parameters, String statementId) {
+		if (isBlank(declaredParameterClass) || parameters == null) {
+			return parameters;
+		}
+
+		Class<?> expectedType = resolveIbatisParameterClass(declaredParameterClass);
+		if (expectedType == null) {
+			return parameters;
+		}
+
+		if (Map.class.isAssignableFrom(expectedType)) {
+			if (parameters instanceof Map<?, ?>) {
+				return parameters;
+			}
+			if (isSimpleParameterValue(parameters) || parameters instanceof Collection<?>
+					|| parameters.getClass().isArray()) {
+				throw new IllegalArgumentException("Parameter type mismatch for statement '" + statementId
+						+ "': expected map-like object but got " + parameters.getClass().getName());
+			}
+			// iBatis2 兼容：parameterClass=map 时仍允许 Bean 参数，按属性路径读取。
+			return parameters;
+		}
+
+		if (Collection.class.isAssignableFrom(expectedType)) {
+			if (parameters instanceof Collection<?>) {
+				return parameters;
+			}
+			throw new IllegalArgumentException("Parameter type mismatch for statement '" + statementId
+					+ "': expected collection but got " + parameters.getClass().getName());
+		}
+
+		if (expectedType.isArray()) {
+			if (parameters.getClass().isArray()) {
+				return coerceArray(parameters, expectedType.getComponentType(), statementId);
+			}
+			throw new IllegalArgumentException("Parameter type mismatch for statement '" + statementId
+					+ "': expected array but got " + parameters.getClass().getName());
+		}
+
+		if (expectedType == String.class) {
+			return String.valueOf(parameters);
+		}
+
+		if (isNumericType(expectedType)) {
+			return coerceNumber(parameters, expectedType, statementId);
+		}
+
+		if (expectedType == Boolean.class) {
+			return coerceBoolean(parameters, statementId);
+		}
+
+		if (expectedType == Character.class) {
+			return coerceCharacter(parameters, statementId);
+		}
+
+		if (!expectedType.isInstance(parameters)) {
+			throw new IllegalArgumentException("Parameter type mismatch for statement '" + statementId
+					+ "': expected " + expectedType.getName() + " but got " + parameters.getClass().getName());
+		}
+
+		return parameters;
+	}
+
+	private Class<?> resolveIbatisParameterClass(String declaredType) {
+		String normalized = declaredType == null ? "" : declaredType.trim();
+		if (normalized.isEmpty()) {
+			return null;
+		}
+		String lower = normalized.toLowerCase(Locale.ROOT);
+		switch (lower) {
+			case "map":
+			case "java.util.map":
+			case "hashmap":
+			case "java.util.hashmap":
+				return Map.class;
+			case "list":
+			case "java.util.list":
+			case "arraylist":
+			case "java.util.arraylist":
+				return List.class;
+			case "collection":
+			case "java.util.collection":
+				return Collection.class;
+			case "string":
+			case "java.lang.string":
+				return String.class;
+			case "long":
+			case "java.lang.long":
+				return Long.class;
+			case "int":
+			case "integer":
+			case "java.lang.integer":
+				return Integer.class;
+			case "short":
+			case "java.lang.short":
+				return Short.class;
+			case "byte":
+			case "java.lang.byte":
+				return Byte.class;
+			case "double":
+			case "java.lang.double":
+				return Double.class;
+			case "float":
+			case "java.lang.float":
+				return Float.class;
+			case "boolean":
+			case "java.lang.boolean":
+				return Boolean.class;
+			case "char":
+			case "character":
+			case "java.lang.character":
+				return Character.class;
+			default:
+				break;
+		}
+
+		if (normalized.endsWith("[]")) {
+			Class<?> componentType = resolveIbatisParameterClass(normalized.substring(0, normalized.length() - 2));
+			if (componentType == null) {
+				try {
+					componentType = Class.forName(normalized.substring(0, normalized.length() - 2));
+				} catch (ClassNotFoundException ignored) {
+					return null;
+				}
+			}
+			return Array.newInstance(componentType, 0).getClass();
+		}
+
+		try {
+			if ("long".equals(normalized)) {
+				return Long.class;
+			}
+			if ("int".equals(normalized)) {
+				return Integer.class;
+			}
+			if ("short".equals(normalized)) {
+				return Short.class;
+			}
+			if ("byte".equals(normalized)) {
+				return Byte.class;
+			}
+			if ("double".equals(normalized)) {
+				return Double.class;
+			}
+			if ("float".equals(normalized)) {
+				return Float.class;
+			}
+			if ("boolean".equals(normalized)) {
+				return Boolean.class;
+			}
+			if ("char".equals(normalized)) {
+				return Character.class;
+			}
+			return Class.forName(normalized);
+		} catch (ClassNotFoundException ignored) {
+			// 保持与 iBatis2 兼容：无法解析的别名不强制校验。
+			return null;
+		}
+	}
+
+	private boolean isNumericType(Class<?> type) {
+		return type == Byte.class || type == Short.class || type == Integer.class || type == Long.class
+				|| type == Float.class || type == Double.class || type == BigDecimal.class || type == BigInteger.class;
+	}
+
+	private Object coerceNumber(Object value, Class<?> targetType, String statementId) {
+		if (value instanceof Number) {
+			Number number = (Number) value;
+			if (targetType == Byte.class) {
+				return number.byteValue();
+			}
+			if (targetType == Short.class) {
+				return number.shortValue();
+			}
+			if (targetType == Integer.class) {
+				return number.intValue();
+			}
+			if (targetType == Long.class) {
+				return number.longValue();
+			}
+			if (targetType == Float.class) {
+				return number.floatValue();
+			}
+			if (targetType == Double.class) {
+				return number.doubleValue();
+			}
+			if (targetType == BigDecimal.class) {
+				return new BigDecimal(String.valueOf(number));
+			}
+			if (targetType == BigInteger.class) {
+				return BigInteger.valueOf(number.longValue());
+			}
+		}
+
+		if (value instanceof CharSequence) {
+			String text = String.valueOf(value).trim();
+			if (text.isEmpty()) {
+				throw new IllegalArgumentException("Parameter type mismatch for statement '" + statementId
+						+ "': empty string cannot be converted to number");
+			}
+			try {
+				if (targetType == Byte.class) {
+					return Byte.valueOf(text);
+				}
+				if (targetType == Short.class) {
+					return Short.valueOf(text);
+				}
+				if (targetType == Integer.class) {
+					return Integer.valueOf(text);
+				}
+				if (targetType == Long.class) {
+					return Long.valueOf(text);
+				}
+				if (targetType == Float.class) {
+					return Float.valueOf(text);
+				}
+				if (targetType == Double.class) {
+					return Double.valueOf(text);
+				}
+				if (targetType == BigDecimal.class) {
+					return new BigDecimal(text);
+				}
+				if (targetType == BigInteger.class) {
+					return new BigInteger(text);
+				}
+			} catch (NumberFormatException exception) {
+				throw new IllegalArgumentException("Parameter type mismatch for statement '" + statementId
+						+ "': cannot convert value '" + value + "' to " + targetType.getSimpleName(), exception);
+			}
+		}
+
+		throw new IllegalArgumentException("Parameter type mismatch for statement '" + statementId
+				+ "': expected numeric value for " + targetType.getSimpleName() + " but got "
+				+ value.getClass().getName());
+	}
+
+	private Boolean coerceBoolean(Object value, String statementId) {
+		if (value instanceof Boolean) {
+			return (Boolean) value;
+		}
+		if (value instanceof Number) {
+			return ((Number) value).intValue() != 0;
+		}
+		if (value instanceof CharSequence) {
+			String text = String.valueOf(value).trim().toLowerCase(Locale.ROOT);
+			if ("true".equals(text) || "1".equals(text) || "y".equals(text) || "yes".equals(text)) {
+				return true;
+			}
+			if ("false".equals(text) || "0".equals(text) || "n".equals(text) || "no".equals(text)) {
+				return false;
+			}
+		}
+		throw new IllegalArgumentException("Parameter type mismatch for statement '" + statementId
+				+ "': cannot convert value '" + value + "' to Boolean");
+	}
+
+	private Character coerceCharacter(Object value, String statementId) {
+		if (value instanceof Character) {
+			return (Character) value;
+		}
+		if (value instanceof CharSequence) {
+			String text = String.valueOf(value);
+			if (text.length() == 1) {
+				return text.charAt(0);
+			}
+		}
+		throw new IllegalArgumentException("Parameter type mismatch for statement '" + statementId
+				+ "': cannot convert value '" + value + "' to Character");
+	}
+
+	private Object coerceArray(Object sourceArray, Class<?> componentType, String statementId) {
+		int length = Array.getLength(sourceArray);
+		Object targetArray = Array.newInstance(componentType, length);
+		for (int i = 0; i < length; i++) {
+			Object value = Array.get(sourceArray, i);
+			if (value == null) {
+				Array.set(targetArray, i, null);
+				continue;
+			}
+			Object converted = value;
+			if (componentType == String.class) {
+				converted = String.valueOf(value);
+			} else if (isNumericType(componentType)) {
+				converted = coerceNumber(value, componentType, statementId);
+			} else if (componentType == Boolean.class) {
+				converted = coerceBoolean(value, statementId);
+			} else if (componentType == Character.class) {
+				converted = coerceCharacter(value, statementId);
+			} else if (!componentType.isInstance(value)) {
+				throw new IllegalArgumentException("Parameter type mismatch for statement '" + statementId
+						+ "': array element expected " + componentType.getName() + " but got "
+						+ value.getClass().getName());
+			}
+			Array.set(targetArray, i, converted);
+		}
+		return targetArray;
 	}
 
 	/**

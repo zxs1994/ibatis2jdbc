@@ -256,30 +256,23 @@ def extract_sql_assert_map(method_body: str):
     return result
 
 
-def extract_comment_above_index(text: str, index: int):
-    before = text[:index].rstrip()
-    if not before:
+def extract_comment_above_assignment(text: str, assign_index: int):
+    if assign_index < 0 or assign_index >= len(text):
         return ""
 
-    lines = before.splitlines()
-    i = len(lines) - 1
+    assign_line_start = text.rfind("\n", 0, assign_index)
+    if assign_line_start == -1:
+        current_line_idx = 0
+    else:
+        current_line_idx = text[:assign_line_start + 1].count("\n")
 
-    while i >= 0 and lines[i].strip() == "":
-        i -= 1
-
-    if i < 0:
+    lines = text.splitlines()
+    if current_line_idx <= 0 or current_line_idx >= len(lines):
         return ""
 
-    line = lines[i].strip()
-    if line.startswith("//"):
-        return line[2:].strip()
-    if line.startswith("/*"):
-        line = line[2:].strip()
-        if line.endswith("*/"):
-            line = line[:-2].strip()
-        return normalize_scene_line(line)
-    if line.startswith("*"):
-        return normalize_scene_line(line)
+    comment_line = lines[current_line_idx - 1].strip()
+    if comment_line.startswith("//"):
+        return comment_line[2:].strip()
     return ""
 
 
@@ -302,17 +295,21 @@ def extract_convert_calls(method_body: str):
         args_text = method_body[open_idx + 1:close_idx]
         args = split_top_level_args(args_text)
 
-        line_start = method_body.rfind("\n", 0, idx)
-        if line_start == -1:
-            line_start = 0
         prev_stmt_start = method_body.rfind(";", 0, idx)
-        segment_start = max(line_start, prev_stmt_start + 1)
+        segment_start = prev_stmt_start + 1 if prev_stmt_start != -1 else 0
         prefix = method_body[segment_start:idx]
 
         m_var = re.search(r"ConvertedSql\s+(\w+)\s*=\s*$", prefix.strip())
         var_name = m_var.group(1) if m_var else ""
         decl_match = re.search(r"ConvertedSql\s+\w+\s*=\s*$", prefix, re.S)
         decl_start = segment_start + decl_match.start() if decl_match else idx
+
+        # 对多行赋值（如 assertThrows + lambda）场景，记录语句中的 '=' 位置，
+        # 以便稳定提取其上一行的注释作为“子场景”。
+        assign_equal_index = -1
+        equal_local = prefix.rfind("=")
+        if equal_local != -1:
+            assign_equal_index = segment_start + equal_local
 
         calls.append({
             "args": args,
@@ -321,6 +318,7 @@ def extract_convert_calls(method_body: str):
             "start": idx,
             "end": close_idx + 1,
             "decl_start": decl_start,
+            "assign_equal_index": assign_equal_index,
         })
 
         start = close_idx + 1
@@ -403,7 +401,10 @@ def build_rows():
                 )
             sql = sql_match.group(1).replace('\\"', '"') if sql_match else "N/A"
 
-            sub_scene = extract_comment_above_index(method_body, decl_start)
+            assignment_anchor = call.get("assign_equal_index", -1)
+            if assignment_anchor == -1:
+                assignment_anchor = decl_start
+            sub_scene = extract_comment_above_assignment(method_body, assignment_anchor)
             if not sub_scene:
                 sub_scene = ""
 

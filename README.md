@@ -117,6 +117,36 @@ executor.queryForList("selectUsersByStatus", query);
 executor.queryForList("selectUsersByStatus", anyObject);
 ```
 
+#### 4. 指定返回类型
+
+`JdbcExecutor` 也支持按目标类型返回结果：
+
+```java
+// 传一个 Class，直接映射为对象列表（符合线上常见用法）
+List<UserDto> userList = executor.queryForList(
+  "selectUsersByStatus",
+  Collections.singletonMap("status", "active"),
+  UserDto.class
+);
+
+// 单值/单列查询（例如 count）
+Long total = executor.queryForObject("countUsersByStatus", 
+  Collections.singletonMap("status", "active"), Long.class);
+
+// 按 RowMapper 映射为对象列表
+List<UserDto> users = executor.query(
+  "selectUsersByStatus",
+  Collections.singletonMap("status", "active"),
+  (rs, rowNum) -> {
+    UserDto dto = new UserDto();
+    dto.setUserId(rs.getLong("user_id"));
+    dto.setUserName(rs.getString("user_name"));
+    dto.setStatus(rs.getString("status"));
+    return dto;
+  }
+);
+```
+
 ## 环境要求
 
 - JDK 8

@@ -8,6 +8,7 @@ import java.io.IOException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static com.blackbox.ibatis2jdbc.TestSupport.listOf;
 import static com.blackbox.ibatis2jdbc.TestSupport.mapOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -70,7 +71,7 @@ class IbatisToJdbcConverterTest {
 		// Number 参数：内联为数字字面量
 		ConvertedSql numResult = converter.convertPrepared("findUsersByIdNumber", 123);
 		assertEquals("SELECT id, name, status, created_at FROM users where id = 123", numResult.toPreviewSql());
-		assertEquals(123, numResult.getParameters());
+		assertEquals(123L, numResult.getParameters());
 		assertEquals("select", numResult.getStatementType());
 
 		// Bean 参数：内联为属性值的字面量
@@ -320,46 +321,30 @@ class IbatisToJdbcConverterTest {
 	// ────────────────────────────────────────────────────────────────
 
 	/**
-	 * 测试找不到statement时抛出异常
-	 * 期望：IllegalStateException wraps IllegalArgumentException("Cannot find
-	 * statement: xxx")
+	 * 合并异常测试：
+	 * 1) 找不到 statementId
+	 * 2) include 引用不存在的 sql 片段
+	 * 3) resultMap 引用不存在的映射定义
 	 */
 	@Test
-	void throwsWhenStatementIdDoesNotExist() throws Exception {
+	void throwsWhenStatementOrReferenceDoesNotExist() throws Exception {
 
-		IllegalStateException exception = assertThrows(IllegalStateException.class,
+		// 场景1：找不到 statementId
+		IllegalStateException ex1 = assertThrows(IllegalStateException.class,
 				() -> converter.convertPrepared("missingStatement", mapOf("id", 1)));
-		assertTrue(exception.getMessage().contains("Cannot find statementId in memory index: missingStatement"));
-	}
+		assertTrue(ex1.getMessage().contains("Cannot find statementId in memory index: missingStatement"));
 
-	/**
-	 * 测试include引用不存在的sql片段时抛出异常
-	 * 期望：IllegalStateException wraps IllegalArgumentException("Cannot find sql
-	 * fragment: xxx")
-	 */
-	@Test
-	void throwsWhenIncludeFragmentDoesNotExist() throws Exception {
-
-		IllegalStateException exception = assertThrows(IllegalStateException.class,
+		// 场景2：include 引用不存在的 sql 片段
+		IllegalStateException ex2 = assertThrows(IllegalStateException.class,
 				() -> converter.convertPrepared("brokenInclude", null));
+		assertTrue(ex2.getCause() instanceof IllegalArgumentException);
+		assertEquals("Cannot find sql fragment: missingFragment", ex2.getCause().getMessage());
 
-		assertTrue(exception.getCause() instanceof IllegalArgumentException);
-		assertEquals("Cannot find sql fragment: missingFragment", exception.getCause().getMessage());
-	}
-
-	/**
-	 * 测试resultMap引用不存在的映射定义时抛出异常
-	 * 期望：IllegalStateException wraps IllegalArgumentException("Cannot find
-	 * resultMap: xxx")
-	 */
-	@Test
-	void throwsWhenResultMapDoesNotExist() throws Exception {
-
-		IllegalStateException exception = assertThrows(IllegalStateException.class,
+		// 场景3：resultMap 引用不存在的映射定义
+		IllegalStateException ex3 = assertThrows(IllegalStateException.class,
 				() -> converter.convertPrepared("brokenResultMap", null));
-
-		assertTrue(exception.getCause() instanceof IllegalArgumentException);
-		assertEquals("Cannot find resultMap: notExists", exception.getCause().getMessage());
+		assertTrue(ex3.getCause() instanceof IllegalArgumentException);
+		assertEquals("Cannot find resultMap: notExists", ex3.getCause().getMessage());
 	}
 
 	/**
@@ -373,7 +358,7 @@ class IbatisToJdbcConverterTest {
 
 		// 1. 加载第一个xml，验证SQL
 		hotReloadConverter.loadSqlMapsFromClasspath(xml1);
-		ConvertedSql v1 = hotReloadConverter.convertPrepared("findUserById", mapOf("id", 42L));
+		ConvertedSql v1 = hotReloadConverter.convertPrepared("findUserById", 42L);
 		assertEquals("SELECT id, name FROM users WHERE id = ?", v1.getSql());
 		assertEquals(listOf(42L), v1.getPreparedBindings());
 
@@ -381,14 +366,85 @@ class IbatisToJdbcConverterTest {
 		hotReloadConverter.loadSqlMapsFromClasspath(xml2);
 
 		// 3. 验证SQL已更新
-		ConvertedSql v2 = hotReloadConverter.convertPrepared("findUserById", mapOf("id", 99L));
+		ConvertedSql v2 = hotReloadConverter.convertPrepared("findUserById", 99L);
 		assertEquals("SELECT id, name, status FROM users WHERE id = ?", v2.getSql());
 		assertEquals(listOf(99L), v2.getPreparedBindings());
 
 		// 4. 验证新增的statement也可用
-		ConvertedSql v3 = hotReloadConverter.convertPrepared("findUserByName", mapOf("name", "Alice"));
+		ConvertedSql v3 = hotReloadConverter.convertPrepared("findUserByName", "Alice");
 		assertEquals("SELECT id, name FROM users WHERE name = ?", v3.getSql());
 		assertEquals(listOf("Alice"), v3.getPreparedBindings());
+	}
+
+	/**
+	 * 综合测试：iBatis2 参数类型兼容性和转换规则
+	 * 覆盖所有核心场景：数字/字符串/布尔值的转换、类型错配检测等
+	 */
+	@Test
+	void testIbatis2ParameterTypeCompatibility() {
+		// ================== long 参数类型相关 ==================
+
+		// 场景1：parameterClass=long，传数字字符串 "123" -> 应正确转换为 123L
+		ConvertedSql cs1 = converter.convertPrepared("findUsersByIdNumber", "123");
+		assertEquals("SELECT id, name, status, created_at FROM users where id = 123", cs1.toPreviewSql());
+		assertEquals(listOf(123L), cs1.getPreparedBindings());
+
+		// 场景2：parameterClass=long，传数字 123 (Integer) -> 应规范化为 123L (Long)
+		ConvertedSql cs2 = converter.convertPrepared("findUsersByIdNumber", 123);
+		assertEquals("SELECT id, name, status, created_at FROM users where id = 123", cs2.toPreviewSql());
+		assertEquals(123L, cs2.getParameters());
+
+		// 场景3：parameterClass=long，传非数字字符串 "not-a-number" -> 应抛错
+		IllegalArgumentException ex3 = assertThrows(IllegalArgumentException.class,
+				() -> converter.convertPrepared("findUsersByIdNumber", "not-a-number"));
+		assertTrue(ex3.getMessage().contains("cannot convert value"));
+		assertTrue(ex3.getMessage().contains("Long"));
+
+		// 场景4：parameterClass=long，传空字符串 "" -> 应抛错
+		IllegalArgumentException ex4 = assertThrows(IllegalArgumentException.class,
+				() -> converter.convertPrepared("findUsersByIdNumber", ""));
+		assertTrue(ex4.getMessage().contains("empty string"));
+
+		// 场景5：parameterClass=long，传 boolean true -> 应抛错
+		IllegalArgumentException ex5 = assertThrows(IllegalArgumentException.class,
+				() -> converter.convertPrepared("findUsersByIdNumber", true));
+		assertTrue(ex5.getMessage().contains("expected numeric value"));
+
+		// 场景6：parameterClass=long，传 null -> 应保留 null（不做转换）
+		ConvertedSql cs6 = converter.convertPrepared("findUsersByIdNumber", null);
+		assertEquals("SELECT id, name, status, created_at FROM users where id = null", cs6.toPreviewSql());
+		assertNull(cs6.getParameters());
+
+		// ================== string 参数类型相关 ==================
+
+		// 场景7：parameterClass=string，传数字 12345 (Integer) -> 应转为字符串 "12345"
+		ConvertedSql cs7 = converter.convertPrepared("findUsersById", 12345);
+		assertEquals("SELECT id, name, status, created_at FROM users where id = '12345'", cs7.toPreviewSql());
+		assertEquals("12345", cs7.getParameters());
+
+		// 场景8：parameterClass=string，传 boolean true -> 应转为字符串 "true"
+		ConvertedSql cs8 = converter.convertPrepared("findUsersById", true);
+		assertEquals("SELECT id, name, status, created_at FROM users where id = 'true'", cs8.toPreviewSql());
+		assertEquals("true", cs8.getParameters());
+
+		// ================== map 参数类型相关 ==================
+
+		// 场景9：parameterClass=map，传 List 时应抛错（集合类型不匹配）
+		IllegalArgumentException ex9 = assertThrows(IllegalArgumentException.class,
+				() -> converter.convertPrepared("findUsersByIdMap", listOf(1, 2, 3)));
+		assertTrue(ex9.getMessage().contains("expected map-like object"));
+
+		// 场景10：parameterClass=map，传 String 时应抛错（标量类型不匹配）
+		IllegalArgumentException ex10 = assertThrows(IllegalArgumentException.class,
+				() -> converter.convertPrepared("findUsersByIdMap", "not-a-map"));
+		assertTrue(ex10.getMessage().contains("expected map-like object"));
+
+		// ================== 混合场景 ==================
+
+		// 场景11：parameterClass=long，传 Map 时应抛错（完全不匹配）
+		IllegalArgumentException ex11 = assertThrows(IllegalArgumentException.class,
+				() -> converter.convertPrepared("findUsersByIdNumber", mapOf("id", 123)));
+		assertTrue(ex11.getMessage().contains("expected numeric value"));
 	}
 
 	private static final class UserFilter {

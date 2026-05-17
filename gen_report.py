@@ -66,7 +66,7 @@ def generate_report():
     
     version_p = doc.add_paragraph()
     version_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    version_run = version_p.add_run('版本：v1.1')
+    version_run = version_p.add_run('版本：v1.2')
     version_run.font.size = Pt(11)
     
     # 分页符
@@ -86,6 +86,7 @@ def generate_report():
     doc.add_paragraph('8. 后续扩展规划')
     doc.add_paragraph('9. 技术栈')
     doc.add_paragraph('10. 总结')
+    doc.add_paragraph('11. 落地计划（里程碑）')
     
     doc.add_page_break()
     
@@ -148,6 +149,36 @@ def generate_report():
         cells[0].text = marker
         cells[1].text = rule
         cells[2].text = example
+
+    add_heading_with_style(doc, '2.3 iBatis2 参数类型兼容策略（上线防错）', 2)
+    doc.add_paragraph(
+        '为避免迁移后线上参数类型错配导致数据库层异常，系统在转换入口增加 parameterClass 校验与规范化，'
+        '策略以“与 iBatis2 行为对齐 + 应用层 fail-fast”为原则。'
+    )
+
+    table2 = add_table(doc, 7, 4)
+    table2.style = 'Light Grid Accent 1'
+    hdr2 = table2.rows[0].cells
+    hdr2[0].text = '声明类型（parameterClass）'
+    hdr2[1].text = '输入示例'
+    hdr2[2].text = '处理结果'
+    hdr2[3].text = '兼容性结论'
+
+    compatibility_rules = [
+        ('long', '"123"', '转为 123L', '与 iBatis2 常见行为一致（数值字符串可解析）'),
+        ('long', '123 (Integer)', '转为 123L', '与 iBatis2 常见行为一致（数值类型可归一）'),
+        ('long', '""', '抛异常（empty string cannot be converted to number）', '与 iBatis2 严格类型语义一致'),
+        ('long', 'true', '抛异常（expected numeric value）', '与 iBatis2 严格类型语义一致'),
+        ('long', 'null', '保留 null（不转 0）', '与 iBatis2 默认行为一致（未配置 nullValue）'),
+        ('map', 'List / String', '抛异常（expected map-like object）', '与 iBatis2 参数契约一致'),
+    ]
+
+    for i, (declared_type, input_sample, result, conclusion) in enumerate(compatibility_rules, 1):
+        cells = table2.rows[i].cells
+        cells[0].text = declared_type
+        cells[1].text = input_sample
+        cells[2].text = result
+        cells[3].text = conclusion
     
     # ============ 3. 核心功能说明 ============
     add_heading_with_style(doc, '3. 核心功能说明', 1)
@@ -315,8 +346,15 @@ def generate_report():
     
     add_heading_with_style(doc, '6.2 测试运行', 2)
     doc.add_paragraph('运行命令：mvn clean test', style='List Bullet')
-    doc.add_paragraph('测试规模：以当前代码库实际测试集合为准', style='List Bullet')
-    doc.add_paragraph('测试结果：以本次执行输出为准', style='List Bullet')
+    doc.add_paragraph('关键回归命令：mvn clean -q -Dtest=IbatisToJdbcConverterTest test', style='List Bullet')
+    doc.add_paragraph('测试规模：IbatisToJdbcConverterTest（当前 19 个用例）', style='List Bullet')
+    doc.add_paragraph('测试结果：通过（最近一次执行 TEST_EXIT:0）', style='List Bullet')
+
+    add_heading_with_style(doc, '6.4 关键新增验证点（本轮）', 2)
+    doc.add_paragraph('新增泛型查询能力：queryForObject/queryForList(Class<T>) 与 query(RowMapper<T>)', style='List Bullet')
+    doc.add_paragraph('新增 iBatis2 参数类型对齐校验：在 convertPrepared 入口进行 parameterClass 验证', style='List Bullet')
+    doc.add_paragraph('参数兼容综合测试：已合并为单一测试方法，覆盖 11 个场景并附注释', style='List Bullet')
+    doc.add_paragraph('异常测试整合：statement/include/resultMap 缺失场景已合并并通过', style='List Bullet')
     
     add_heading_with_style(doc, '6.3 报告生成', 2)
     doc.add_paragraph('SQLMap 报告：自动读取 SQLMap，生成 Markdown 与 SQL 脚本', style='List Bullet')
@@ -348,6 +386,12 @@ def generate_report():
     
     add_heading_with_style(doc, '8.1 功能扩展', 2)
     doc.add_paragraph('支持更多 iBatis 标签：placeholder、typeAlias 等', style='List Bullet')
+
+    add_heading_with_style(doc, '8.3 风险边界与治理建议', 2)
+    doc.add_paragraph('SQL 注入风险：$param$ 为原样拼接，必须在调用侧对来源与白名单做限制', style='List Bullet')
+    doc.add_paragraph('类型契约风险：parameterClass 与实参不一致会 fail-fast，建议迁移期先做全量扫描', style='List Bullet')
+    doc.add_paragraph('兼容性风险：个别历史 SQL 可能依赖隐式类型转换，需通过报告逐条核验', style='List Bullet')
+    doc.add_paragraph('运维风险：热更新需纳入变更流程（灰度、回滚、审计）', style='List Bullet')
     
     add_heading_with_style(doc, '8.2 性能优化（未来方向）', 2)
     doc.add_paragraph('分片索引：对超大规模 SQLMap 进行分片优化', style='List Bullet')
@@ -382,6 +426,20 @@ def generate_report():
         '该方案适用于遗留系统现代化改造场景，可在保持业务连续性的前提下分阶段推进。'
         '在现有系统约束与迁移目标下，该方案可视为当前阶段可能的最优解。'
     )
+
+    # ============ 11. 落地计划（里程碑） ============
+    add_heading_with_style(doc, '11. 落地计划（里程碑）', 1)
+
+    add_heading_with_style(doc, '11.1 里程碑划分', 2)
+    doc.add_paragraph('M1【已完成】：已完成 SQLMap 清单扫描与高风险语句标注（$param$、复杂 dynamic）', style='List Bullet')
+    doc.add_paragraph('M2【已完成】：已完成转换器接入与 parameterClass 类型错配治理', style='List Bullet')
+    doc.add_paragraph('M3【未开始】：完成项目中 iBatis 调用的全量替换（切换到 JdbcExecutor/SpringJdbcExecutor）并完成联调', style='List Bullet')
+    doc.add_paragraph('M4【未开始】：上线后监控与热更新治理，持续优化边角场景（所有 SQL 均为运行时自动转换，后续如有新增 XML 也可自动支持，无需手工静态替换）', style='List Bullet')
+
+    add_heading_with_style(doc, '11.2 验收标准', 2)
+    doc.add_paragraph('功能验收：关键业务 SQL 全量通过转换并可执行（所有 SQL 均在运行时自动转换，无需静态替换）；被融合项目的 iBatis 调用已全量替换为新方法，未替换项为 0', style='List Bullet')
+    doc.add_paragraph('质量验收：核心测试通过率 100%，无阻断级回归问题', style='List Bullet')
+    doc.add_paragraph('运行验收：系统稳定运行，无严重故障或高优先级问题', style='List Bullet')
     
     # 保存文档
     output_path = 'iBatis转JDBC转换方案报告.docx'

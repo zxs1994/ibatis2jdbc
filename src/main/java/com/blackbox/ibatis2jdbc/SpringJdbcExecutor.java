@@ -1,5 +1,8 @@
 package com.blackbox.ibatis2jdbc;
 
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.List;
 import java.util.Map;
@@ -15,8 +18,9 @@ public class SpringJdbcExecutor implements JdbcExecutor {
 
   /**
    * 创建执行器实例。
+   * 
    * @param jdbcTemplate Spring 的 JdbcTemplate 实例
-   * @param converter iBatis 转换器实例
+   * @param converter    iBatis 转换器实例
    */
   public SpringJdbcExecutor(JdbcTemplate jdbcTemplate, IbatisToJdbcConverter converter) {
     if (jdbcTemplate == null) {
@@ -38,15 +42,43 @@ public class SpringJdbcExecutor implements JdbcExecutor {
   }
 
   @Override
+  public <T> List<T> queryForList(String statementId, Object params, Class<T> elementType) {
+    ConvertedSql converted = converter.convertPrepared(statementId, params);
+    String sql = converted.getSql();
+    List<Object> bindings = converted.getPreparedBindings();
+    return jdbcTemplate.query(sql, new BeanPropertyRowMapper<>(elementType), bindings.toArray());
+  }
+
+  @Override
   public Map<String, Object> queryForMap(String statementId, Object params) {
     ConvertedSql converted = converter.convertPrepared(statementId, params);
     String sql = converted.getSql();
     List<Object> bindings = converted.getPreparedBindings();
     try {
       return jdbcTemplate.queryForMap(sql, bindings.toArray());
-    } catch (org.springframework.dao.EmptyResultDataAccessException e) {
+    } catch (EmptyResultDataAccessException e) {
       return null;
     }
+  }
+
+  @Override
+  public <T> T queryForObject(String statementId, Object params, Class<T> requiredType) {
+    ConvertedSql converted = converter.convertPrepared(statementId, params);
+    String sql = converted.getSql();
+    List<Object> bindings = converted.getPreparedBindings();
+    try {
+      return jdbcTemplate.queryForObject(sql, requiredType, bindings.toArray());
+    } catch (EmptyResultDataAccessException e) {
+      return null;
+    }
+  }
+
+  @Override
+  public <T> List<T> query(String statementId, Object params, RowMapper<T> rowMapper) {
+    ConvertedSql converted = converter.convertPrepared(statementId, params);
+    String sql = converted.getSql();
+    List<Object> bindings = converted.getPreparedBindings();
+    return jdbcTemplate.query(sql, rowMapper, bindings.toArray());
   }
 
   @Override
