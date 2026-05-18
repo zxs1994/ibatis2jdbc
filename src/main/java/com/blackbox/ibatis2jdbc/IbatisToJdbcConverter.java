@@ -804,10 +804,35 @@ public class IbatisToJdbcConverter {
 		if (sql == null) {
 			return "";
 		}
-		// 处理中文逗号等全角标点，避免干扰 SQL 解析与执行
-		sql = sql.replaceAll("，", ",").trim();
+		// 只替换单引号外的中文符号（避免改动字符串字面量）
+		// 还是有风险，应当清理xml
+		// sql = replaceOutsideQuotes(sql, "，", ",");
+		// sql = replaceOutsideQuotes(sql, "；", ";");
+		// sql = replaceOutsideQuotes(sql, "（", "(");
+		// sql = replaceOutsideQuotes(sql, "）", ")");
+		// sql = replaceOutsideQuotes(sql, "！", "!");
+
 		// 对只包裹操作符的 CDATA 做一次轻量清理，其它文本仍保留原始内容。
 		return IbatisXmlSupport.CDATA_OPERATOR_PATTERN.matcher(sql).replaceAll("$1");
+	}
+
+	// 换单引号外的符号
+	private String replaceOutsideQuotes(String sql, String from, String to) {
+		StringBuilder result = new StringBuilder();
+		boolean inQuotes = false;
+		for (int i = 0; i < sql.length(); i++) {
+			char c = sql.charAt(i);
+			if (c == '\'') {
+				inQuotes = !inQuotes;
+				result.append(c);
+			} else if (!inQuotes && sql.startsWith(from, i)) {
+				result.append(to);
+				i += from.length() - 1;
+			} else {
+				result.append(c);
+			}
+		}
+		return result.toString();
 	}
 
 	private String renderNode(Node node, RenderContext context) {

@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static com.blackbox.ibatis2jdbc.TestSupport.listOf;
 import static com.blackbox.ibatis2jdbc.TestSupport.mapOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -447,6 +448,39 @@ class IbatisToJdbcConverterTest {
 				() -> converter.convertPrepared("findUsersByIdNumber", mapOf("id", 123)));
 		assertTrue(ex11.getMessage().contains("expected numeric value"));
 	}
+
+	/**
+	 * 测试中文标点处理：
+	 * 1. SQL 语法中的中文标点（逗号、分号、括号等）应被替换为英文
+	 * 2. 单引号内的字符串字面量中的中文标点应保留
+	 */
+	// @Test
+	// void handleChinesePunctuationCorrectly() throws Exception {
+
+	// // 测试1：SQL 语法中的中文逗号、分号被替换；单引号内的中文标点保留
+	// ConvertedSql result1 =
+	// converter.convertPrepared("testChinesePunctuationOutside",
+	// mapOf("status", "ACTIVE"));
+	// String sql1 = result1.getSql();
+
+	// // 验证：外部中文标点被替换
+	// assertTrue(sql1.contains("id,"), "中文逗号应被替换为英文逗号");
+	// assertTrue(sql1.contains("name;"), "中文分号应被替换为英文分号");
+
+	// // 验证：单引号内的中文标点保留（字面量中应保持原样）
+	// assertTrue(sql1.contains("'用户名（带中文标点，括号）'"), "单引号内的中文标点应保留");
+
+	// // 测试2：仅在字符串字面量中有中文标点时，应完全保留
+	// ConvertedSql result2 =
+	// converter.convertPrepared("testChinesePunctuationInside",
+	// mapOf());
+	// String sql2 = result2.getSql();
+
+	// // 验证：字面量内的所有中文标点保持原样
+	// assertTrue(sql2.contains("'流程异常（系统故障），需要处理；立即修复。'"),
+	// "字面量内的所有中文标点应保留");
+	// // 注：字面量中有中文标点是预期的，不需要额外检查外部标点
+	// }
 
 	private static final class UserFilter {
 		private final long id;
