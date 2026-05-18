@@ -41,6 +41,7 @@ import org.springframework.data.domain.Pageable;
  * 若查询没有参数，可直接使用无参重载；有参数时继续传参数即可。
  */
 @Component
+// TODO：resultClass 还没处理
 public class SpringJdbcExecutor implements JdbcExecutor {
 	private static final Object[] EMPTY_ARGS = new Object[0];
 
