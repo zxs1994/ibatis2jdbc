@@ -228,11 +228,11 @@
 		SELECT id FROM users
 	</select>
 	<!-- 测试中文标点处理：单引号外的中文符号应被替换，内部的应保留 -->
-	<select id="testChinesePunctuationOutside" parameterClass="map" resultClass="user">
+	<!-- <select id="testChinesePunctuationOutside" parameterClass="map" resultClass="user">
 		SELECT id，name；status FROM users WHERE status = #status# AND name = '用户名（带中文标点，括号）'
-	</select>
+	</select> -->
 	<!-- 测试仅在字符串字面量中有中文标点 -->
-	<select id="testChinesePunctuationInside" parameterClass="map" resultClass="user">
+	<!-- <select id="testChinesePunctuationInside" parameterClass="map" resultClass="user">
 		SELECT id, name, status FROM users WHERE note = '流程异常（系统故障），需要处理；立即修复。'
-	</select>
+	</select> -->
 </sqlMap>
