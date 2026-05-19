@@ -58,7 +58,7 @@ public class SpringJdbcExecutor implements JdbcExecutor {
 		}
 	}
 
-	private static final Pattern SORT_PROPERTY_PATTERN = Pattern.compile("[A-Za-z0-9_\\.]+");
+	private static final Pattern SORT_PROPERTY_PATTERN = Pattern.compile("[A-Za-z0-9_.]+");
 
 	private static final Pattern ORDER_BY_PATTERN = Pattern.compile("(?i)\\border\\s+by\\b");
 
@@ -71,7 +71,7 @@ public class SpringJdbcExecutor implements JdbcExecutor {
 		boolean first = true;
 		for (Sort.Order order : sort) {
 			String prop = order.getProperty();
-			if (prop == null || !SORT_PROPERTY_PATTERN.matcher(prop).matches()) {
+			if (!SORT_PROPERTY_PATTERN.matcher(prop).matches()) {
 				throw new IllegalArgumentException("Invalid sort property: " + prop);
 			}
 			if (!first) {
@@ -234,18 +234,15 @@ public class SpringJdbcExecutor implements JdbcExecutor {
 
 		// 1) 总数查询：包一层 count
 		String countSql = "SELECT COUNT(1) FROM (" + prepared.sql + ") tmp_count";
-		Long total = jdbcTemplate.queryForObject(countSql, Long.class, prepared.args);
-		if (total == null) {
-			total = 0L;
-		}
+		long total = jdbcTemplate.queryForObject(countSql, Long.class, prepared.args);
 
-		// 2) 分页查询：根据数据库方言选择分页语法。
+        // 2) 分页查询：根据数据库方言选择分页语法。
 		long offset = pageable.getOffset();
 		int pageSize = pageable.getPageSize();
 
 		// 处理排序：converter 已负责模板内占位符替换（如 $sort$），这里仅在 SQL 中没有显式 ORDER BY 时追加由 Pageable
 		// 提供的排序。
-		String sourceSql = prepared.sql == null ? "" : prepared.sql;
+		String sourceSql = prepared.sql;
 		String orderByClause = buildSortClause(pageable.getSort());
 		if (!orderByClause.isEmpty() && !ORDER_BY_PATTERN.matcher(sourceSql).find()) {
 			sourceSql = sourceSql + " " + orderByClause;

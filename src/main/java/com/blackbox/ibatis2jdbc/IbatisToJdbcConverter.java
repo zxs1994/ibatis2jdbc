@@ -227,31 +227,25 @@ public class IbatisToJdbcConverter {
 		}
 
 		try {
-			if ("long".equals(normalized)) {
-				return Long.class;
-			}
-			if ("int".equals(normalized)) {
-				return Integer.class;
-			}
-			if ("short".equals(normalized)) {
-				return Short.class;
-			}
-			if ("byte".equals(normalized)) {
-				return Byte.class;
-			}
-			if ("double".equals(normalized)) {
-				return Double.class;
-			}
-			if ("float".equals(normalized)) {
-				return Float.class;
-			}
-			if ("boolean".equals(normalized)) {
-				return Boolean.class;
-			}
-			if ("char".equals(normalized)) {
-				return Character.class;
-			}
-			return Class.forName(normalized);
+            switch (normalized) {
+                case "long":
+                    return Long.class;
+                case "int":
+                    return Integer.class;
+                case "short":
+                    return Short.class;
+                case "byte":
+                    return Byte.class;
+                case "double":
+                    return Double.class;
+                case "float":
+                    return Float.class;
+                case "boolean":
+                    return Boolean.class;
+                case "char":
+                    return Character.class;
+            }
+            return Class.forName(normalized);
 		} catch (ClassNotFoundException ignored) {
 			// 保持与 iBatis2 兼容：无法解析的别名不强制校验。
 			return null;
@@ -1059,7 +1053,7 @@ public class IbatisToJdbcConverter {
 			}
 		}
 
-		if (leftValue instanceof Comparable<?> && rightValue != null && leftValue.getClass().isInstance(rightValue)) {
+		if (leftValue instanceof Comparable<?> && leftValue.getClass().isInstance(rightValue)) {
 			@SuppressWarnings("unchecked")
 			Comparable<Object> leftComparable = (Comparable<Object>) leftValue;
 			return leftComparable.compareTo(rightValue);

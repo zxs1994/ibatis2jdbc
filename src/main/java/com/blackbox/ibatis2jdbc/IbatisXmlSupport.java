@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
 final class IbatisXmlSupport {
     static final Pattern DOCTYPE_PATTERN = Pattern.compile("(?is)<!DOCTYPE[^>]*>");
     static final Pattern CDATA_OPERATOR_PATTERN = Pattern.compile("<!\\[CDATA\\[(\\W+)]]>");
-    static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("([#$])(?:\\{([\\w.\\[\\]]+)\\}|([\\w.\\[\\]]+))\\1");
+    static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("([#$])(?:\\{([\\w.\\[\\]]+)}|([\\w.\\[\\]]+))\\1");
     static final List<String> STATEMENT_TAGS = Collections.unmodifiableList(
             Arrays.asList("select", "insert", "update", "delete", "statement"));
     static final List<String> CONTAINER_TAGS = Collections.unmodifiableList(
